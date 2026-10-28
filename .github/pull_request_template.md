@@ -8,3 +8,4 @@
 - [ ] `games/自分のid/` と `games.js` の自分の行だけを変えた
 - [ ] 本名、メールアドレス、住所、PC のフォルダ名を書いていない
 - [ ] 他人の画像・音・コードを、許可なく入れていない
+- [ ] `index.html` の `<head>` に `<meta name="robots" content="noindex, nofollow">` がある
