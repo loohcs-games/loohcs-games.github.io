@@ -27,6 +27,7 @@ GitHub Desktop の上のボタン **Fetch origin** を押す。**Pull origin** �
 1. Finder で clone したフォルダを開く（GitHub Desktop の **Repository → Show in Finder**）
 2. `games/` の中に自分の id の名前でフォルダを作る。id は半角英数字とハイフンだけ。例：`games/mochi-runner/`
 3. その中に、ゲームの HTML を `index.html` という名前で置く。ファイルが複数あるなら全部このフォルダの中に
+   - ゲームの画面のどこかに、一覧に戻るリンクを付ける：`<a href="../../">← ゲーム一覧にもどる</a>`
 4. `games.js` を開いて、末尾の `];` の手前に自分の行を1つ足す
 
 ```js

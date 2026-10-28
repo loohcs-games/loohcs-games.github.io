@@ -18,6 +18,7 @@
   }
   #start div { padding: 24px 32px; background: rgba(0, 0, 0, .5); border-radius: 12px; line-height: 1.9; }
   #start h1 { margin: 0 0 8px; font-size: 24px; }
+  #back { display: inline-block; margin-top: 12px; color: #9fd3ff; font-size: 14px; }
   #test-result { position: fixed; left: 8px; top: 8px; margin: 0; padding: 8px; background: rgba(0, 0, 0, .7); color: #fff; font-size: 12px; }
 </style>
 </head>
@@ -31,7 +32,8 @@
   スペース：ジャンプ<br>
   左クリック：ブロックを壊す<br>
   右クリック：ブロックを置く<br>
-  Esc：マウスを離す
+  Esc：マウスを離す<br>
+  <a id="back" href="../../">← ゲーム一覧にもどる</a>
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -209,6 +211,7 @@ const startEl = document.getElementById('start');
 const canvas = renderer.domElement;
 let locked = false;
 startEl.addEventListener('click', () => canvas.requestPointerLock());
+document.getElementById('back').addEventListener('click', e => e.stopPropagation());
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   startEl.style.display = locked ? 'none' : 'flex';
