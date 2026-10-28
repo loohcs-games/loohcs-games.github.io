@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>箱庭</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #87ceeb; font-family: sans-serif; }
+  canvas { display: block; }
+  #crosshair {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    color: #fff; font-size: 28px; text-shadow: 0 0 3px #000;
+    pointer-events: none; user-select: none;
+  }
+  #start {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer;
+  }
+  #start div { padding: 24px 32px; background: rgba(0, 0, 0, .5); border-radius: 12px; line-height: 1.9; }
+  #start h1 { margin: 0 0 8px; font-size: 24px; }
+  #test-result { position: fixed; left: 8px; top: 8px; margin: 0; padding: 8px; background: rgba(0, 0, 0, .7); color: #fff; font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="crosshair">＋</div>
+<div id="start"><div>
+  <h1>箱庭</h1>
+  画面をクリックすると始まります<br>
+  マウス：見回す<br>
+  W A S D：歩く<br>
+  スペース：ジャンプ<br>
+  左クリック：ブロックを壊す<br>
+  右クリック：ブロックを置く<br>
+  Esc：マウスを離す
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ---- 世界のデータ ----
+const SIZE = 32;                          // 世界の広さ（ブロックの数）
+const GRASS = 1, DIRT = 2, STONE = 3;     // ブロックの種類
+const COLORS = { [GRASS]: 0x5fa83c, [DIRT]: 0x8a5a2b, [STONE]: 0x8d8d8d };
+const world = new Map();                  // "x,y,z" → ブロックの種類
+const key = (x, y, z) => x + ',' + y + ',' + z;
+const getBlock = (x, y, z) => world.get(key(x, y, z)) || 0;
+
+// 地面の高さ。波を重ねて、でこぼこを作る
+function heightAt(x, z) {
+  const h = 5 + 2 * Math.sin(x * 0.3) + 2 * Math.cos(z * 0.25) + 1.5 * Math.sin((x + z) * 0.15);
+  return Math.max(1, Math.floor(h));
+}
+for (let x = 0; x < SIZE; x++) {
+  for (let z = 0; z < SIZE; z++) {
+    const h = heightAt(x, z);
+    for (let y = 0; y <= h; y++) world.set(key(x, y, z), y === h ? GRASS : DIRT);
+  }
+}
+
+// ---- 表示 ----
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 20, 60);
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 100);
+camera.rotation.order = 'YXZ';
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+sun.position.set(10, 20, 5);
+scene.add(sun);
+
+const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+const NEIGHBORS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+let meshes = [];
+
+// 外から見えるブロックだけを描く
+function isExposed(x, y, z) {
+  return NEIGHBORS.some(([dx, dy, dz]) => !getBlock(x + dx, y + dy, z + dz));
+}
+function rebuild() {
+  for (const m of meshes) { scene.remove(m); m.material.dispose(); }
+  meshes = [];
+  const byType = {};
+  for (const [k, t] of world) {
+    const [x, y, z] = k.split(',').map(Number);
+    if (isExposed(x, y, z)) (byType[t] = byType[t] || []).push([x, y, z]);
+  }
+  const m4 = new THREE.Matrix4();
+  const color = new THREE.Color();
+  for (const t in byType) {
+    const list = byType[t];
+    const mesh = new THREE.InstancedMesh(boxGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), list.length);
+    list.forEach(([x, y, z], i) => {
+      m4.setPosition(x + 0.5, y + 0.5, z + 0.5);
+      mesh.setMatrixAt(i, m4);
+      const shade = 0.88 + 0.12 * ((Math.abs(x * 7 + y * 13 + z * 17) % 5) / 4);
+      color.setHex(COLORS[t]).multiplyScalar(shade);
+      mesh.setColorAt(i, color);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.instanceColor.needsUpdate = true;
+    scene.add(mesh);
+    meshes.push(mesh);
+  }
+}
+rebuild();
+
+// 照準が当たっているブロックの枠
+const outline = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(1.01, 1.01, 1.01)),
+  new THREE.LineBasicMaterial({ color: 0x000000 })
+);
+outline.visible = false;
+scene.add(outline);
+
+// ---- プレイヤー ----
+const HALF = 0.3, HEIGHT = 1.8, EYE = 1.6;   // 体の幅の半分、身長、目の高さ
+const SPEED = 5, GRAVITY = 25, JUMP = 8, EPS = 1e-4;
+const START = { x: SIZE / 2 + 0.5, z: SIZE / 2 + 0.5 };
+const player = { x: 0, y: 0, z: 0, vy: 0, yaw: 0, pitch: 0, onGround: false };  // y は足の高さ
+function respawn() {
+  player.x = START.x; player.z = START.z;
+  player.y = heightAt(Math.floor(START.x), Math.floor(START.z)) + 3;
+  player.vy = 0;
+}
+respawn();
+
+// 体がブロックと重なっているか
+function collides(px, py, pz) {
+  for (let x = Math.floor(px - HALF + EPS); x <= Math.floor(px + HALF - EPS); x++)
+    for (let y = Math.floor(py + EPS); y <= Math.floor(py + HEIGHT - EPS); y++)
+      for (let z = Math.floor(pz - HALF + EPS); z <= Math.floor(pz + HALF - EPS); z++)
+        if (getBlock(x, y, z)) return true;
+  return false;
+}
+
+const keys = {};
+function step(dt) {
+  // 歩く
+  let fx = 0, fz = 0;
+  if (keys.KeyW) fz -= 1;
+  if (keys.KeyS) fz += 1;
+  if (keys.KeyA) fx -= 1;
+  if (keys.KeyD) fx += 1;
+  const len = Math.hypot(fx, fz) || 1;
+  const sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
+  const dx = (fx * cos + fz * sin) / len * SPEED * dt;
+  const dz = (-fx * sin + fz * cos) / len * SPEED * dt;
+  if (!collides(player.x + dx, player.y, player.z)) player.x += dx;
+  if (!collides(player.x, player.y, player.z + dz)) player.z += dz;
+
+  // 落ちる、跳ぶ
+  player.vy -= GRAVITY * dt;
+  if (keys.Space && player.onGround) player.vy = JUMP;
+  let ny = player.y + player.vy * dt;
+  if (collides(player.x, ny, player.z)) {
+    if (player.vy < 0) { ny = Math.floor(ny + EPS) + 1; player.onGround = true; }
+    else ny = player.y;
+    player.vy = 0;
+  } else {
+    player.onGround = false;
+  }
+  player.y = ny;
+  if (player.y < -30) respawn();
+}
+
+// ---- 掘る、置く ----
+// 視線をまっすぐ伸ばして、最初に当たるブロックを探す
+function raycast(maxDist = 6) {
+  const o = [player.x, player.y + EYE, player.z];
+  const cp = Math.cos(player.pitch);
+  const d = [-Math.sin(player.yaw) * cp, Math.sin(player.pitch), -Math.cos(player.yaw) * cp];
+  const cell = o.map(Math.floor);
+  const dir = d.map(v => (v > 0 ? 1 : -1));
+  const tDelta = d.map(v => (v === 0 ? Infinity : Math.abs(1 / v)));
+  const tMax = d.map((v, i) => (v === 0 ? Infinity : (v > 0 ? cell[i] + 1 - o[i] : o[i] - cell[i]) / Math.abs(v)));
+  let prev = null, t = 0;
+  while (t <= maxDist) {
+    if (getBlock(cell[0], cell[1], cell[2])) return { hit: cell.slice(), prev };
+    prev = cell.slice();
+    const a = tMax[0] < tMax[1] ? (tMax[0] < tMax[2] ? 0 : 2) : (tMax[1] < tMax[2] ? 1 : 2);
+    t = tMax[a];
+    tMax[a] += tDelta[a];
+    cell[a] += dir[a];
+  }
+  return null;
+}
+function dig() {
+  const r = raycast();
+  if (!r) return false;
+  world.delete(key(...r.hit));
+  rebuild();
+  return true;
+}
+function place() {
+  const r = raycast();
+  if (!r || !r.prev) return false;
+  const k = key(...r.prev);
+  world.set(k, STONE);
+  if (collides(player.x, player.y, player.z)) { world.delete(k); return false; }  // 自分の体の中には置かない
+  rebuild();
+  return true;
+}
+
+// ---- 操作 ----
+const TEST = location.search.includes('test');
+const startEl = document.getElementById('start');
+const canvas = renderer.domElement;
+let locked = false;
+startEl.addEventListener('click', () => canvas.requestPointerLock());
+document.addEventListener('pointerlockchange', () => {
+  locked = document.pointerLockElement === canvas;
+  startEl.style.display = locked ? 'none' : 'flex';
+});
+document.addEventListener('mousemove', e => {
+  if (!locked) return;
+  player.yaw -= e.movementX * 0.0025;
+  player.pitch -= e.movementY * 0.0025;
+  player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch));
+});
+document.addEventListener('mousedown', e => {
+  if (!locked) return;
+  if (e.button === 0) dig();
+  if (e.button === 2) place();
+});
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'Space') e.preventDefault(); });
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ---- 毎フレームの処理 ----
+function draw() {
+  camera.position.set(player.x, player.y + EYE, player.z);
+  camera.rotation.set(player.pitch, player.yaw, 0);
+  const r = raycast();
+  outline.visible = !!r;
+  if (r) outline.position.set(r.hit[0] + 0.5, r.hit[1] + 0.5, r.hit[2] + 0.5);
+  renderer.render(scene, camera);
+}
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (locked) step(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ---- 動作の確認（アドレスの最後に ?test を付けたときだけ動く） ----
+function selfTest() {
+  const result = {};
+  const run = n => { for (let i = 0; i < n; i++) step(1 / 60); };
+  const ground = heightAt(Math.floor(START.x), Math.floor(START.z));
+
+  run(200);
+  result.lands = player.onGround && player.y === ground + 1;
+
+  const before = world.size;
+  player.pitch = -1.5;
+  const target = raycast();
+  result.rayHitsGround = !!target && target.hit[1] === ground;
+  result.dig = dig() && world.size === before - 1;
+  result.place = place() && world.size === before;
+  result.placedIsStone = getBlock(Math.floor(START.x), ground, Math.floor(START.z)) === STONE;
+
+  player.pitch = 0;
+  const z0 = player.z, x0 = player.x;
+  keys.KeyW = true; run(30); keys.KeyW = false;
+  result.walks = Math.hypot(player.x - x0, player.z - z0) > 0.5;
+
+  run(60);
+  const y0 = player.y;
+  let top = y0;
+  keys.Space = true; run(1); keys.Space = false;
+  for (let i = 0; i < 40; i++) { run(1); top = Math.max(top, player.y); }
+  result.jumps = top - y0 > 1;
+  run(120);
+  result.landsAgain = player.onGround;
+
+  result.blocks = world.size;
+  result.drawn = meshes.reduce((n, m) => n + m.count, 0);
+  result.ok = Object.entries(result).every(([k, v]) => typeof v !== 'boolean' || v);
+
+  const pre = document.createElement('pre');
+  pre.id = 'test-result';
+  pre.textContent = JSON.stringify(result);
+  document.body.appendChild(pre);
+  startEl.style.display = 'none';
+  player.pitch = -0.45;
+}
+if (TEST) {
+  try { selfTest(); }
+  catch (e) {
+    const pre = document.createElement('pre');
+    pre.id = 'test-result';
+    pre.textContent = 'ERROR ' + e.message;
+    document.body.appendChild(pre);
+  }
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
