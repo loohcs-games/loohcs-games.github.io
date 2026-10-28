@@ -25,19 +25,26 @@ GitHub Desktop の上のボタン **Fetch origin** を押す。**Pull origin** �
 ## 3. ゲームを置く
 
 1. Finder で clone したフォルダを開く（GitHub Desktop の **Repository → Show in Finder**）
-2. `games/` の中に自分の id の名前でフォルダを作る。id は半角英数字とハイフンだけ。例：`games/mochi-runner/`
+2. `games/` の中に、自分の GitHub ユーザー名のフォルダを作る。例：`games/mochi-runner/`
 3. その中に、ゲームの HTML を `index.html` という名前で置く。ファイルが複数あるなら全部このフォルダの中に
    - ゲームの画面のどこかに、一覧に戻るリンクを付ける：`<a href="../../">← ゲーム一覧にもどる</a>`
    - `<head>` の中に、検索に出さないための1行を入れる：`<meta name="robots" content="noindex, nofollow">`
-4. `games.js` を開いて、末尾の `];` の手前に自分の行を1つ足す
+4. `games.js` を開く。自分の名前の枠がある
 
 ```js
+  // ---- mochi-runner ----
+  // { id: "mochi-runner", title: "ゲームの名前", author: "mochi-runner", description: "ひとこと説明" },
+```
+
+   下の行の先頭の `// ` を消して、`title` と `description` を書き換える。他の人の枠は触らない
+
+```js
+  // ---- mochi-runner ----
   { id: "mochi-runner", title: "もちランナー", author: "mochi-runner", description: "もちが走る。スペースでジャンプ" },
 ```
 
-- `id` はフォルダ名と同じ
-- `author` は GitHub のユーザー名
-- 行の最後のカンマ（,）を忘れない
+   - `id` と `author` はそのまま（フォルダ名と同じ）
+   - 行の最後のカンマ（,）と、引用符（"）を消さない
 
 ## 4. 手元で確かめる
 
@@ -66,11 +73,19 @@ GitHub Desktop の上のボタン **Fetch origin** を押す。**Pull origin** �
 3. 新しいブランチを作る（手順2）
 4. 直す → 確かめる → Commit → Publish → Pull Request（手順4〜5）
 
+## GitHub Desktop が入れられないとき（ブラウザだけでやる）
+
+1. https://github.com/loohcs-games/loohcs-games.github.io を開く
+2. **Add file → Upload files**。自分のゲームのフォルダごとドラッグして入れる（フォルダ名は自分のユーザー名）
+3. 下の **Commit changes** で、**Create a new branch for this commit and start a pull request** を選んで **Propose changes**
+4. 次の画面で **Create pull request**
+5. そのブランチのまま `games.js` を開き、鉛筆マークで自分の枠を直して **Commit changes**（同じブランチに入る）
+
 ## 困ったとき
 
 | 起きたこと | どうする |
 |---|---|
 | Pull origin でエラーが出る | 先生に見せる。たいてい `games.js` の同じ行を2人が直したとき |
-| カードが出ない | `games.js` のカンマ、引用符（"）、`id` とフォルダ名が同じかを見る |
+| カードが出ない | `games.js` の行の先頭の `// ` を消したか、カンマ、引用符（"）を見る |
 | ゲームが真っ白 | ブラウザの開発者ツール（右クリック → 検証 → Console）に赤い文字が出ていないか見る |
 | 間違ったファイルを送った | 消してもう一度 Commit → Push。履歴には残るので、個人情報は最初から書かない |

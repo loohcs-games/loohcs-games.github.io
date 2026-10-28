@@ -32,7 +32,10 @@
 <footer>
   載せ方は <a href="https://github.com/loohcs-games/loohcs-games.github.io">GitHub のリポジトリ</a> の howto.md にある。
 </footer>
-<script src="games.js"></script>
+<script>
+  // 一覧は毎回読み直す（GitHub Pages のキャッシュで古い一覧が出ないように）
+  document.write('<script src="games.js?v=' + Date.now() + '"><\/script>');
+</script>
 <script>
 (function () {
   var list = document.getElementById('list');
