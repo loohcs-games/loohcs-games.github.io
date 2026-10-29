@@ -8,6 +8,6 @@ window.GAMES = [
   { id: "yuuuuuuuuuuhh", title: "モチモチグランプリ", author: "yuuuuuuuuuuhh", description: "おもちのモチが食べものレーサーと走る3Dカートレース。1人・2人・オンライン対戦" },
 
   // ---- ishiritsu0-web ----
-  // { id: "ishiritsu0-web", title: "ゲームの名前", author: "ishiritsu0-web", description: "ひとこと説明" },
+  { id: "ishiritsu0-web", title: "ミサイル乱射シミュレーター", author: "ishiritsu0-web", description: "夜の街でミサイルを撃ち合う。戦闘機も飛ばせる2Dシミュレーション" },
 
 ];
