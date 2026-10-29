@@ -59,19 +59,22 @@ GitHub Desktop の上のボタン **Fetch origin** を押す。**Pull origin** �
 5. **Preview Pull Request** → **Create Pull Request**。ブラウザが開く
 6. 説明の欄にあるチェック項目を確認して、**Create pull request** を押す
 
-## 6. 取り込まれるのを待つ
+## 6. 自分で取り込む（Merge）
 
-先生が Pull Request を見て、取り込む（Merge）。
-数分後に https://loohcs-games.github.io/ に自分のゲームが出る。
+1. Pull Request の画面を下にスクロールして、緑の **Merge pull request** → **Confirm merge** を押す
+2. **Delete branch** が出たら押す（作業机を片づける）
+3. 数分後に https://loohcs-games.github.io/ を開き直す。自分のゲームが出る
 
-直してほしいところがあれば、Pull Request にコメントが付く。同じブランチで直して、もう一度 Commit → **Push origin** すれば、Pull Request に反映される。
+Merge ボタンが灰色で押せないときは、`games.js` で他の人とぶつかっている。先生に見せる。
+
+他の人の Pull Request は、本人に頼まれたとき以外は Merge しない。
 
 ## 2回目以降（直すとき）
 
 1. **Current Branch** → **main** に戻る
 2. **Fetch origin** → **Pull origin**
 3. 新しいブランチを作る（手順2）
-4. 直す → 確かめる → Commit → Publish → Pull Request（手順4〜5）
+4. 直す → 確かめる → Commit → Publish → Pull Request → Merge（手順4〜6）
 
 ## GitHub Desktop が入れられないとき（ブラウザだけでやる）
 
@@ -87,5 +90,6 @@ GitHub Desktop の上のボタン **Fetch origin** を押す。**Pull origin** �
 |---|---|
 | Pull origin でエラーが出る | 先生に見せる。たいてい `games.js` の同じ行を2人が直したとき |
 | カードが出ない | `games.js` の行の先頭の `// ` を消したか、カンマ、引用符（"）を見る |
+| トップに「games.js に書き間違いがあります」と出る | 全員のカードが消えている。最後に Merge した人の枠を直して、もう一度 Pull Request → Merge |
 | ゲームが真っ白 | ブラウザの開発者ツール（右クリック → 検証 → Console）に赤い文字が出ていないか見る |
 | 間違ったファイルを送った | 消してもう一度 Commit → Push。履歴には残るので、個人情報は最初から書かない |

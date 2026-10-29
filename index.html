@@ -39,8 +39,16 @@
 <script>
 (function () {
   var list = document.getElementById('list');
-  var games = (window.GAMES || []).slice();
   list.textContent = '';
+  if (!Array.isArray(window.GAMES)) {
+    // games.js が読めなかった。たいてい、誰かが games.js を直したときの書き間違い
+    var err = document.createElement('p');
+    err.className = 'empty';
+    err.textContent = 'games.js に書き間違いがあります。最後に直した人の枠の、カンマ・引用符・波かっこを見てください。';
+    list.appendChild(err);
+    return;
+  }
+  var games = window.GAMES.slice();
   if (games.length === 0) {
     var p = document.createElement('p');
     p.className = 'empty';
