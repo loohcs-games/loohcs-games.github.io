@@ -346,11 +346,24 @@ body {
   var LAPS = 3, HW = 15, WALL = HW + 12, OUT = HW + 34, N = 1200, LEN = 1.5;
   var MAXS = 72, OFFS = 28, BOOSTS = 102;
 
+  // ---------- 色の管理 ----------
+  // このファイルの色（0xff5d8f や '#b5e3ff'）は画面で見える色（sRGB）として書いてある。描画はリニアで計算し
+  // 最後に sRGB へ戻すので、入口でリニアに直しておく。新しい three.js の ColorManagement と同じこと。
+  (function () {
+    var pHex = THREE.Color.prototype.setHex, pStyle = THREE.Color.prototype.setStyle;
+    THREE.Color.prototype.setHex = function (h) { pHex.call(this, h); return this.convertSRGBToLinear(); };
+    THREE.Color.prototype.setStyle = function (v) { pStyle.call(this, v); return this.convertSRGBToLinear(); };
+  })();
+
   // ---------- renderer / scene ----------
   var canvas = $('c');
   var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // 色の土台。画面に出す直前に sRGB に変換し、明るい所は ACES の曲線で白へなだらかに飛ばす（写真の見え方に近づく）
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.92;
   var scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2a1a3a);
   scene.fog = new THREE.Fog(0x7a4488, 220, 1000);
@@ -361,6 +374,31 @@ body {
     scene.fog.color.copy(under ? seaCol : airFog.c); scene.fog.near = under ? 8 : airFog.n; scene.fog.far = under ? 230 : airFog.f;
     renderer.render(scene, cam);
   }
+  // 環境マップ。ステージの空のグラデーションと地面の照り返し色を小さな全天画像に描き、PMREM にして scene.environment に入れる。
+  // これで Standard / Physical の材質に、空からの柔らかい光と、つやの反射が同時に入る（SSAO や反射プローブなしで一番安い方法）
+  var pmrem = LQ ? null : new THREE.PMREMGenerator(renderer), envTex = null;
+  function hex6(n) { return '#' + ('000000' + n.toString(16)).slice(-6); }
+  function setEnv(st) {
+    if (LQ) return;
+    if (envTex) envTex.dispose();
+    var sd = new THREE.Vector3(st.sunDir[0], st.sunDir[1], st.sunDir[2]).normalize();
+    var tex = canvasTex(256, 128, function (g, w, h) {
+      var gr = g.createLinearGradient(0, 0, 0, h / 2);
+      st.sky.forEach(function (c) { gr.addColorStop(c[0], c[1]); });
+      g.fillStyle = gr; g.fillRect(0, 0, w, h / 2);
+      var gr2 = g.createLinearGradient(0, h / 2, 0, h);
+      gr2.addColorStop(0, st.horizon); gr2.addColorStop(0.25, hex6(st.hemi[1])); gr2.addColorStop(1, hex6(st.hemi[1]));
+      g.fillStyle = gr2; g.fillRect(0, h / 2, w, h / 2);
+      var u = Math.atan2(sd.z, sd.x) / (Math.PI * 2) + 0.5, v = Math.asin(Math.max(-1, Math.min(1, sd.y))) / Math.PI + 0.5;
+      var sx = u * w, sy = (1 - v) * h, rg = g.createRadialGradient(sx, sy, 0, sx, sy, w * 0.07);
+      rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(0.35, st.sunCol || '#ffffff'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = rg; g.fillRect(0, 0, w, h);
+    });
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.ClampToEdgeWrapping;
+    envTex = pmrem.fromEquirectangular(tex).texture; tex.dispose();
+    scene.environment = envTex;
+  }
   var hemi = new THREE.HemisphereLight(0xe6dcff, 0x4a3a66, 1.0);
   scene.add(hemi);
   var sun = new THREE.DirectionalLight(0xffc7a0, 0.6);
@@ -370,6 +408,10 @@ body {
   sun.shadow.camera.left = sun.shadow.camera.bottom = -170; sun.shadow.camera.right = sun.shadow.camera.top = 170;
   sun.shadow.camera.near = 20; sun.shadow.camera.far = 700; sun.shadow.camera.updateProjectionMatrix();
   var shDir = new THREE.Vector3(0.4, 0.8, 0.3);
+  // 縁光。太陽の反対側から弱い寒色を当てて、物の輪郭を背景から浮かせる（もちの縁が透けて見える感じの安い代用）
+  var rim = new THREE.DirectionalLight(0xbfe6ff, 0.3);
+  scene.add(rim); scene.add(rim.target);
+  var sunV = new THREE.Vector3(0.4, 0.8, 0.3);   // いまのステージの太陽の向き（sky() が入れる）
 
   function resize() {
     var g = $('game'), w = g.clientWidth || 800, h = g.clientHeight || 600;
@@ -393,13 +435,47 @@ body {
     cv.width = w; cv.height = h;
     draw(cv.getContext('2d'), w, h);
     var t = new THREE.CanvasTexture(cv);
+    t.encoding = THREE.sRGBEncoding;           // canvas の色は sRGB で描いてある
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.anisotropy = 4;
     return t;
   }
-  function lam(color, opts) {
+  // ---------- 材質 ----------
+  // LQ: ?lq を付けると昔の軽い材質（Lambert / Phong）で動く。スマホで重いときの逃げ道
+  var LQ = /[?&]lq\b/.test(location.search);
+  var ENV_I = 0.4;                             // 環境マップ（空の照り返し）の効き。1.0 だと空の白が面を洗ってしまう
+  function lam(color, opts) {                  // 光を受ける標準の材質。名前は昔のまま（呼び出しが多いので）
     var o = opts || {}; o.color = color;
-    return new THREE.MeshLambertMaterial(o);
+    if (LQ) return new THREE.MeshLambertMaterial(o);
+    if (o.roughness === undefined) o.roughness = 0.62;
+    o.metalness = 0; o.envMapIntensity = ENV_I;
+    return new THREE.MeshStandardMaterial(o);
+  }
+  function candy(color, opts) {                // つやのある、あめ・プラスチックの材質（カート、看板の飾り、家の屋根）
+    var o = opts || {}; o.color = color;
+    if (LQ) { o.shininess = 120; o.specular = new THREE.Color(0xaaaaaa); return new THREE.MeshPhongMaterial(o); }
+    if (o.roughness === undefined) o.roughness = 0.28;
+    o.metalness = 0; o.envMapIntensity = ENV_I;
+    if (o.clearcoat === undefined) o.clearcoat = 0.8;
+    if (o.clearcoatRoughness === undefined) o.clearcoatRoughness = 0.15;
+    return new THREE.MeshPhysicalMaterial(o);
+  }
+  function mochiMat(color, opts) {             // やわらかいもち。つやは弱く、表面はすべすべ
+    var o = opts || {}; o.color = color;
+    if (LQ) { o.shininess = 26; o.specular = new THREE.Color(0x2c2c2c); return new THREE.MeshPhongMaterial(o); }
+    o.roughness = 0.5; o.metalness = 0; o.envMapIntensity = ENV_I; o.clearcoat = 0.35; o.clearcoatRoughness = 0.6;
+    return new THREE.MeshPhysicalMaterial(o);
+  }
+  function rbox(w, h, d, r) {                  // 角の丸い箱。BoxGeometry の代わりに主役（カート）に使う
+    r = Math.min(r, w / 4, h / 4, d / 4);
+    var x = w / 2 - r, y = h / 2 - r, sh = new THREE.Shape();
+    sh.moveTo(-x, -(y + r)); sh.lineTo(x, -(y + r)); sh.absarc(x, -y, r, -Math.PI / 2, 0, false);
+    sh.lineTo(x + r, y); sh.absarc(x, y, r, 0, Math.PI / 2, false);
+    sh.lineTo(-x, y + r); sh.absarc(-x, y, r, Math.PI / 2, Math.PI, false);
+    sh.lineTo(-(x + r), -y); sh.absarc(-x, -y, r, Math.PI, Math.PI * 1.5, false);
+    var g = new THREE.ExtrudeGeometry(sh, { depth: d - 2 * r, bevelEnabled: true, bevelThickness: r, bevelSize: r, bevelSegments: 3, curveSegments: 4 });
+    g.translate(0, 0, -(d - 2 * r) / 2); g.computeVertexNormals();
+    return g;
   }
 
   // ---------- karts ----------
@@ -422,17 +498,17 @@ body {
   function makeKart(r) {
     var root = new THREE.Group(), body = new THREE.Group();
     root.add(body);
-    var bm = lam(r.body), hm = lam(r.head);
+    var bm = candy(r.body), hm = mochiMat(r.head);
     var add = function (geo, mat, x, y, z) { var m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); body.add(m); return m; };
-    add(new THREE.BoxGeometry(2.3, 0.7, 3.6), bm, 0, 0.75, 0);
-    add(new THREE.BoxGeometry(1.5, 0.5, 1.1), bm, 0, 0.65, 2.1);
+    add(rbox(2.3, 0.7, 3.6, 0.16), bm, 0, 0.75, 0);
+    add(rbox(1.5, 0.5, 1.1, 0.12), bm, 0, 0.65, 2.1);
     add(new THREE.BoxGeometry(2.6, 0.2, 0.7), wheelM, 0, 1.7, -1.9);
     add(new THREE.BoxGeometry(0.2, 0.8, 0.3), wheelM, -0.9, 1.3, -1.9);
     add(new THREE.BoxGeometry(0.2, 0.8, 0.3), wheelM, 0.9, 1.3, -1.9);
     [[-1.4, 1.3], [1.4, 1.3], [-1.4, -1.3], [1.4, -1.3]].forEach(function (w) { add(wheelG, wheelM, w[0], 0.6, w[1]); });
-    add(new THREE.SphereGeometry(0.95, 14, 10), hm, 0, 1.9, -0.3).scale.y = 0.85;
-    add(new THREE.SphereGeometry(0.28, 8, 6), hm, -0.6, 2.65, -0.3);
-    add(new THREE.SphereGeometry(0.28, 8, 6), hm, 0.6, 2.65, -0.3);
+    add(new THREE.SphereGeometry(0.95, 22, 16), hm, 0, 1.9, -0.3).scale.y = 0.85;
+    add(new THREE.SphereGeometry(0.28, 10, 8), hm, -0.6, 2.65, -0.3);
+    add(new THREE.SphereGeometry(0.28, 10, 8), hm, 0.6, 2.65, -0.3);
     var sparkM = new THREE.MeshBasicMaterial({ color: 0x66ccff }), sparkG = new THREE.SphereGeometry(0.55, 8, 6);
     var spark = new THREE.Group();
     [-1.4, 1.4].forEach(function (x) { var m = new THREE.Mesh(sparkG, sparkM); m.position.set(x, 0.35, -2.1); spark.add(m); });
@@ -642,7 +718,7 @@ body {
   var tmpC = new THREE.Color(), DS = { side: THREE.DoubleSide };
   function rnd(a, b) { return a + Math.random() * (b - a); }
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  function flat(color) { return new THREE.MeshPhongMaterial({ color: color, flatShading: true, shininess: 0 }); }
+  function flat(color) { return LQ ? new THREE.MeshPhongMaterial({ color: color, flatShading: true, shininess: 0 }) : lam(color, { flatShading: true, roughness: 0.8 }); }
   function nearTrack(x, z) {
     var best = Infinity, bi = 0;
     for (var i = 0; i < N; i += 2) { var dx = P[i].x - x, dz = P[i].z - z, d = dx * dx + dz * dz; if (d < best) { best = d; bi = i; } }
@@ -934,7 +1010,7 @@ body {
         g.fillRect(x, y, r, r);
       }
     });
-    var dome = new THREE.Mesh(new THREE.SphereGeometry(2200, 24, 16), new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false }));
+    var dome = new THREE.Mesh(new THREE.SphereGeometry(2200, 24, 16), new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, toneMapped: false }));
     dome.position.set(bounds.cx, 0, bounds.cz);
     world.add(dome);
     if (st.night) tickers.push(function (dt) { if (!dome.userData.photo) dome.rotation.y += dt * 0.012; });   // the night sky slowly turns
@@ -951,6 +1027,7 @@ body {
     disc.lookAt(bounds.cx, 0, bounds.cz);
     world.add(disc);
     shDir.set(sd.x, Math.max(sd.y, 0.55), sd.z).normalize();
+    sunV.copy(sd);
     if (st.clouds) {
       var puffs = [];
       for (var c = 0; c < st.clouds[0]; c++) {
@@ -960,7 +1037,7 @@ body {
           puffs.push({ x: Math.cos(a) * r + rnd(-100, 100), y: y + rnd(-14, 14), z: Math.sin(a) * r + rnd(-100, 100), sv: [s, s * 0.38, s], sky: true });
         }
       }
-      var cm = instanced(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshBasicMaterial({ color: st.clouds[1], fog: false }), puffs);
+      var cm = instanced(new THREE.SphereGeometry(1, 12, 9), lam(st.clouds[1], { fog: false, roughness: 1, emissive: st.clouds[1], emissiveIntensity: 0.3 }), puffs);   // 雲も光を受ける。上面が明るく、下面が陰。白さは少し足す
       var cg = new THREE.Group(); cg.position.set(bounds.cx, 0, bounds.cz); world.remove(cm); cg.add(cm); world.add(cg);
       tickers.push(function (dt) { cg.rotation.y += dt * 0.01; });   // clouds drift around the horizon
     }
@@ -2004,9 +2081,9 @@ body {
   // Repeated shapes are collected with K.put() and drawn in one go per shape by K.flush() (one draw call each).
   function wpKit() {
     var K = { PASTEL: [0xff9ec4, 0xa8e6cf, 0xfff07a, 0xc9b6ff, 0x9fdcff, 0xffc29e], batches: {} };
-    K.mochi = function (c) { return new THREE.MeshPhongMaterial({ color: c, shininess: 26, specular: 0x2c2c2c }); };
-    K.gummy = function (c) { return new THREE.MeshPhongMaterial({ color: c, shininess: 90, specular: 0x888888, transparent: true, opacity: 0.8 }); };
-    K.candy = function (c) { return new THREE.MeshPhongMaterial({ color: c, shininess: 120, specular: 0xaaaaaa }); };
+    K.mochi = function (c) { return mochiMat(c); };
+    K.gummy = function (c) { return candy(c, { transparent: true, opacity: 0.8, roughness: 0.18, clearcoat: 0.6 }); };
+    K.candy = function (c) { return candy(c); };
     K.cream = function (c) { return lam(c); };
     K.SPH = new THREE.SphereGeometry(1, 28, 18); K.SPHL = new THREE.SphereGeometry(1, 12, 9);
     K.layerTex = canvasTex(64, 64, function (g) {
@@ -2082,7 +2159,8 @@ body {
     };
     K.sideGeo = function () { return shape(new THREE.CylinderGeometry(1, 0.96, 1, 40, 1, true), function (g) { g.translate(0, -0.5, 0); }); };
     K.flush = function () {
-      Object.keys(K.batches).forEach(function (n) { if (K.batches[n].length) { var d = K.defs[n](); instanced(d[0], d[1], K.batches[n]); } });
+      var NOSHADOW = { drip: 1, fall: 1, puff: 1, splash: 1 };        // 半透明や水の演出は影を落とさない
+      Object.keys(K.batches).forEach(function (n) { if (K.batches[n].length) { var d = K.defs[n](); instanced(d[0], d[1], K.batches[n]).castShadow = !NOSHADOW[n]; } });
       K.batches = {};
     };
     return K;
@@ -2238,8 +2316,9 @@ body {
     var hg = new THREE.Group(); hg.position.set(o.x, 0, o.z); world.add(hg);
     K.mesh(new THREE.CylinderGeometry(11, 15, topY - o.y - 10, 32), K.mochi(0xfff3f7), 0, (topY + o.y - 10) / 2, 0, 1, 1, 1, hg);
     K.mesh(K.SPH, K.mochi(0xffb3cd), 0, topY - 10, 0, 16, 8, 16, hg);
-    var ring = K.mesh(new THREE.TorusGeometry(8, 2.2, 12, 40), new THREE.MeshBasicMaterial({ color: 0xff4f9a }), 0, topY, 0, 1, 1, 1, hg);
-    var ring2 = K.mesh(new THREE.TorusGeometry(11, 0.8, 8, 40), new THREE.MeshBasicMaterial({ color: 0xffffff }), 0, topY, 0, 1, 1, 1, hg);
+    var dusk = STAGES[stageIdx] && STAGES[stageIdx].dusk;
+    var ring = K.mesh(new THREE.TorusGeometry(8, 2.2, 16, 48), candy(0xff4f9a, dusk ? { emissive: 0xff4f9a, emissiveIntensity: 0.9 } : {}), 0, topY, 0, 1, 1, 1, hg);
+    var ring2 = K.mesh(new THREE.TorusGeometry(11, 0.8, 10, 48), candy(0xffffff), 0, topY, 0, 1, 1, 1, hg);
     var t = 0;
     tickers.push(function (dt) { t += dt; ring.rotation.y += dt * 1.6; ring2.rotation.y -= dt; var s = 1 + 0.12 * Math.sin(t * 5); ring.scale.set(s, s, s); });
     var cols = [0xff6fa5, 0xffc23d, 0x7d6bff, 0x4fb3f3];
@@ -2490,12 +2569,20 @@ body {
       fog: [220, 1300], hemi: [0xb9c4ff, 0x40405a, 0.85], sun: [0xaab8ff, 0.3], sunDir: [0.4, 0.5, -0.6], sunCol: '#dfe6ff',
       crowd: 0.15, gate: 0xffd23f, props: townProps, photoSky: 'sky_town.jpg', wig: [3, 0.17, 1.3, 10, 0.075, 0.5], pads: [[0.1, 0], [0.36, -7], [0.36, 7], [0.66, 0], [0.9, 7]], ramps: [0.5, 0.78], hills: [[0.5, 0.12, 42], [0.77, 0.08, 24]], flat: 33, skirt: 45, haz: 'penguin', dirt: 0xb9c6de, cutKinds: ['road', 'fly', 'dirt'],
       ctrl: [[0,0],[150,-10],[250,-70],[250,-180],[170,-250],[190,-350],[100,-420],[-20,-380],[-60,-280],[-160,-240],[-270,-300],[-340,-220],[-300,-110],[-200,-70],[-120,-10]] },
-    { name: 'もちもちワンダーパーク', note: '雲の上のスイーツ遊園地。跳ねて・のびて・くっついて走る', road: '#f5e9b8', roadLook: { kerbA: '#ff7eb3', kerbB: '#ffffff', line: '#ffb8d6', glow: 0x2a2618 },
+    { name: 'もちもちワンダーパーク', note: '雲の上のスイーツ遊園地。跳ねて・のびて・くっついて走る', road: '#f4e3a4', roadLook: { kerbA: '#ff7eb3', kerbB: '#ffffff', line: '#ffb8d6', glow: 0x2a2618 },
       horizon: '#b5e3ff', below: '#d3efff',                                       // a clear midday sky over a sea of white cloud
       sky: [[0, '#1f8fe6'], [0.5, '#4fb3f3'], [0.85, '#8fd2fb'], [1, '#b5e3ff']], clouds: [22, 0xffffff],
-      fog: [2200, 8000], hemi: [0xf6f9ff, 0xbfe0ff, 0.82], sun: [0xfff6e6, 0.2], sunDir: [0.45, 0.8, -0.4], sunCol: '#fffbe8',
+      fog: [700, 3400], hemi: [0xd6eaff, 0xffe3cf, 0.5], sun: [0xfff1dc, 0.75], sunDir: [0.6, 0.55, -0.5], sunCol: '#fffbe8', rim: [0xa8d8ff, 0.35],   // 太陽は低めの斜光で影を伸ばす。空側は青、地面側は生成りの照り返し
       crowd: 0, gate: 0xff7ab6, props: parkProps, park: true, path: parkPath, noCuts: true, pads: [], ramps: [], hills: [], haz: null, dirt: 0xd9b97e }
   ];
+
+  // 夕方のワンダーパーク。昼の設定を引き継いで、空・光・霧・雲の色だけ差し替える
+  STAGES.push(Object.assign({}, STAGES[5], {
+    name: 'ワンダーパーク 夕方', note: '夕焼けに染まる遊園地。もちフックの輪が光る', dusk: true,
+    horizon: '#ffc9a0', below: '#f1bfb4',
+    sky: [[0, '#2f3f8f'], [0.42, '#8a6fc4'], [0.74, '#f28ba3'], [1, '#ffc9a0']], clouds: [22, 0xffd6c8],
+    fog: [500, 2600], hemi: [0xb6a4e6, 0xffb48c, 0.62], sun: [0xffa660, 1.05], sunDir: [0.85, 0.2, -0.35], sunCol: '#ff9a58', rim: [0x86a9ff, 0.5]
+  }));
 
   function buildStage(n) {
     var st = STAGES[n], i;
@@ -2549,8 +2636,10 @@ body {
     scene.background = new THREE.Color(st.horizon);
     scene.fog = new THREE.Fog(st.horizon, st.fog[0], st.fog[1]);
     airFog = { c: new THREE.Color(st.horizon), n: st.fog[0], f: st.fog[1] };
-    hemi.color.setHex(st.hemi[0]); hemi.groundColor.setHex(st.hemi[1]); hemi.intensity = st.hemi[2];
+    hemi.color.setHex(st.hemi[0]); hemi.groundColor.setHex(st.hemi[1]); hemi.intensity = st.hemi[2] * (LQ ? 1 : 0.45);   // 環境マップが空の光を半分受け持つ
+    setEnv(st);
     sun.color.setHex(st.sun[0]); sun.intensity = st.sun[1];
+    var rm = st.rim || [0xbfe6ff, 0.3]; rim.color.setHex(rm[0]); rim.intensity = rm[1];
     sky(st);
     var rmat = roadMat(st.road, st.cobble, st.roadLook);
     if (st.roadLook && st.roadLook.glow) rmat.emissive.setHex(st.roadLook.glow);   // keeps a pale road pale in the shade
@@ -3323,7 +3412,7 @@ body {
         }, 80);
       }
       audio.resume();
-      song = SONGS[n]; mStep = 0; mNext = audio.currentTime + 0.1;
+      song = SONGS[n] || SONGS[SONGS.length - 1]; mStep = 0; mNext = audio.currentTime + 0.1;   // 夕方の版は昼と同じ曲
     } catch (e) { audio = null; }
   }
   function setMute(v) {
@@ -3348,7 +3437,7 @@ body {
       g.fill(); g.stroke();
       g.fillStyle = '#2a1a3a'; g.font = '800 76px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 256, 74, 460);
     });
-    k.tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, fog: false, depthTest: false, transparent: true }));
+    k.tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, fog: false, depthTest: false, transparent: true, toneMapped: false }));
     k.tag.scale.set(13, 4.06, 1); k.tag.position.y = 8.2; k.tag.renderOrder = 5;
     k.root.add(k.tag);
   }
@@ -3695,6 +3784,26 @@ body {
   });
   $('reset').addEventListener('click', function () { $('reset').blur(); begin(); });
 
+  // ---------- 接地影 ----------
+  // カートの真下に丸いぼかしを敷く。ジャンプ中は小さくなる。影マップを切った段階（スマホ）でも足元の接地感が残る
+  var blobTex = canvasTex(64, 64, function (g) {
+    var gr = g.createRadialGradient(32, 32, 3, 32, 32, 30);
+    gr.addColorStop(0, 'rgba(0,0,0,0.5)'); gr.addColorStop(0.55, 'rgba(0,0,0,0.22)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  });
+  blobTex.wrapS = blobTex.wrapT = THREE.ClampToEdgeWrapping;
+  var blobG = new THREE.PlaneGeometry(5.4, 6.6); blobG.rotateX(-Math.PI / 2);
+  var blobs = new THREE.InstancedMesh(blobG, new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), karts.length);
+  blobs.frustumCulled = false; blobs.renderOrder = 1; scene.add(blobs);
+  function blobTick() {
+    karts.forEach(function (k, i) {
+      var gy = groundY(k.x, k.z, k.alt), h = Math.max(0, k.alt - gy), sc = Math.max(0.3, 1 - h / 14);
+      dummy.position.set(k.x, gy + 0.12, k.z); dummy.rotation.set(0, k.h, 0); dummy.scale.set(sc, 1, sc);
+      dummy.updateMatrix(); blobs.setMatrixAt(i, dummy.matrix);
+    });
+    blobs.instanceMatrix.needsUpdate = true;
+  }
+
   // ---------- camera + loop ----------
   var cams = [{ cam: camera, k: player, h: 0, y: 0 }, { cam: camera2, k: p2, h: 0, y: 0 }];
   var comfort = true;                          // on: while the view swings round, the edges of the screen darken, since it is the
@@ -3737,13 +3846,18 @@ body {
     if (slowN < 120) return;
     if (slowT / slowN > 1 / 45 && quality < 3) {
       quality++;
-      if (quality === 3) sun.castShadow = false;
+      if (quality === 3) { sun.castShadow = false; scene.environment = null; hemi.intensity *= 1.8; }   // 影と環境マップを外し、半球光で補う
       else { renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 1 ? 1.5 : 1)); resize(); }
     }
     slowT = slowN = 0;
   }
+  var TOUCH = /[?&]touch\b/.test(location.search) || !!(window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches);   // ?touch で PC からも試せる
+  if (TOUCH) {                                 // スマホは最初から一段軽く。解像度は 1.5 倍まで、影は 1024px。足りなければ watchSpeed が更に落とす
+    quality = 1; renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)); resize();
+    sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+  }
   pickStage(0);
-  if (window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches) enableTouch();
+  if (TOUCH) enableTouch();
 
   // ---------- 計測と撮影（見た目を直すときに、前後を同じ条件で比べるため） ----------
   // ?fps        : 右下に fps・描画呼び出し数・三角形数・画質段階を出す
@@ -3772,7 +3886,7 @@ body {
     fpsN++; fpsT += dt;
     if (fpsT < 0.5) return;
     var r = renderer.info.render;
-    fpsEl.textContent = Math.round(fpsN / fpsT) + ' fps\ncalls ' + r.calls + '  tris ' + r.triangles + '\nq' + quality + ' pr' + renderer.getPixelRatio().toFixed(2) + ' ' + vw + 'x' + vh;
+    fpsEl.textContent = Math.round(fpsN / fpsT) + ' fps\ncalls ' + r.calls + '  tris ' + r.triangles + '\nq' + quality + ' pr' + renderer.getPixelRatio().toFixed(2) + ' ' + vw + 'x' + vh + (TOUCH ? ' touch' : '') + (LQ ? ' lq' : '');
     fpsN = 0; fpsT = 0;
   }
   window.mochi.shot = shot;
@@ -3782,8 +3896,13 @@ body {
     fitCheck(); netStep(dt);
     if (!paused) { step(dt); tickers.forEach(function (f) { f(dt); }); }
     cam(cams[0], dt); hud(); engineTick();
-    sun.target.position.set(player.x, player.alt, player.z); sun.target.updateMatrixWorld();
-    sun.position.set(player.x + shDir.x * 320, player.alt + shDir.y * 320, player.z + shDir.z * 320);
+    // 影と縁光の中心はプレイヤー。撮影の固定視点のときは、見ている先に置く（走ってそこに来たときの見え方になる）
+    var lx = viewAt ? viewAt[3] : player.x, ly = viewAt ? viewAt[4] : player.alt, lz = viewAt ? viewAt[5] : player.z;
+    sun.target.position.set(lx, ly, lz); sun.target.updateMatrixWorld();
+    sun.position.set(lx + shDir.x * 320, ly + shDir.y * 320, lz + shDir.z * 320);
+    rim.target.position.copy(sun.target.position); rim.target.updateMatrixWorld();
+    rim.position.set(lx - sunV.x * 300, ly + 110, lz - sunV.z * 300);
+    blobTick();
     if (twoP) {
       cam(cams[1], dt);
       renderer.setScissorTest(true);
