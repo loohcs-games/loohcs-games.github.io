@@ -5,7 +5,7 @@
 window.GAMES = [
   { id: "hakoniwa", title: "箱庭", author: "loohcskshirasaki", description: "歩く・掘る・置く。第2回で1プロンプトから出した箱庭" },
   // ---- yuuuuuuuuuuhh ----
-  // { id: "yuuuuuuuuuuhh", title: "ゲームの名前", author: "yuuuuuuuuuuhh", description: "ひとこと説明" },
+  { id: "yuuuuuuuuuuhh", title: "モチモチグランプリ", author: "yuuuuuuuuuuhh", description: "おもちのモチが食べものレーサーと走る3Dカートレース。1人・2人・オンライン対戦" },
 
   // ---- ishiritsu0-web ----
   // { id: "ishiritsu0-web", title: "ゲームの名前", author: "ishiritsu0-web", description: "ひとこと説明" },
