@@ -226,6 +226,8 @@ body {
   #results { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(6, auto); grid-auto-flow: column; gap: 2px 12px; }
   #results li { padding: 3px 8px; font-size: 13px; }
 }
+  body.shot .hud, body.shot #title, body.shot .panel { display: none !important; }
+  #fps { position: fixed; right: 6px; bottom: 6px; z-index: 9; font: 12px/1.4 monospace; color: #fff; background: rgba(0,0,0,.55); padding: 4px 8px; border-radius: 6px; white-space: pre; pointer-events: none; }
 </style>
 
 <div id="game">
@@ -3742,9 +3744,41 @@ body {
   }
   pickStage(0);
   if (window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches) enableTouch();
+
+  // ---------- 計測と撮影（見た目を直すときに、前後を同じ条件で比べるため） ----------
+  // ?fps        : 右下に fps・描画呼び出し数・三角形数・画質段階を出す
+  // ?shot=5:hook: ステージ5を組み、名前の視点にカメラを固定して止める（HUD は隠す）
+  //   視点名: start（全ステージ。スタート地点を後ろから）、hook / spiral / attract（ワンダーパークだけ）
+  var Q = new URLSearchParams(location.search);
+  var SHOTS = {
+    start: function () { var i0 = 24 % N, i1 = 64 % N, d = Math.atan2(P[i1].x - P[i0].x, P[i1].z - P[i0].z);
+      return [P[i0].x - Math.sin(d) * 26, H[i0] + 9, P[i0].z - Math.cos(d) * 26, P[i1].x, H[i1] + 2, P[i1].z, 54]; },
+    hook: function () { return [190, 125, 150, 300, 85, 20, 50]; },        // もちフックの塔
+    spiral: function () { return [-280, 170, 60, 0, 90, -220, 50]; },     // ケーキの塔を巻く立体コース
+    attract: function () { return [-220, 80, 340, -400, 30, 180, 50]; }   // アトラクションの島
+  };
+  function shot(n, name) {
+    pickStage(n);
+    var f = SHOTS[name] || SHOTS.start;
+    viewAt = f();
+    $('title').hidden = true; document.body.classList.add('shot');
+    document.title = 'shot ' + n + ':' + name;
+  }
+  if (Q.has('shot')) { var sp = Q.get('shot').split(':'); shot(Math.min(STAGES.length - 1, Math.max(0, +sp[0] || 0)), sp[1] || 'start'); }
+  var fpsEl = null, fpsN = 0, fpsT = 0;
+  if (Q.has('fps')) { fpsEl = document.createElement('div'); fpsEl.id = 'fps'; document.body.appendChild(fpsEl); }
+  function fpsTick(dt) {
+    if (!fpsEl) return;
+    fpsN++; fpsT += dt;
+    if (fpsT < 0.5) return;
+    var r = renderer.info.render;
+    fpsEl.textContent = Math.round(fpsN / fpsT) + ' fps\ncalls ' + r.calls + '  tris ' + r.triangles + '\nq' + quality + ' pr' + renderer.getPixelRatio().toFixed(2) + ' ' + vw + 'x' + vh;
+    fpsN = 0; fpsT = 0;
+  }
+  window.mochi.shot = shot;
   var last = performance.now();
   function frame(now) {
-    var dt = Math.min(0.05, (now - last) / 1000); watchSpeed((now - last) / 1000); last = now;
+    var raw = (now - last) / 1000, dt = Math.min(0.05, raw); watchSpeed(raw); fpsTick(raw); last = now;
     fitCheck(); netStep(dt);
     if (!paused) { step(dt); tickers.forEach(function (f) { f(dt); }); }
     cam(cams[0], dt); hud(); engineTick();
