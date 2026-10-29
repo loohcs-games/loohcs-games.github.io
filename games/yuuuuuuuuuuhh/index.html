@@ -2316,7 +2316,8 @@ body {
     var hg = new THREE.Group(); hg.position.set(o.x, 0, o.z); world.add(hg);
     K.mesh(new THREE.CylinderGeometry(11, 15, topY - o.y - 10, 32), K.mochi(0xfff3f7), 0, (topY + o.y - 10) / 2, 0, 1, 1, 1, hg);
     K.mesh(K.SPH, K.mochi(0xffb3cd), 0, topY - 10, 0, 16, 8, 16, hg);
-    var ring = K.mesh(new THREE.TorusGeometry(8, 2.2, 16, 48), candy(0xff4f9a), 0, topY, 0, 1, 1, 1, hg);
+    var dusk = STAGES[stageIdx] && STAGES[stageIdx].dusk;
+    var ring = K.mesh(new THREE.TorusGeometry(8, 2.2, 16, 48), candy(0xff4f9a, dusk ? { emissive: 0xff4f9a, emissiveIntensity: 0.9 } : {}), 0, topY, 0, 1, 1, 1, hg);
     var ring2 = K.mesh(new THREE.TorusGeometry(11, 0.8, 10, 48), candy(0xffffff), 0, topY, 0, 1, 1, 1, hg);
     var t = 0;
     tickers.push(function (dt) { t += dt; ring.rotation.y += dt * 1.6; ring2.rotation.y -= dt; var s = 1 + 0.12 * Math.sin(t * 5); ring.scale.set(s, s, s); });
@@ -2571,9 +2572,17 @@ body {
     { name: 'もちもちワンダーパーク', note: '雲の上のスイーツ遊園地。跳ねて・のびて・くっついて走る', road: '#f4e3a4', roadLook: { kerbA: '#ff7eb3', kerbB: '#ffffff', line: '#ffb8d6', glow: 0x2a2618 },
       horizon: '#b5e3ff', below: '#d3efff',                                       // a clear midday sky over a sea of white cloud
       sky: [[0, '#1f8fe6'], [0.5, '#4fb3f3'], [0.85, '#8fd2fb'], [1, '#b5e3ff']], clouds: [22, 0xffffff],
-      fog: [2200, 8000], hemi: [0xd6eaff, 0xffe3cf, 0.5], sun: [0xfff1dc, 0.75], sunDir: [0.6, 0.55, -0.5], sunCol: '#fffbe8', rim: [0xa8d8ff, 0.35],   // 太陽は低めの斜光で影を伸ばす。空側は青、地面側は生成りの照り返し
+      fog: [700, 3400], hemi: [0xd6eaff, 0xffe3cf, 0.5], sun: [0xfff1dc, 0.75], sunDir: [0.6, 0.55, -0.5], sunCol: '#fffbe8', rim: [0xa8d8ff, 0.35],   // 太陽は低めの斜光で影を伸ばす。空側は青、地面側は生成りの照り返し
       crowd: 0, gate: 0xff7ab6, props: parkProps, park: true, path: parkPath, noCuts: true, pads: [], ramps: [], hills: [], haz: null, dirt: 0xd9b97e }
   ];
+
+  // 夕方のワンダーパーク。昼の設定を引き継いで、空・光・霧・雲の色だけ差し替える
+  STAGES.push(Object.assign({}, STAGES[5], {
+    name: 'ワンダーパーク 夕方', note: '夕焼けに染まる遊園地。もちフックの輪が光る', dusk: true,
+    horizon: '#ffc9a0', below: '#f1bfb4',
+    sky: [[0, '#2f3f8f'], [0.42, '#8a6fc4'], [0.74, '#f28ba3'], [1, '#ffc9a0']], clouds: [22, 0xffd6c8],
+    fog: [500, 2600], hemi: [0xb6a4e6, 0xffb48c, 0.62], sun: [0xffa660, 1.05], sunDir: [0.85, 0.2, -0.35], sunCol: '#ff9a58', rim: [0x86a9ff, 0.5]
+  }));
 
   function buildStage(n) {
     var st = STAGES[n], i;
@@ -3403,7 +3412,7 @@ body {
         }, 80);
       }
       audio.resume();
-      song = SONGS[n]; mStep = 0; mNext = audio.currentTime + 0.1;
+      song = SONGS[n] || SONGS[SONGS.length - 1]; mStep = 0; mNext = audio.currentTime + 0.1;   // 夕方の版は昼と同じ曲
     } catch (e) { audio = null; }
   }
   function setMute(v) {
