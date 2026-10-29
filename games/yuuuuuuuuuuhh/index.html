@@ -463,7 +463,7 @@ body {
   });
   var player = karts[0], p2 = karts[1];
   function humans() { return twoP ? [player, p2] : [player]; }
-  window.mochi = { karts: karts, roll: function (rank, n) { var c = {}, k = { rank: rank }; raceT = 99; thunderCount = -1e9; for (var i = 0; i < n; i++) { var it = randomItem(k); c[it] = (c[it] || 0) + 1; } thunderCount = 0; return c; }, redraw: function () { cams.forEach(function (c) { c.h = c.k.h; c.y = c.k.alt; }); cam(cams[0], 0.016); draw(camera); }, P: function (i) { return P[i]; }, H: function (i) { return H[i]; }, camAspect: function () { return camera.aspect; }, view: function (v) { viewAt = v; }, park: function () { return park; }, NR: function (i) { return NR[i]; }, snapCam: function () { cams.forEach(function (c) { c.h = c.k.h; c.y = c.k.alt; }); }, cuts: function () { return cuts; }, goCut: function (n) { var c = cuts[n], m = c.forkM + 2; player.total += c.ia + m - player.idx; player.idx = c.ia + m; player.speed = 60; player.x = c.pts[m].x; player.z = c.pts[m].z; player.h = c.pts[m].ry; player.cut = c; player.ci = m; },
+  window.mochi = { karts: karts, roll: function (rank, n) { var c = {}, k = { rank: rank }; raceT = 99; thunderCount = -1e9; for (var i = 0; i < n; i++) { var it = randomItem(k); c[it] = (c[it] || 0) + 1; } thunderCount = 0; return c; }, redraw: function () { cams.forEach(function (c) { c.h = c.k.h; c.y = c.k.alt; }); cam(cams[0], 0.016); draw(camera); }, P: function (i) { return P[i]; }, H: function (i) { return H[i]; }, camAspect: function () { return camera.aspect; }, drawInfo: function () { var r = renderer.info.render; return { calls: r.calls, triangles: r.triangles }; }, view: function (v) { viewAt = v; }, park: function () { return park; }, NR: function (i) { return NR[i]; }, snapCam: function () { cams.forEach(function (c) { c.h = c.k.h; c.y = c.k.alt; }); }, cuts: function () { return cuts; }, goCut: function (n) { var c = cuts[n], m = c.forkM + 2; player.total += c.ia + m - player.idx; player.idx = c.ia + m; player.speed = 60; player.x = c.pts[m].x; player.z = c.pts[m].z; player.h = c.pts[m].ry; player.cut = c; player.ci = m; },
     sep: function () { var best = 1e9; for (var i = 0; i < N; i += 4) for (var j = i + 80; j < N; j += 4) { if (i + N - j < 80) continue; var d = Math.hypot(P[i].x - P[j].x, P[i].z - P[j].z); if (d < best) best = d; } return Math.round(best); }, hz: function () { return hazards.length; }, use: function (i, it) { karts[i].item = it; useItem(karts[i]); },
     tick: function (n) { while (n-- > 0) step(1 / 60); return { balls: balls.length, bananas: oils.length, bolts: bolts.length }; } };
 
@@ -2027,7 +2027,21 @@ body {
       m.castShadow = true; m.receiveShadow = true; (parent || world).add(m); return m;
     };
     K.put = function (name, it) { it.sky = true; (K.batches[name] = K.batches[name] || []).push(it); };
-    var sideTex = K.layerTex.clone(); sideTex.needsUpdate = true; sideTex.repeat.set(14, 1);
+    var LAYERS = [                                 // bands of cake from the top down: [colour, height]
+      [['#fff6ec', 11], ['#ff7fb0', 14], ['#ffe08a', 16], ['#7fd8a8', 13], ['#ffe08a', 14], ['#a98bff', 13], ['#ffd9a0', 47]],
+      [['#fffaf3', 11], ['#6cc6ff', 14], ['#ffc2dc', 16], ['#ffe45c', 13], ['#ffc2dc', 14], ['#ff7fb0', 13], ['#ffe2bd', 47]],
+      [['#fff6ec', 11], ['#a98bff', 14], ['#fff0b8', 16], ['#ff8fb8', 13], ['#fff0b8', 14], ['#62d6b4', 13], ['#ffd9a0', 47]]
+    ];
+    var sideTexs = LAYERS.map(function (bands) {
+      var t = canvasTex(64, 128, function (g) {
+        var y = 0;
+        bands.forEach(function (b) { g.fillStyle = b[0]; g.fillRect(0, y, 64, b[1]); y += b[1]; });
+        for (var n = 0; n < 90; n++) { g.fillStyle = 'rgba(200,140,80,0.18)'; g.fillRect(Math.random() * 64, 20 + Math.random() * 108, 2, 2); }   // crumb
+        g.fillStyle = bands[0][0];                   // icing dripping over the top band
+        for (var x = 0; x < 64; x += 8) { g.beginPath(); g.ellipse(x + 4, 11, 3.6, 3 + (x * 7 % 11), 0, 0, 6.3); g.fill(); }
+      });
+      t.repeat.set(12, 1); return t;
+    });
     var fallTex = canvasTex(32, 64, function (g) {
       g.fillStyle = '#ffffff'; g.fillRect(0, 0, 32, 64);
       for (var n = 0; n < 14; n++) { g.fillStyle = 'rgba(255,255,255,0.0)'; g.fillStyle = n % 2 ? 'rgba(200,225,255,0.55)' : 'rgba(255,255,255,0.9)'; g.fillRect(Math.random() * 30, Math.random() * 64, 2 + Math.random() * 3, 10 + Math.random() * 18); }
@@ -2038,15 +2052,19 @@ body {
     K.defs = {                                       // name: [geometry, material]
       isleTop: function () { return [shape(new THREE.CylinderGeometry(1, 1, 1, 40), function (g) { g.translate(0, -0.5, 0); }), lam(0xffffff)]; },
       isleRim: function () { return [shape(new THREE.TorusGeometry(1, 0.03, 6, 48), function (g) { g.rotateX(Math.PI / 2); }), lam(0xfffaf3)]; },
-      isleSide: function () { return [shape(new THREE.CylinderGeometry(1, 1, 1, 40, 1, true), function (g) { g.translate(0, -0.5, 0); }), new THREE.MeshLambertMaterial({ map: sideTex })]; },
+      isleSide0: function () { return [K.sideGeo(), new THREE.MeshLambertMaterial({ map: sideTexs[0] })]; },
+      isleSide1: function () { return [K.sideGeo(), new THREE.MeshLambertMaterial({ map: sideTexs[1] })]; },
+      isleSide2: function () { return [K.sideGeo(), new THREE.MeshLambertMaterial({ map: sideTexs[2] })]; },
+      canopy: function () { return [new THREE.IcosahedronGeometry(1, 1), lam(0xffffff)]; },
+      glow: function () { return [new THREE.SphereGeometry(1, 7, 5), new THREE.MeshBasicMaterial({ color: 0xffffff })]; },
       isleUnder: function () { return [shape(new THREE.ConeGeometry(1, 1, 16, 1), function (g) { g.rotateX(Math.PI); g.translate(0, -0.5, 0); }), flat(0xffffff)]; },
       fall: function () { return [shape(new THREE.PlaneGeometry(1, 1), function (g) { g.translate(0, -0.5, 0); }), new THREE.MeshBasicMaterial({ map: fallTex, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })]; },
-      splash: function () { return [K.SPHL, lam(0xffffff)]; },
-      drip: function () { return [K.SPHL, lam(0xffffff)]; },
+      splash: function () { return [new THREE.SphereGeometry(1, 8, 5), lam(0xffffff)]; },
+      drip: function () { return [new THREE.SphereGeometry(1, 7, 5), lam(0xffffff)]; },   // low-poly: there are thousands
       berry: function () { return [shape(new THREE.ConeGeometry(1, 1.6, 10), function (g) { g.rotateX(Math.PI); }), K.candy(0xffffff)]; },
-      houseB: function () { return [shape(new THREE.CylinderGeometry(1, 1, 1, 16), function (g) { g.translate(0, 0.5, 0); }), lam(0xffffff)]; },
+      houseB: function () { return [shape(new THREE.CylinderGeometry(1, 1, 1, 12, 1, true), function (g) { g.translate(0, 0.5, 0); }), lam(0xffffff)]; },
       houseR: function () { return [shape(new THREE.ConeGeometry(1, 1, 16), function (g) { g.translate(0, 0.5, 0); }), K.candy(0xffffff)]; },
-      ball: function () { return [K.SPHL, K.candy(0xffffff)]; },
+      ball: function () { return [new THREE.SphereGeometry(1, 9, 6), K.candy(0xffffff)]; },
       mochiBall: function () { return [K.SPH, K.mochi(0xffffff)]; },
       pole: function () { return [shape(new THREE.CylinderGeometry(0.35, 0.35, 1, 6), function (g) { g.translate(0, 0.5, 0); }), lam(0xffffff)]; },
       flag: function () { return [shape(new THREE.BufferGeometry(), function (g) { g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, -1, 0, 1.6, -0.5, 0], 3)); g.computeVertexNormals(); }), new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide })]; },
@@ -2060,6 +2078,7 @@ body {
       cone: function () { return [shape(new THREE.ConeGeometry(1, 1, 12), function (g) { g.translate(0, 0.5, 0); }), K.candy(0xffffff)]; },
       puff: function () { return [K.SPHL, lam(0xffffff)]; }
     };
+    K.sideGeo = function () { return shape(new THREE.CylinderGeometry(1, 0.96, 1, 40, 1, true), function (g) { g.translate(0, -0.5, 0); }); };
     K.flush = function () {
       Object.keys(K.batches).forEach(function (n) { if (K.batches[n].length) { var d = K.defs[n](); instanced(d[0], d[1], K.batches[n]); } });
       K.batches = {};
@@ -2072,14 +2091,47 @@ body {
     K.put('splash', { x: x, y: -112, z: z, sv: [w * 0.9, 5, w * 0.9], c: 0xffffff });
   }
   function wpIsland(K, o) {                        // a floating island: grass or cream on top, layered cake round the side, a point below
-    var r = o.r, y = o.y, d = o.depth || Math.max(5, r * 0.11);
+    var r = o.r, y = o.y, d = o.depth || Math.max(10, r * 0.3), v = o.layers !== undefined ? o.layers : Math.abs(Math.round(o.x * 0.37 + o.z * 0.11)) % 3;
     K.put('isleTop', { x: o.x, y: y, z: o.z, sv: [r, 2.4, r], c: o.top || 0xc8ecb4 });
     K.put('isleRim', { x: o.x, y: y - 0.3, z: o.z, s: r * 1.005 });
-    K.put('isleSide', { x: o.x, y: y - 2.4, z: o.z, sv: [r * 0.99, d, r * 0.99] });
-    K.put('isleUnder', { x: o.x, y: y - 2.4 - d, z: o.z, sv: [r * 0.97, r * (o.taper || 1.05), r * 0.97], c: o.under || 0xffc6dd });
+    K.put('isleSide' + v, { x: o.x, y: y - 2.4, z: o.z, sv: [r * 0.99, d, r * 0.99] });
+    var nd = Math.min(40, Math.round(r / 4));
+    for (var i = 0; i < nd; i++) {                 // frosting blobs hanging over the edge
+      var a = i / nd * Math.PI * 2 + o.x;
+      K.put('drip', { x: o.x + Math.cos(a) * r * 0.995, y: y - 3.2, z: o.z + Math.sin(a) * r * 0.995, sv: [Math.max(2, r * 0.035), Math.max(2.4, r * 0.05) * (1 + (i * 7 % 5) * 0.3), Math.max(2, r * 0.035)], c: 0xfffaf3 });
+    }
+    K.put('isleUnder', { x: o.x, y: y - 2.4 - d, z: o.z, sv: [r * 0.93, r * (o.taper || 1.05), r * 0.93], c: o.under || 0xffc6dd });
     (o.falls || []).forEach(function (a, n) {
-      wpFall(K, o.x + Math.cos(a) * (r + 0.8), o.z + Math.sin(a) * (r + 0.8), y - 0.5, a, Math.max(8, r * 0.13), n % 2 ? 0x9fdcff : 0xff9ec4);
+      wpFall(K, o.x + Math.cos(a) * (r + 0.8), o.z + Math.sin(a) * (r + 0.8), y - 0.5, a, Math.max(12, r * 0.2), [0xff9ec4, 0x9fdcff, 0xfff07a, 0xa8e6cf][(n + Math.abs(Math.round(o.x))) % 4]);
     });
+  }
+  var WP_ROOF = [0xff6fa5, 0x3fc9a0, 0xffc23d, 0x7d6bff, 0x4fb3f3, 0xff8a5c];
+  function wpDecorate(K, x0, z0, y, r, n, keep, big) {   // fill an island's top: sweet houses, little towers, trees, lamps, flags, lollipops
+    var done = [], s = big || 1, tries = 0;
+    while (done.length < n && tries++ < n * 6) {
+      var a = Math.random() * 6.283, d = Math.sqrt(Math.random()) * r * 0.9, x = x0 + Math.cos(a) * d, z = z0 + Math.sin(a) * d;
+      if ((keep || []).some(function (k) { return Math.hypot(x - k[0], z - k[1]) < k[2]; })) continue;
+      if (done.some(function (q) { return Math.hypot(x - q[0], z - q[1]) < 7 * s; })) continue;
+      if (!big && !wpClear(x, z, y - 5, y + 42, 8)) continue;
+      done.push([x, z]);
+      var kind = done.length % 7, c = WP_ROOF[done.length % 6], p = K.PASTEL[(done.length * 5) % 6];
+      if (kind === 0 || kind === 4) wpHouse(K, x, y, z, rnd(3.5, 6) * s, rnd(5, 10) * s, c);
+      else if (kind === 1) {                       // a slim tower
+        var th = rnd(16, 28) * s, tr = rnd(2.4, 3.4) * s;
+        K.put('houseB', { x: x, y: y, z: z, sv: [tr, th, tr], c: p }); K.put('houseR', { x: x, y: y + th, z: z, sv: [tr * 1.4, tr * 2.6, tr * 1.4], c: c });
+        K.put('ball', { x: x, y: y + th + tr * 2.6 + 0.9 * s, z: z, s: 1.1 * s, c: 0xfff07a });
+      } else if (kind === 2 || kind === 5) {       // a round candy tree
+        var hh = rnd(5, 9) * s;
+        K.put('pole', { x: x, y: y, z: z, sv: [1.6 * s, hh, 1.6 * s], c: 0xe5c28c });
+        K.put('canopy', { x: x, y: y + hh + 3 * s, z: z, s: rnd(3.6, 5.2) * s, c: [0xa8e6cf, 0xff9ec4, 0xbdeccb, 0xffc6dd, 0xc9b6ff][done.length % 5] });
+      } else if (kind === 3) {                     // a street lamp
+        K.put('pole', { x: x, y: y, z: z, sv: [0.7 * s, 10 * s, 0.7 * s], c: 0xffffff });
+        K.put('glow', { x: x, y: y + 10.8 * s, z: z, s: 1.5 * s, c: [0xfff3a0, 0xffc2dc, 0xc9f0ff][done.length % 3] });
+      } else {                                     // a flag, or a lollipop
+        if (done.length % 2) { K.put('pole', { x: x, y: y, z: z, sv: [0.6 * s, 14 * s, 0.6 * s], c: 0xffffff }); K.put('flag', { x: x, y: y + 13.6 * s, z: z, ry: a, s: 4 * s, c: c }); }
+        else { K.put('pole', { x: x, y: y, z: z, sv: [0.6 * s, 7 * s, 0.6 * s], c: 0xffffff }); K.put('ball', { x: x, y: y + 9 * s, z: z, s: 2.8 * s, c: p }); }
+      }
+    }
   }
   function wpCakeTower(K, o) {                     // tiers of cake stacked high; a road may wind round it
     var g = new THREE.Group(); g.position.set(o.x, 0, o.z); world.add(g);
@@ -2211,7 +2263,8 @@ body {
     }
     for (i = 0; i < 18; i++) {                      // far islands: each with a little landmark of its own
       var fa = i / 18 * Math.PI * 2 + rnd(-0.1, 0.1), fr = rnd(1300, 1900), fx = cx + Math.cos(fa) * fr, fz = cz + Math.sin(fa) * fr, fy = rnd(-30, 160), r = rnd(70, 140);
-      wpIsland(K, { x: fx, z: fz, y: fy, r: r, top: [0xc8ecb4, 0xffe3ef, 0xfff4dc, 0xc8f2e0][i % 4], under: [0xffc6dd, 0xd7c8ff, 0x9fdcff][i % 3], falls: i % 2 ? [fa + Math.PI] : [], taper: 1.2 });
+      wpIsland(K, { x: fx, z: fz, y: fy, r: r, top: [0xc8ecb4, 0xffe3ef, 0xfff4dc, 0xc8f2e0][i % 4], under: [0xffc6dd, 0xd7c8ff, 0x9fdcff][i % 3], falls: i % 3 ? [fa + Math.PI, fa + Math.PI + 0.7] : [fa + Math.PI], taper: 1.2 });
+      wpDecorate(K, fx, fz, fy, r * 0.85, 10, [[fx, fz, r * 0.45]], 2.4);
       var kind = i % 4, fc = K.PASTEL[(i + 3) % 6];
       if (kind === 0) { K.put('mochiBall', { x: fx, y: fy + r * 0.25, z: fz, sv: [r * 0.55, r * 0.35, r * 0.55], c: 0xfff4f7 }); K.put('mochiBall', { x: fx, y: fy + r * 0.75, z: fz, sv: [r * 0.4, r * 0.27, r * 0.4], c: fc }); }
       else if (kind === 1) { K.put('pole', { x: fx, y: fy, z: fz, sv: [6, r * 2.2, 6], c: 0xe5c28c }); [0.55, 1.15, 1.75].forEach(function (h, n) { K.put('mochiBall', { x: fx, y: fy + r * h, z: fz, s: r * 0.28, c: K.PASTEL[(i + n) % 6] }); }); }
@@ -2355,19 +2408,19 @@ body {
     wpWheel(K, M.wheel);
     wpIsland(K, { x: M.loopIsle.x, z: M.loopIsle.z, y: M.loopIsle.y, r: M.loopIsle.r, top: 0xffe3ef, under: 0x9fdcff, falls: [1.3, 2.1] });
     wpSauceTower(K, M.sauce);
-    M.attract.forEach(function (a, n) { wpIsland(K, { x: a[0], z: a[1], y: a[2], r: a[3], top: n ? 0xc8ecb4 : 0xfff4dc, under: n ? 0xd7c8ff : 0xffc6dd, falls: [1.6] }); });
-    M.spare.forEach(function (s, n) { wpIsland(K, { x: s[0], z: s[1], y: s[2], r: s[3], top: [0xc8ecb4, 0xfff4dc, 0xffe3ef, 0xc8f2e0][n % 4], under: [0xd7c8ff, 0xffc6dd, 0x9fdcff][n % 3], falls: [n * 1.7, n * 1.7 + 2.4] }); });
-    var cols = [0xff6fa5, 0x3fc9a0, 0xffc23d, 0x7d6bff, 0x4fb3f3];
-    function townOn(is, n, rMax) {                  // sweet shops scattered on an island, clear of every road
-      for (var k = 0; k < n; k++) {
-        var a = rnd(0, 6.283), r = Math.sqrt(Math.random()) * is[3] * (rMax || 0.8), x = is[0] + Math.cos(a) * r, z = is[1] + Math.sin(a) * r;
-        if (wpClear(x, z, is[2] - 5, is[2] + 40, 10)) wpHouse(K, x, is[2], z, rnd(4, 7), rnd(6, 14), cols[k % 5]);
-      }
-    }
-    M.attract.forEach(function (a) { townOn(a, 10); });
-    M.spare.forEach(function (s) { townOn(s, 6, 0.6); });
-    townOn([M.loopIsle.x, M.loopIsle.z, M.loopIsle.y, M.loopIsle.r], 12);
-    townOn([T0.x, T0.z, T0.y, T0.r], 8, 1);
+    M.attract.forEach(function (a, n) { wpIsland(K, { x: a[0], z: a[1], y: a[2], r: a[3], top: n ? 0xc8ecb4 : 0xfff4dc, under: n ? 0xd7c8ff : 0xffc6dd, falls: [1.6, 2.9] }); });
+    M.spare.forEach(function (s, n) { wpIsland(K, { x: s[0], z: s[1], y: s[2], r: s[3], top: [0xc8ecb4, 0xfff4dc, 0xffe3ef, 0xc8f2e0][n % 4], under: [0xd7c8ff, 0xffc6dd, 0x9fdcff][n % 3], falls: [n * 1.7, n * 1.7 + 2.4, n * 1.7 + 4.1] }); });
+    var dense = 0.09;                               // decorations per unit of island area (about one every 11 x 11)
+    function fill(x, z, y, r, keep) { wpDecorate(K, x, z, y, r, Math.round(Math.PI * r * r * dense / 100), keep); }
+    M.attract.forEach(function (a) { fill(a[0], a[1], a[2], a[3]); });
+    M.spare.forEach(function (sp) { fill(sp[0], sp[1], sp[2], sp[3]); });
+    M.hops.forEach(function (h) { fill(h[0], h[1], h[2], h[3]); });
+    fill(M.loopIsle.x, M.loopIsle.z, M.loopIsle.y, M.loopIsle.r);
+    fill(T0.x, T0.z, T0.y, T0.r, [[T0.x, T0.z, 84]]);
+    fill(M.plaza.x, M.plaza.z, M.plaza.y, M.plaza.r * 0.98, [[-420, 62, 34], [M.plaza.x, M.plaza.z, 70]]);
+    fill(M.hookIsle.x, M.hookIsle.z, M.hookIsle.y, M.hookIsle.r, [[M.hookIsle.x, M.hookIsle.z, 22]]);
+    fill(M.wheel.x, M.wheel.z, M.wheel.y, M.wheel.r, [[M.wheel.x + 18, M.wheel.z, 30]]);
+    fill(M.sauce.x, M.sauce.z, M.sauce.y, M.sauce.r, [[M.sauce.x, M.sauce.z, 40]]);
     C.arches.forEach(function (x, n) {
       var ii = idxAt(x, 40, 160);
       wpArch(K, P[ii].x, H[ii], P[ii].z, roadDir(ii), HW + 8, ['#ff6fa5', '#3fc9a0', '#ffc23d'][n % 3]);
