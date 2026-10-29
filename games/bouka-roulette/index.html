@@ -138,7 +138,7 @@
 'use strict';
 var TEST = location.search.indexOf('test') >= 0;
 var TAU = Math.PI * 2;
-var DEFAULT_NAMES = ['嶺井', '谷口', '石川', '井之上', '小枩', '白崎', '呉', '工藤'];
+var DEFAULT_NAMES = ['嶺井', '石川', '井之上', '小枩', '白崎', '呉', '工藤'];
 var STORE_KEY = 'bouka-roulette-names';
 var LINES = ['拒否権はありません', '拍手！', '運命です', '講習の日程を確認しましょう', '満場一致（ルーレットによる）', '次回もお楽しみに'];
 var BULBS = 36;
@@ -428,7 +428,7 @@ function selfTest() {
   r.easeSlowsDown = (ease(0.2) - ease(0)) > (ease(1) - ease(0.8));
   r.oddCountGetsGreen = segColor(4, 5) === '#1e8449' && segColor(4, 6) !== '#1e8449';
   r.evenCountNoClash = segColor(0, 6) !== segColor(5, 6);
-  r.defaultNamesLoaded = names.length === 8;
+  r.defaultNamesLoaded = names.length === DEFAULT_NAMES.length;
   r.ok = Object.keys(r).every(function (k) { return r[k] === true; });
   var pre = document.createElement('pre');
   pre.id = 'test-result';
