@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>ころころゴルフ</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: linear-gradient(#7fd4ff, #c9f1ff 55%, #e9fbe0);
+    color: #24402a;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 12px; overflow: hidden;
+    user-select: none; -webkit-user-select: none;
+  }
+  .back { color: inherit; text-decoration: none; }
+  h1 { margin: 0; font-size: clamp(20px, 4vw, 30px); letter-spacing: .08em; text-shadow: 0 2px 0 #fff; }
+  #hud {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center;
+    font-weight: bold; font-size: clamp(13px, 2.2vw, 17px);
+  }
+  .chip { background: #fff; border-radius: 999px; padding: 5px 14px; box-shadow: 0 3px 0 rgba(0,0,0,.12); }
+  .chip b { color: #e2552f; font-size: 1.15em; }
+  button {
+    font: inherit; font-weight: bold; cursor: pointer; border: none; border-radius: 999px;
+    padding: 5px 14px; background: #ffd95a; color: #5b3d00; box-shadow: 0 3px 0 #c9a21f;
+  }
+  button:active { transform: translateY(2px); box-shadow: 0 1px 0 #c9a21f; }
+  #stage { position: relative; width: min(100%, calc((100vh - 150px) * 1.6)); aspect-ratio: 8 / 5; }
+  canvas {
+    width: 100%; height: 100%; display: block; border-radius: 18px; touch-action: none;
+    box-shadow: 0 10px 0 #6b4a2b, 0 16px 24px rgba(0,0,0,.25);
+  }
+  #overlay {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(20, 60, 30, .45); border-radius: 18px;
+  }
+  #overlay.hidden { display: none; }
+  #panel {
+    background: #fffdf3; border-radius: 22px; padding: 22px 30px; text-align: center;
+    box-shadow: 0 8px 0 rgba(0,0,0,.2); max-width: 90%; max-height: 92%; overflow: auto;
+    animation: pop .35s cubic-bezier(.2, 1.6, .4, 1);
+  }
+  @keyframes pop { from { transform: scale(.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  #panel h2 { margin: 0 0 6px; font-size: clamp(22px, 5vw, 38px); color: #e2552f; }
+  #panel p { margin: 6px 0 14px; font-size: clamp(13px, 2.4vw, 17px); line-height: 1.7; }
+  #panel button { font-size: clamp(15px, 3vw, 20px); padding: 9px 26px; }
+  table { border-collapse: collapse; margin: 8px auto 12px; font-size: clamp(11px, 2vw, 15px); }
+  td, th { border: 2px solid #e6dcc0; padding: 3px 7px; min-width: 1.9em; }
+  th { background: #f4ecd2; }
+  .good { color: #1d8f3c; font-weight: bold; } .bad { color: #c0392b; }
+</style>
+</head>
+<body>
+<h1>⛳ ころころゴルフ</h1>
+<div id="hud">
+  <span class="chip">ホール <b id="hHole">1</b>/9</span>
+  <span class="chip">パー <b id="hPar">3</b></span>
+  <span class="chip">打数 <b id="hStroke">0</b></span>
+  <span class="chip">トータル <b id="hTotal">±0</b></span>
+  <button id="retry">↺ やりなおし</button>
+  <button id="mute">🔊</button>
+  <a class="chip back" href="../../">← 一覧にもどる</a>
+</div>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div id="overlay"><div id="panel"></div></div>
+</div>
+
+<script>
+const W = 800, H = 500, M = 20, R = 7, HR = 12;
+const MAX_DRAG = 140, MAX_SPEED = 950, SINK_SPEED = 430;
+
+// rect = [x, y, w, h] / bumper = [x, y, r] / boost = [x, y, w, h, dx, dy] / portal = [ax, ay, bx, by]
+const LEVELS = [
+  { name: 'はじめの一歩', par: 2, tee: [120, 250], hole: [680, 250],
+    sand: [[360, 60, 90, 70]] },
+  { name: 'かべのむこう', par: 3, tee: [120, 150], hole: [680, 150],
+    walls: [[390, 20, 20, 300]], sand: [[500, 380, 120, 80]] },
+  { name: 'ぽよぽよバンパー', par: 3, tee: [100, 400], hole: [700, 100],
+    walls: [[560, 180, 20, 140]],
+    bumpers: [[400, 250, 26], [290, 160, 20], [500, 370, 20], [640, 380, 16]] },
+  { name: 'いけポチャ注意', par: 3, tee: [100, 250], hole: [700, 250],
+    water: [[330, 120, 140, 260]], sand: [[560, 50, 80, 60]] },
+  { name: 'うごくかべ', par: 3, tee: [100, 250], hole: [700, 250],
+    walls: [[250, 20, 20, 180], [250, 300, 20, 180]],
+    movers: [{ x: 390, y: 195, w: 20, h: 110, ax: 0, ay: 1, range: 150, speed: 1.6, phase: 0 },
+             { x: 540, y: 195, w: 20, h: 110, ax: 0, ay: 1, range: 150, speed: 1.6, phase: Math.PI }] },
+  { name: 'くねくねロード', par: 5, tee: [80, 410], hole: [700, 90],
+    walls: [[20, 320, 600, 15], [180, 165, 600, 15]],
+    boosts: [[300, 375, 90, 50, 1, 0], [380, 225, 90, 50, -1, 0]],
+    sand: [[430, 30, 90, 60]] },
+  { name: 'ワープのひみつ', par: 2, tee: [100, 250], hole: [700, 290],
+    walls: [[600, 150, 15, 200], [600, 150, 180, 15], [600, 335, 180, 15]],
+    water: [[250, 300, 150, 120]],
+    portals: [[300, 110, 690, 200]] },
+  { name: 'ピンボール', par: 3, tee: [400, 440], hole: [400, 70],
+    water: [[20, 200, 200, 60], [580, 200, 200, 60]],
+    bumpers: [[400, 250, 28], [300, 170, 18], [500, 170, 18], [320, 330, 18], [480, 330, 18]] },
+  { name: 'ぜんぶのせ', par: 5, tee: [110, 420], hole: [720, 80],
+    walls: [[200, 200, 20, 280], [540, 20, 20, 330]],
+    water: [[320, 20, 140, 110]],
+    sand: [[565, 350, 60, 130]],
+    bumpers: [[610, 140, 18], [380, 330, 22]],
+    boosts: [[690, 290, 50, 60, 0, -1]],
+    movers: [{ x: 620, y: 200, w: 80, h: 16, ax: 1, ay: 0, range: 60, speed: 2, phase: 0 }],
+    portals: [[50, 50, 690, 430]] },
+];
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const overlay = document.getElementById('overlay');
+const panel = document.getElementById('panel');
+const $ = id => document.getElementById(id);
+
+let levelIndex = 0, level = null, strokes = 0, scores = [];
+let state = 'title'; // title | aim | moving | sinking | result | end
+let ball = { x: 0, y: 0, vx: 0, vy: 0 };
+let lastPos = { x: 0, y: 0 };
+let drag = null, time = 0, moveTime = 0, sinkT = 0, portalLock = false;
+let trail = [], particles = [], floats = [], bumperFlash = new Map();
+let muted = false, audio = null;
+
+// ---------- sound ----------
+function beep(freq, dur, type = 'sine', vol = 0.15, slideTo = null, delay = 0) {
+  if (muted || !audio) return;
+  const t = audio.currentTime + delay;
+  const o = audio.createOscillator(), g = audio.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(audio.destination);
+  o.start(t); o.stop(t + dur);
+}
+const sfx = {
+  hit: p => beep(180 + p * 220, 0.12, 'triangle', 0.25, 90),
+  wall: () => beep(320, 0.05, 'square', 0.06),
+  bumper: () => beep(520, 0.15, 'sine', 0.2, 1040),
+  splash: () => beep(500, 0.4, 'sawtooth', 0.12, 60),
+  boost: () => beep(300, 0.2, 'sawtooth', 0.05, 900),
+  warp: () => beep(900, 0.3, 'sine', 0.15, 200),
+  sink: () => [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.22, 'triangle', 0.2, null, i * 0.09)),
+};
+
+// ---------- game flow ----------
+function loadLevel(i) {
+  levelIndex = i; level = LEVELS[i]; strokes = 0;
+  ball = { x: level.tee[0], y: level.tee[1], vx: 0, vy: 0 };
+  lastPos = { x: ball.x, y: ball.y };
+  trail = []; drag = null; portalLock = false; state = 'aim';
+  overlay.classList.add('hidden');
+  updateHud();
+}
+function totalDiff() { return scores.reduce((s, v, i) => s + v - LEVELS[i].par, 0); }
+function fmtDiff(d) { return d === 0 ? '±0' : (d > 0 ? '+' + d : '' + d); }
+function updateHud() {
+  $('hHole').textContent = levelIndex + 1;
+  $('hPar').textContent = level ? level.par : '-';
+  $('hStroke').textContent = strokes;
+  $('hTotal').textContent = fmtDiff(totalDiff());
+}
+function resultName(s, par) {
+  if (s === 1) return '🌟 ホールインワン!! 🌟';
+  const d = s - par;
+  if (d <= -3) return '🦅 アルバトロス!';
+  if (d === -2) return '🦅 イーグル!';
+  if (d === -1) return '🐦 バーディー!';
+  if (d === 0) return '👍 パー!';
+  if (d === 1) return '😅 ボギー';
+  if (d === 2) return '😵 ダブルボギー';
+  return '🐢 +' + d + '…ドンマイ!';
+}
+function showPanel(html, btnText, onClick) {
+  panel.innerHTML = html + `<div><button id="go">${btnText}</button></div>`;
+  panel.style.animation = 'none'; panel.offsetHeight; panel.style.animation = '';
+  overlay.classList.remove('hidden');
+  $('go').onclick = () => { initAudio(); onClick(); };
+}
+function showTitle() {
+  state = 'title'; level = LEVELS[0]; updateHud();
+  showPanel(`<h2>⛳ ころころゴルフ</h2>
+    <p>画面を<b>ひっぱって、はなす</b>とボールがとぶよ!<br>
+    🏖️ すなは止まりやすい / 💧 いけは1打罰<br>
+    🔴 バンパーではねる / ➡️ ダッシュで加速 / 🌀 ワープ!<br>全9ホール、めざせパー以下!</p>`,
+    'スタート ▶', () => { scores = []; loadLevel(0); });
+}
+function finishHole() {
+  scores[levelIndex] = strokes; updateHud();
+  const last = levelIndex === LEVELS.length - 1;
+  state = 'result';
+  showPanel(`<h2>${resultName(strokes, level.par)}</h2>
+    <p>ホール${levelIndex + 1}「${level.name}」<br>${strokes}打 (パー${level.par})</p>`,
+    last ? 'けっか発表 🏆' : 'つぎのホール ▶',
+    () => last ? showEnd() : loadLevel(levelIndex + 1));
+}
+function showEnd() {
+  state = 'end';
+  const total = scores.reduce((a, b) => a + b, 0), diff = totalDiff();
+  let best = null;
+  try { best = JSON.parse(localStorage.getItem('korokoroGolfBest')); } catch (e) {}
+  const isBest = best === null || total < best;
+  if (isBest) { try { localStorage.setItem('korokoroGolfBest', total); } catch (e) {} }
+  const cls = (s, p) => s < p ? 'good' : s > p ? 'bad' : '';
+  const rank = diff <= -6 ? '🏆 でんせつのゴルファー!' : diff <= -2 ? '🥇 すごうで!' :
+               diff <= 2 ? '🥈 ナイスプレー!' : diff <= 8 ? '🥉 いいかんじ!' : '🌱 のびしろしかない!';
+  showPanel(`<h2>${rank}</h2>
+    <table><tr><th>ホール</th>${LEVELS.map((_, i) => `<th>${i + 1}</th>`).join('')}<th>計</th></tr>
+    <tr><th>パー</th>${LEVELS.map(l => `<td>${l.par}</td>`).join('')}<td>${LEVELS.reduce((a, l) => a + l.par, 0)}</td></tr>
+    <tr><th>スコア</th>${scores.map((s, i) => `<td class="${cls(s, LEVELS[i].par)}">${s}</td>`).join('')}<td><b>${total}</b></td></tr></table>
+    <p>トータル <b>${fmtDiff(diff)}</b>${isBest ? ' 🎉 ベスト更新!' : `(ベスト: ${best}打)`}</p>`,
+    'もういちど ↺', () => { scores = []; loadLevel(0); });
+  for (let i = 0; i < 6; i++) setTimeout(() => confetti(100 + Math.random() * 600, 100 + Math.random() * 200), i * 250);
+}
+
+// ---------- physics ----------
+const inRect = (x, y, r) => x > r[0] && x < r[0] + r[2] && y > r[1] && y < r[1] + r[3];
+function moverRect(m) {
+  const o = Math.sin(time * m.speed + m.phase) * m.range;
+  return [m.x + m.ax * o, m.y + m.ay * o, m.w, m.h];
+}
+function collideRect(r, rest) {
+  const cx = Math.max(r[0], Math.min(ball.x, r[0] + r[2]));
+  const cy = Math.max(r[1], Math.min(ball.y, r[1] + r[3]));
+  let dx = ball.x - cx, dy = ball.y - cy, d2 = dx * dx + dy * dy, nx, ny;
+  if (d2 >= R * R) return false;
+  if (d2 === 0) { // center is inside the rect: leave through the nearest side
+    const l = ball.x - r[0], rt = r[0] + r[2] - ball.x, t = ball.y - r[1], b = r[1] + r[3] - ball.y;
+    const m = Math.min(l, rt, t, b);
+    if (m === l) { nx = -1; ny = 0; ball.x = r[0] - R; }
+    else if (m === rt) { nx = 1; ny = 0; ball.x = r[0] + r[2] + R; }
+    else if (m === t) { nx = 0; ny = -1; ball.y = r[1] - R; }
+    else { nx = 0; ny = 1; ball.y = r[1] + r[3] + R; }
+  } else {
+    const d = Math.sqrt(d2); nx = dx / d; ny = dy / d;
+    ball.x = cx + nx * R; ball.y = cy + ny * R;
+  }
+  const vn = ball.vx * nx + ball.vy * ny;
+  if (vn < 0) {
+    ball.vx -= (1 + rest) * vn * nx; ball.vy -= (1 + rest) * vn * ny;
+    if (vn < -40) sfx.wall();
+  }
+  return true;
+}
+function collideBounds() {
+  let hit = 0;
+  if (ball.x < M + R) { ball.x = M + R; if (ball.vx < 0) { hit = -ball.vx; ball.vx *= -0.8; } }
+  if (ball.x > W - M - R) { ball.x = W - M - R; if (ball.vx > 0) { hit = ball.vx; ball.vx *= -0.8; } }
+  if (ball.y < M + R) { ball.y = M + R; if (ball.vy < 0) { hit = -ball.vy; ball.vy *= -0.8; } }
+  if (ball.y > H - M - R) { ball.y = H - M - R; if (ball.vy > 0) { hit = ball.vy; ball.vy *= -0.8; } }
+  if (hit > 40) sfx.wall();
+}
+function collideSolids() {
+  collideBounds();
+  for (const w of level.walls || []) collideRect(w, 0.8);
+  for (const m of level.movers || []) collideRect(moverRect(m), 0.8);
+}
+function step(h) {
+  // surfaces
+  let k = 1.1;
+  for (const s of level.sand || []) if (inRect(ball.x, ball.y, s)) k = 5.5;
+  for (const b of level.boosts || []) if (inRect(ball.x, ball.y, b)) {
+    ball.vx += b[4] * 1100 * h; ball.vy += b[5] * 1100 * h;
+    if (Math.random() < 0.02) sfx.boost();
+  }
+  // hole gravity
+  const hx = level.hole[0] - ball.x, hy = level.hole[1] - ball.y, hd = Math.hypot(hx, hy);
+  if (hd < HR + 5 && hd > 0.01) { ball.vx += hx / hd * 700 * h; ball.vy += hy / hd * 700 * h; }
+
+  let sp = Math.hypot(ball.vx, ball.vy);
+  if (sp > 0) {
+    const ns = Math.max(0, sp * Math.exp(-k * h) - 14 * h);
+    ball.vx *= ns / sp; ball.vy *= ns / sp; sp = ns;
+  }
+  ball.x += ball.vx * h; ball.y += ball.vy * h;
+
+  collideSolids();
+  for (const b of level.bumpers || []) {
+    const dx = ball.x - b[0], dy = ball.y - b[1], d = Math.hypot(dx, dy);
+    if (d < b[2] + R && d > 0) {
+      const nx = dx / d, ny = dy / d, vn = ball.vx * nx + ball.vy * ny;
+      ball.x = b[0] + nx * (b[2] + R); ball.y = b[1] + ny * (b[2] + R);
+      if (vn < 0) { ball.vx -= 2 * vn * nx; ball.vy -= 2 * vn * ny; }
+      ball.vx += nx * 220; ball.vy += ny * 220;
+      bumperFlash.set(b, 1); sfx.bumper();
+    }
+  }
+  // portals
+  let inside = false;
+  for (const p of level.portals || []) {
+    for (const [ax, ay, bx, by] of [[p[0], p[1], p[2], p[3]], [p[2], p[3], p[0], p[1]]]) {
+      if (Math.hypot(ball.x - ax, ball.y - ay) < 16) {
+        inside = true;
+        if (!portalLock) {
+          burst(ax, ay, '#c58bff', 14); ball.x = bx; ball.y = by; burst(bx, by, '#c58bff', 14);
+          portalLock = true; trail = []; sfx.warp(); return;
+        }
+      }
+    }
+  }
+  if (!inside) portalLock = false;
+  // water
+  for (const w of level.water || []) if (inRect(ball.x, ball.y, w)) {
+    burst(ball.x, ball.y, '#bfe9ff', 18); sfx.splash();
+    floats.push({ x: ball.x, y: ball.y, text: 'ポチャン! +1', life: 1.4 });
+    strokes++; updateHud();
+    ball = { x: lastPos.x, y: lastPos.y, vx: 0, vy: 0 }; trail = []; state = 'aim'; return;
+  }
+  // cup
+  if (hd < HR - 3 && sp < SINK_SPEED) { state = 'sinking'; sinkT = 0; sfx.sink(); }
+}
+function update(dt) {
+  time += dt;
+  if (state === 'moving') {
+    moveTime += dt;
+    for (let i = 0; i < 8 && state === 'moving'; i++) step(dt / 8);
+    trail.push({ x: ball.x, y: ball.y }); if (trail.length > 14) trail.shift();
+    if (state === 'moving') {
+      const onBoost = (level.boosts || []).some(b => inRect(ball.x, ball.y, b));
+      if ((Math.hypot(ball.vx, ball.vy) < 6 && !onBoost) || moveTime > 15) {
+        ball.vx = ball.vy = 0; state = 'aim'; trail = [];
+      }
+    }
+  } else if (state === 'aim') {
+    collideSolids(); // a moving wall may shove a resting ball
+  } else if (state === 'sinking') {
+    sinkT += dt;
+    ball.x += (level.hole[0] - ball.x) * 0.3; ball.y += (level.hole[1] - ball.y) * 0.3;
+    if (sinkT > 0.4) { confetti(level.hole[0], level.hole[1]); finishHole(); }
+  }
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; p.life -= dt; p.rot += p.vr * dt; }
+  particles = particles.filter(p => p.life > 0);
+  for (const f of floats) { f.y -= 30 * dt; f.life -= dt; }
+  floats = floats.filter(f => f.life > 0);
+  for (const [b, v] of bumperFlash) { if (v - dt * 4 <= 0) bumperFlash.delete(b); else bumperFlash.set(b, v - dt * 4); }
+}
+function burst(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = 40 + Math.random() * 140;
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, g: 0, life: 0.5 + Math.random() * 0.3, color, size: 3, rot: 0, vr: 0 });
+  }
+}
+function confetti(x, y) {
+  const colors = ['#ff5d5d', '#ffd23f', '#4dd0ff', '#7be07b', '#ff8fd8', '#fff'];
+  for (let i = 0; i < 70; i++) {
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4, s = 150 + Math.random() * 330;
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, g: 520, life: 1.2 + Math.random() * 0.9,
+      color: colors[i % colors.length], size: 4 + Math.random() * 4, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 14 });
+  }
+}
+
+// ---------- input ----------
+function initAudio() {
+  if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (audio && audio.state === 'suspended') audio.resume();
+}
+function toWorld(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+}
+function aimVector() {
+  let dx = drag.sx - drag.x, dy = drag.sy - drag.y, len = Math.hypot(dx, dy);
+  if (len < 8) return null;
+  const p = Math.min(len, MAX_DRAG) / MAX_DRAG;
+  return { nx: dx / len, ny: dy / len, p };
+}
+canvas.addEventListener('pointerdown', e => {
+  initAudio();
+  if (state !== 'aim') return;
+  const p = toWorld(e); drag = { sx: p.x, sy: p.y, x: p.x, y: p.y };
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => { if (drag) { const p = toWorld(e); drag.x = p.x; drag.y = p.y; } });
+function release() {
+  if (!drag) return;
+  const a = state === 'aim' ? aimVector() : null; drag = null;
+  if (!a) return;
+  lastPos = { x: ball.x, y: ball.y };
+  ball.vx = a.nx * a.p * MAX_SPEED; ball.vy = a.ny * a.p * MAX_SPEED;
+  strokes++; moveTime = 0; state = 'moving'; updateHud(); sfx.hit(a.p);
+}
+canvas.addEventListener('pointerup', release);
+canvas.addEventListener('pointercancel', () => { drag = null; });
+$('retry').onclick = () => { if (state === 'aim' || state === 'moving') loadLevel(levelIndex); };
+$('mute').onclick = () => { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; };
+
+// ---------- drawing ----------
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2), r = canvas.getBoundingClientRect();
+  canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
+}
+window.addEventListener('resize', resize);
+
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function draw() {
+  ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  // frame + grass
+  ctx.fillStyle = '#9b6b3d'; ctx.fillRect(0, 0, W, H);
+  ctx.save(); rr(M, M, W - 2 * M, H - 2 * M, 6); ctx.clip();
+  for (let i = 0; i < 20; i++) { ctx.fillStyle = i % 2 ? '#6fd167' : '#64c85c'; ctx.fillRect(M + i * 38, M, 38, H); }
+
+  for (const s of level.sand || []) {
+    ctx.fillStyle = '#f3dc9a'; rr(s[0], s[1], s[2], s[3], 18); ctx.fill();
+    ctx.fillStyle = '#e2c675';
+    for (let i = 0; i < 12; i++) { ctx.beginPath(); ctx.arc(s[0] + 10 + (i * 37) % (s[2] - 20), s[1] + 10 + (i * 53) % (s[3] - 20), 1.6, 0, 7); ctx.fill(); }
+  }
+  for (const w of level.water || []) {
+    ctx.fillStyle = '#3fb4ee'; rr(w[0], w[1], w[2], w[3], 16); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i++) {
+      const x = w[0] + 20 + ((i * 61 + time * 14) % Math.max(1, w[2] - 50)), y = w[1] + 18 + (i * 47) % Math.max(1, w[3] - 30);
+      ctx.beginPath(); ctx.arc(x, y, 7, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    }
+  }
+  for (const b of level.boosts || []) {
+    ctx.fillStyle = '#ffb347'; rr(b[0], b[1], b[2], b[3], 8); ctx.fill();
+    ctx.save(); rr(b[0], b[1], b[2], b[3], 8); ctx.clip();
+    ctx.translate(b[0] + b[2] / 2, b[1] + b[3] / 2); ctx.rotate(Math.atan2(b[5], b[4]));
+    ctx.strokeStyle = '#fff6d6'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = -3; i < 4; i++) {
+      const x = i * 24 + (time * 60) % 24;
+      ctx.beginPath(); ctx.moveTo(x - 7, -12); ctx.lineTo(x + 3, 0); ctx.lineTo(x - 7, 12); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  for (const p of level.portals || []) {
+    for (const [x, y] of [[p[0], p[1]], [p[2], p[3]]]) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(time * 3);
+      ctx.fillStyle = '#5b2a9a'; ctx.beginPath(); ctx.arc(0, 0, 16, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#d7a8ff'; ctx.lineWidth = 3;
+      for (let i = 0; i < 3; i++) { ctx.rotate(Math.PI * 2 / 3); ctx.beginPath(); ctx.arc(4, 0, 9, 0, Math.PI); ctx.stroke(); }
+      ctx.restore();
+    }
+  }
+  // cup
+  const [hx, hy] = level.hole;
+  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.arc(hx, hy, HR + 3, 0, 7); ctx.fill();
+  ctx.fillStyle = '#1d2b1f'; ctx.beginPath(); ctx.arc(hx, hy, HR, 0, 7); ctx.fill();
+  ctx.restore();
+
+  // walls
+  const block = (r, top, side) => {
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; rr(r[0] + 3, r[1] + 5, r[2], r[3], 5); ctx.fill();
+    ctx.fillStyle = side; rr(r[0], r[1], r[2], r[3], 5); ctx.fill();
+    ctx.fillStyle = top; rr(r[0], r[1], r[2], r[3] - 4, 5); ctx.fill();
+  };
+  for (const w of level.walls || []) block(w, '#c58b52', '#8a5a2e');
+  for (const m of level.movers || []) block(moverRect(m), '#ff7a7a', '#c64545');
+  for (const b of level.bumpers || []) {
+    const f = bumperFlash.get(b) || 0, r = b[2] * (1 + f * 0.18);
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.arc(b[0] + 2, b[1] + 4, r, 0, 7); ctx.fill();
+    ctx.fillStyle = f > 0 ? '#fff27a' : '#ff5d8f'; ctx.beginPath(); ctx.arc(b[0], b[1], r, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b[0], b[1], r * 0.55, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ff5d8f'; ctx.font = `bold ${r * 0.8}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('★', b[0], b[1] + 1);
+  }
+
+  // ball
+  if (state !== 'title' && state !== 'result' && state !== 'end') {
+    trail.forEach((t, i) => {
+      ctx.fillStyle = `rgba(255,255,255,${i / trail.length * 0.4})`;
+      ctx.beginPath(); ctx.arc(t.x, t.y, R * i / trail.length, 0, 7); ctx.fill();
+    });
+    const sc = state === 'sinking' ? Math.max(0, 1 - sinkT / 0.4) : 1;
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(ball.x + 2, ball.y + 3, R * sc, R * sc * 0.8, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ball.x, ball.y, R * sc, 0, 7); ctx.fill();
+    // little eyes that look where the ball is going
+    let ex = hx - ball.x, ey = hy - ball.y;
+    const a = drag && aimVector();
+    if (state === 'moving') { ex = ball.vx; ey = ball.vy; } else if (a) { ex = a.nx; ey = a.ny; }
+    const el = Math.hypot(ex, ey) || 1; ex /= el; ey /= el;
+    ctx.fillStyle = '#222';
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(ball.x + (ex * 2.4 - ey * 2.4 * s) * sc, ball.y + (ey * 2.4 + ex * 2.4 * s) * sc, 1.4 * sc, 0, 7); ctx.fill(); }
+
+    if (a) {
+      const len = 30 + a.p * 110;
+      const col = `hsl(${120 - a.p * 120}, 90%, 50%)`;
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.setLineDash([2, 9]); ctx.lineCap = 'round';
+      ctx.lineDashOffset = -time * 40;
+      ctx.beginPath(); ctx.moveTo(ball.x + a.nx * 12, ball.y + a.ny * 12); ctx.lineTo(ball.x + a.nx * len, ball.y + a.ny * len); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = col; ctx.save(); ctx.translate(ball.x + a.nx * len, ball.y + a.ny * len); ctx.rotate(Math.atan2(a.ny, a.nx));
+      ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-5, -7); ctx.lineTo(-5, 7); ctx.closePath(); ctx.fill(); ctx.restore();
+      // power meter
+      ctx.fillStyle = 'rgba(0,0,0,.35)'; rr(ball.x - 22, ball.y + 16, 44, 7, 4); ctx.fill();
+      ctx.fillStyle = col; rr(ball.x - 21, ball.y + 17, 42 * a.p, 5, 3); ctx.fill();
+    } else if (state === 'aim' && strokes === 0 && levelIndex === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('👆 ひっぱって、はなす!', W / 2, H - 50 + Math.sin(time * 4) * 3);
+    }
+  }
+  // flag
+  ctx.strokeStyle = '#f4f4f4'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx, hy - 42); ctx.stroke();
+  const wv = Math.sin(time * 5) * 3;
+  ctx.fillStyle = '#ff4b4b'; ctx.beginPath(); ctx.moveTo(hx, hy - 42); ctx.quadraticCurveTo(hx + 14, hy - 40 + wv, hx + 26, hy - 33 + wv); ctx.lineTo(hx, hy - 24); ctx.fill();
+
+  for (const p of particles) {
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.globalAlpha = Math.min(1, p.life * 2);
+    ctx.fillStyle = p.color; ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.7); ctx.restore();
+  }
+  for (const f of floats) {
+    ctx.globalAlpha = Math.min(1, f.life); ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center';
+    ctx.lineWidth = 4; ctx.strokeStyle = '#1b5e8a'; ctx.strokeText(f.text, f.x, f.y);
+    ctx.fillStyle = '#fff'; ctx.fillText(f.text, f.x, f.y); ctx.globalAlpha = 1;
+  }
+  // hole name
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(`H${levelIndex + 1} ${level.name}`, M + 4, 10);
+}
+
+let prev = performance.now();
+function loop(now) {
+  const dt = Math.min((now - prev) / 1000, 1 / 30); prev = now;
+  update(dt); draw();
+  requestAnimationFrame(loop);
+}
+resize(); showTitle(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>

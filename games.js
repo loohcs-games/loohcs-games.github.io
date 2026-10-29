@@ -7,6 +7,9 @@ window.GAMES = [
   { id: "bouka-roulette", title: "防火防災管理者ルーレット", author: "loohcskshirasaki", description: "じゃんけんではなく運命で決める。なるべく派手に。音あり" },
   // ---- yuuuuuuuuuuhh ----
   { id: "yuuuuuuuuuuhh", title: "モチモチグランプリ", author: "yuuuuuuuuuuhh", description: "おもちのモチが食べものレーサーと走る3Dカートレース。1人・2人・オンライン対戦" },
+  { id: "yuuuuuuuuuuhh-2", title: "てっぺん", author: "yuuuuuuuuuuhh", description: "街の上空に積み上がったガラクタを、ひたすら上へ。落ちたら、落ちたところから" },
+  { id: "yuuuuuuuuuuhh-3", title: "ころころゴルフ", author: "yuuuuuuuuuuhh", description: "引っぱって打つ2Dゴルフ。全9ホール" },
+  { id: "yuuuuuuuuuuhh-4", title: "グリーンヒルズ ゴルフ 3D", author: "yuuuuuuuuuuhh", description: "風とクラブを読んで打つ3Dゴルフ" },
 
   // ---- ishiritsu0-web ----
   { id: "ishiritsu0-web", title: "ミサイル乱射シミュレーター", author: "ishiritsu0-web", description: "夜の街でミサイルを撃ち合う。戦闘機も飛ばせる2Dシミュレーション" },

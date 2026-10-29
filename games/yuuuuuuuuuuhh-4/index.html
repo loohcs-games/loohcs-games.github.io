@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>グリーンヒルズ ゴルフ 3D</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; background: #9fd3f0; }
+  body { font-family: "Hiragino Sans", "Yu Gothic", sans-serif; color: #fff; user-select: none; -webkit-user-select: none; }
+  #swing { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  canvas#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .box { background: rgba(10, 40, 70, .62); border-radius: 12px; padding: 8px 14px; backdrop-filter: blur(4px); }
+  #info { position: fixed; left: 12px; top: 12px; font-weight: bold; line-height: 1.5; }
+  #info .big { font-size: 20px; } #info .remain { font-size: 26px; color: #ffe46b; } #iExtra { color: #7df0ff; }
+  #side { position: fixed; right: 12px; top: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  #wind { text-align: center; font-weight: bold; min-width: 96px; }
+  #windArrow { font-size: 34px; line-height: 1; display: inline-block; color: #7df0ff; }
+  #windLabel { font-size: 12px; opacity: .9; }
+  #mini { border-radius: 10px; border: 3px solid rgba(255,255,255,.8); width: 110px; height: 220px; }
+  #msg { position: fixed; left: 0; right: 0; top: 24%; text-align: center; font-size: clamp(24px, 5vw, 46px); font-weight: 900;
+         text-shadow: 0 3px 0 #0a3a5c, 0 0 14px rgba(0,0,0,.5); pointer-events: none; opacity: 0; transition: opacity .25s; }
+  #ctrl { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(580px, 94vw); display: flex; flex-direction: column; gap: 8px; }
+  #clubRow, #btnRow { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  #clubName { min-width: 190px; text-align: center; font-weight: bold; font-size: 17px; }
+  button { font: inherit; font-weight: bold; color: #fff; background: rgba(10, 40, 70, .75); border: 2px solid rgba(255,255,255,.7);
+           border-radius: 10px; padding: 6px 14px; cursor: pointer; touch-action: none; }
+  button:active { background: #1c7fc4; }
+  #shot { background: #e8452c; font-size: 20px; padding: 8px 40px; border-color: #fff; }
+  #meterWrap { position: relative; padding-bottom: 16px; }
+  #meter { position: relative; height: 26px; border-radius: 13px; background: rgba(10, 40, 70, .8); border: 2px solid #fff; overflow: hidden; }
+  #mFill { position: absolute; left: 12%; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #49d17a, #ffe14a 60%, #ff5a3c); }
+  #mZone { position: absolute; left: 9.5%; width: 5%; top: 0; bottom: 0; background: #fff; }
+  #mTick { position: absolute; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: #7df0ff; box-shadow: 0 0 8px #7df0ff; }
+  #mCur { position: absolute; top: -2px; bottom: -2px; width: 5px; margin-left: -2px; background: #ff2d2d; border: 1px solid #fff; left: 12%; }
+  #mScale span { position: absolute; bottom: 0; font-size: 11px; font-weight: bold; transform: translateX(-50%); text-shadow: 0 1px 2px #000; white-space: nowrap; }
+  #mScale .cup { color: #7df0ff; }
+  #help { text-align: center; font-size: 14px; font-weight: bold; text-shadow: 0 1px 3px #000, 0 0 6px #000; min-height: 1.4em; }
+  #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(8, 30, 50, .5); z-index: 5; }
+  #overlay.hidden { display: none; }
+  #panel { background: #fff; color: #17384f; border-radius: 20px; padding: 24px 34px; text-align: center; max-width: 92vw; max-height: 92vh; overflow: auto;
+           box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+  #panel p.back { margin: 14px 0 0; font-size: 14px; }
+  #panel .back a { color: #0a7fd0; font-weight: bold; }
+  #panel h2 { margin: 0 0 8px; font-size: clamp(24px, 5vw, 40px); color: #0a7fd0; }
+  #panel p { line-height: 1.8; margin: 8px 0 16px; font-size: 15px; }
+  #panel button { background: #0a9be0; border: none; font-size: 20px; padding: 10px 34px; }
+  table { border-collapse: collapse; margin: 8px auto 12px; } td, th { border: 2px solid #d5e4ee; padding: 4px 10px; } th { background: #eaf4fa; }
+  .good { color: #1d8f3c; font-weight: bold; } .bad { color: #c0392b; }
+  button, #clubName { white-space: nowrap; }
+  @media (max-width: 600px) {
+    #info { font-size: 12px; padding: 6px 10px; } #info .big { font-size: 14px; } #info .remain { font-size: 18px; }
+    #mini { width: 70px; height: 140px; } #windArrow { font-size: 24px; } #wind { font-size: 12px; min-width: 64px; }
+    #clubName { min-width: 0; font-size: 13px; } button { padding: 6px 9px; font-size: 13px; } #shot { font-size: 17px; padding: 8px 26px; }
+    #help { font-size: 11px; } #panel { padding: 16px 18px; } #panel p { font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="swing"></canvas>
+<div id="info" class="box">
+  <div class="big"><span id="iHole"></span></div>
+  <div><span id="iStroke"></span> ・ <span id="iLie"></span></div>
+  <div>のこり <span class="remain" id="iRemain"></span></div>
+  <div id="iExtra"></div>
+</div>
+<div id="side">
+  <div id="wind" class="box"><div id="windArrow">↑</div><div id="windSpeed"></div><div id="windLabel"></div></div>
+  <canvas id="mini" width="110" height="220"></canvas>
+</div>
+<div id="msg"></div>
+<div id="ctrl">
+  <div id="help"></div>
+  <div id="clubRow"><button id="clubUp">▲ 長い</button><div id="clubName" class="box"></div><button id="clubDown">▼ 短い</button></div>
+  <div id="meterWrap">
+    <div id="meter"><div id="mFill"></div><div id="mZone"></div><div id="mTick"></div><div id="mCur"></div></div>
+    <div id="mScale"></div>
+  </div>
+  <div id="btnRow"><button id="aimL">◀ 左</button><button id="shot">ショット</button><button id="aimR">右 ▶</button></div>
+</div>
+<div id="overlay"><div id="panel"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const G = 9.81, KD = 0.0045, KL = 0.0018, YD = 1.0936, RK = 0.05;
+const AREA = { x0: -150, x1: 150, z0: -560, z1: 40 };
+const OB = 0, ROUGH = 1, FAIRWAY = 2, GREEN = 3, BUNKER = 4, TEE = 5, WATER = 6;
+const SURF_NAME = ['OB', 'ラフ', 'フェアウェイ', 'グリーン', 'バンカー', 'ティー', 'ラフ'];
+// e: bounce, tf: speed kept along the ground on a bounce, mu: rolling friction
+const PHYS = [
+  { e: .12, tf: .3, mu: .9 }, { e: .15, tf: .35, mu: .7 }, { e: .32, tf: .65, mu: .27 }, { e: .28, tf: .6, mu: .065 },
+  { e: .03, tf: .12, mu: 2.2 }, { e: .32, tf: .65, mu: .27 }, { e: .15, tf: .35, mu: .7 },
+];
+const THEMES = {
+  day:    { sky: ['#2a78d2', '#7fbdf0', '#cfeafa'], fog: 0xc6e3f3, sun: 0xfff0d2, sunInt: 1.5, hemi: [0xd6eaff, 0x5a8a45, 0.75], dir: [0.45, 0.75, 0.35],
+            hue: [0.26, 0.36], sat: 0.55, grass: [1, 1, 1], water: 0x2c80c8, mount: 0x93b8d4, cloud: 0xffffff },
+  autumn: { sky: ['#3f7fc4', '#a9cbe6', '#efe6cf'], fog: 0xe3ddc8, sun: 0xffe0a8, sunInt: 1.45, hemi: [0xf0e6d0, 0x6e6a38, 0.7], dir: [-0.5, 0.6, 0.4],
+            hue: [0.02, 0.15], sat: 0.8, grass: [1.04, 0.97, 0.82], water: 0x3d7ea6, mount: 0xb3a58f, cloud: 0xfff4e0 },
+  sunset: { sky: ['#34478a', '#d98a7a', '#ffc27a'], fog: 0xf2bb8c, sun: 0xff9448, sunInt: 1.7, hemi: [0xd8c4e0, 0x5c6a44, 1.0], dir: [-0.35, 0.3, -0.89],
+            hue: [0.22, 0.33], sat: 0.45, grass: [1.03, 0.95, 0.84], water: 0x55709e, mount: 0x7d6080, cloud: 0xffc9a0 },
+};
+// line: tee -> pin centerline [x, z] in meters / bunkers & ponds: [x, z, rx, rz]
+// sea: ponds[0] is the ocean (with a beach) / island: ponds[0] is a moat around the green
+const HOLES = [
+  { name: 'シーサイド', theme: 'day', par: 4, line: [[0, 0], [-5, -170], [25, -335]], greenR: 15, fairStart: 35, seed: 1.3, sea: true,
+    bunkers: [[-32, -200, 9, 7], [0, -356, 9, 6]], ponds: [[250, -260, 150, 420]] },
+  { name: 'アイランドグリーン', theme: 'day', par: 3, line: [[0, 0], [0, -130]], greenR: 14, fairStart: 999, seed: 4.1, island: true,
+    bunkers: [], ponds: [[0, -125, 48, 44]] },
+  { name: 'もみじ谷', theme: 'autumn', par: 5, line: [[0, 0], [20, -180], [-30, -340], [0, -490]], greenR: 15, fairStart: 35, seed: 7.7,
+    bunkers: [[-10, -190, 10, 8], [48, -175, 8, 10], [-28, -492, 7, 7], [24, -478, 7, 8]], ponds: [[45, -300, 18, 24]] },
+  { name: '池ごえの近道', theme: 'autumn', par: 4, line: [[0, 0], [10, -170], [-70, -270]], greenR: 14, fairStart: 35, seed: 2.9,
+    bunkers: [[30, -185, 9, 10], [-92, -262, 7, 8], [-60, -292, 8, 6]], ponds: [[-40, -175, 24, 30]] },
+  { name: '夕暮れの丘', theme: 'sunset', par: 3, line: [[0, 0], [12, -185]], greenR: 15, fairStart: 150, seed: 9.2,
+    bunkers: [[-12, -180, 7, 10], [36, -182, 7, 9], [12, -160, 9, 5]], ponds: [[-45, -120, 18, 22]] },
+  { name: 'サンセットビーチ', theme: 'sunset', par: 5, line: [[0, 0], [15, -200], [-10, -380], [20, -500]], greenR: 15, fairStart: 35, seed: 5.5, sea: true,
+    bunkers: [[45, -215, 10, 9], [-35, -370, 9, 11], [45, -492, 7, 8], [0, -522, 8, 6]], ponds: [[-250, -260, 150, 420], [55, -400, 16, 20]] },
+];
+const CLUBS = [
+  { n: '1W', name: 'ドライバー', carry: 215, loft: 12 }, { n: '3W', name: '3番ウッド', carry: 190, loft: 14 },
+  { n: '5I', name: '5番アイアン', carry: 160, loft: 18 }, { n: '7I', name: '7番アイアン', carry: 135, loft: 22 },
+  { n: '9I', name: '9番アイアン', carry: 110, loft: 27 }, { n: 'PW', name: 'ピッチング', carry: 85, loft: 33 },
+  { n: 'SW', name: 'サンドウェッジ', carry: 55, loft: 42 }, { n: 'PT', name: 'パター', putter: true },
+];
+const PUTTER = CLUBS.length - 1;
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const ell = (p, x, z) => Math.hypot((x - p[0]) / p[2], (z - p[1]) / p[3]);
+
+// ---------- course model ----------
+let hole = null, pin = [0, 0], lastS = 0, lastDl = 0;
+function distLine(x, z) {
+  let best = 1e9;
+  for (const s of hole.segs) {
+    const t = clamp(((x - s.ax) * s.dx + (z - s.az) * s.dz) / (s.len * s.len), 0, 1);
+    const d = Math.hypot(x - s.ax - s.dx * t, z - s.az - s.dz * t);
+    if (d < best) { best = d; lastS = s.s0 + t * s.len; }
+  }
+  return best;
+}
+function pointAt(s) {
+  s = clamp(s, 0, hole.len);
+  for (const g of hole.segs) if (s <= g.s0 + g.len) { const t = (s - g.s0) / g.len; return [g.ax + g.dx * t, g.az + g.dz * t]; }
+  return pin;
+}
+function baseH(x, z) {
+  const s = hole.seed;
+  return 1.6 * Math.sin(x * 0.021 + s) * Math.cos(z * 0.017 + s * 1.7) + 0.5 * Math.sin(x * 0.05 + z * 0.043 + s * 2.3) + 2.2 * Math.sin(z * 0.008 + s * 0.6);
+}
+function H(x, z) {
+  let h = baseH(x, z);
+  const dl = distLine(x, z);
+  if (dl > 40) { const t = Math.min((dl - 40) / 45, 1.6); h += t * t * 7; } // wooded hills on both sides
+  const dx = x - pin[0], dz = z - pin[1], dp = Math.hypot(dx, dz), R = hole.greenR;
+  if (dp < R + 18) {
+    const hg = hole.pinH + hole.tx * dx + hole.tz * dz + 0.1 * Math.sin(dx * 0.2 + hole.seed) * Math.cos(dz * 0.17);
+    h = lerp(h, hg, smooth(R + 18, R + 2, dp));
+  }
+  const dt = Math.hypot(x, z);
+  if (dt < 16) h = lerp(h, hole.teeH, smooth(16, 7, dt));
+  for (const b of hole.bunkers) { const d = ell(b, x, z); if (d < 1.3) h -= 0.5 * smooth(1.3, 0.6, d); }
+  for (const p of hole.ponds) {
+    const d = ell(p, x, z);
+    if (d < 1.35) { let w = smooth(1.35, 0.95, d); if (p.moat) w *= smooth(R * 1.1 + 4, R * 1.1 + 10, dp); h = lerp(h, p.level - 0.9, w); }
+  }
+  return h;
+}
+function grad(x, z) { const e = 0.3; return [(H(x + e, z) - H(x - e, z)) / (2 * e), (H(x, z + e) - H(x, z - e)) / (2 * e)]; }
+function surf(x, z) {
+  const dp = Math.hypot(x - pin[0], z - pin[1]);
+  const gr = hole.greenR * (1 + 0.1 * Math.sin(3 * Math.atan2(z - pin[1], x - pin[0]) + hole.seed));
+  lastDl = 0;
+  if (dp < gr) return GREEN;
+  if (dp < gr + 3) return FAIRWAY;
+  for (const p of hole.ponds) { const d = ell(p, x, z); if (d < 1.2) return WATER; if (p.sea && d < 1.42) return BUNKER; }
+  for (const b of hole.bunkers) if (ell(b, x, z) < 1) return BUNKER;
+  if (Math.abs(x) < 5 && z > -7 && z < 5) return TEE;
+  const dl = lastDl = distLine(x, z);
+  if (dl < 17 + 4 * Math.sin(z * 0.035 + hole.seed) && Math.hypot(x, z) > hole.fairStart) return FAIRWAY;
+  return dl < 62 ? ROUGH : OB;
+}
+function inWater(x, z, h) { for (const p of hole.ponds) if (ell(p, x, z) < 1.35 && h < p.waterY) return true; return false; }
+
+// ---------- three.js scene ----------
+const renderer = new THREE.WebGLRenderer({ canvas: $('gl'), antialias: true });
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xc6e3f3, 220, 1000);
+const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 6000);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x447733, 0.7); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 1.4); scene.add(sun, sun.target);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.03;
+Object.assign(sun.shadow.camera, { left: -95, right: 95, top: 95, bottom: -95, near: 1, far: 700 }); sun.shadow.camera.updateProjectionMatrix();
+const sunDir = new THREE.Vector3(0.4, 0.8, 0.3);
+
+const noiseCanvas = (size, fn) => { const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d'), im = g.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) { const v = fn(i % size, (i / size) | 0); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; } g.putImageData(im, 0, 0); return c; };
+const repeatTex = c => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
+// close-up grass grain (multiplied into ambient light through the aoMap slot)
+const detailTex = (() => { const c = noiseCanvas(256, () => 150 + Math.random() * 105), g = c.getContext('2d');
+  for (let i = 0; i < 2600; i++) { g.strokeStyle = Math.random() < 0.5 ? 'rgba(255,255,255,.35)' : 'rgba(60,60,60,.3)'; g.beginPath(); const x = Math.random() * 256, y = Math.random() * 256; g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 3, y - 3 - Math.random() * 5); g.stroke(); }
+  const t = repeatTex(c); t.anisotropy = 8; return t; })();
+const waveTex = repeatTex(noiseCanvas(128, (x, y) => 128 + 60 * Math.sin(x * 0.2 + Math.sin(y * 0.15) * 2) + 50 * Math.sin(y * 0.29 + x * 0.1) + Math.random() * 12));
+
+const skyCanvas = document.createElement('canvas'); skyCanvas.width = 8; skyCanvas.height = 512;
+const skyTex = new THREE.CanvasTexture(skyCanvas);
+const skyDome = new THREE.Mesh(new THREE.SphereGeometry(4500, 24, 16), new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, toneMapped: false, depthWrite: false }));
+scene.add(skyDome);
+const glowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), r = g.createRadialGradient(64, 64, 2, 64, 64, 64);
+  r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.15, 'rgba(255,255,255,.8)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
+const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, fog: false, depthWrite: false, toneMapped: false, transparent: true }));
+sunSprite.scale.set(900, 900, 1); scene.add(sunSprite);
+const cloudMat = new THREE.SpriteMaterial({ map: glowTex, fog: false, depthWrite: false, toneMapped: false, opacity: 0.85 });
+for (let i = 0; i < 30; i++) {
+  const a = i * 2.4, r = 900 + (i * 137) % 900, bx = Math.cos(a) * r, bz = Math.sin(a) * r - 250, by = 260 + (i * 53) % 220;
+  for (let k = 0; k < 5; k++) { const s = new THREE.Sprite(cloudMat); s.position.set(bx + k * 70 - 140, by + ((k * 37) % 30), bz + ((k * 71) % 60)); s.scale.set(240 + ((k * 61) % 110), 95, 1); scene.add(s); }
+}
+const mountMat = new THREE.MeshBasicMaterial({ color: 0x93b8d4, fog: false, toneMapped: false, side: THREE.DoubleSide });
+{
+  const N = 160, v = [], idx = [];
+  for (let i = 0; i <= N; i++) { const a = i / N * Math.PI * 2, h = 90 + 150 * Math.abs(Math.sin(i * 0.37) + 0.6 * Math.sin(i * 0.91 + 1)) + 40 * Math.sin(i * 2.3);
+    v.push(Math.cos(a) * 2400, -60, Math.sin(a) * 2400, Math.cos(a) * 2400, h, Math.sin(a) * 2400); if (i < N) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.setIndex(idx);
+  const m = new THREE.Mesh(g, mountMat); m.position.z = -260; scene.add(m);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(5000, 32).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x2f6b34 }));
+  ground.position.set(0, -6, -260); scene.add(ground);
+}
+function applyTheme(t) {
+  const g = skyCanvas.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 512);
+  gr.addColorStop(0, t.sky[0]); gr.addColorStop(0.36, t.sky[1]); gr.addColorStop(0.5, t.sky[2]); gr.addColorStop(1, t.sky[2]);
+  g.fillStyle = gr; g.fillRect(0, 0, 8, 512); skyTex.needsUpdate = true;
+  scene.fog.color.setHex(t.fog); sun.color.setHex(t.sun); sun.intensity = t.sunInt * 0.62;
+  hemi.color.setHex(t.hemi[0]); hemi.groundColor.setHex(t.hemi[1]); hemi.intensity = t.hemi[2] * 0.72;
+  sunDir.set(...t.dir).normalize(); sunSprite.material.color.setHex(t.sun);
+  mountMat.color.setHex(t.mount); cloudMat.color.setHex(t.cloud);
+}
+
+let course = null, miniBase = null, flagGroup = null, flagCloth = null, greenGrid = null, waters = [];
+function buildHole(i) {
+  hole = HOLES[i]; const L = hole.line, theme = THEMES[hole.theme]; pin = L[L.length - 1];
+  applyTheme(theme);
+  hole.segs = []; let acc = 0;
+  for (let k = 0; k < L.length - 1; k++) {
+    const dx = L[k + 1][0] - L[k][0], dz = L[k + 1][1] - L[k][1], len = Math.hypot(dx, dz);
+    hole.segs.push({ ax: L[k][0], az: L[k][1], dx, dz, len, s0: acc }); acc += len;
+  }
+  hole.len = acc; hole.pinH = baseH(pin[0], pin[1]); hole.teeH = baseH(0, 0);
+  hole.tx = 0.018 * Math.sin(hole.seed * 3); hole.tz = 0.018 * Math.cos(hole.seed * 5);
+  let low = 1e9; for (let s = 0; s <= acc; s += 20) { const p = pointAt(s); low = Math.min(low, baseH(p[0], p[1])); }
+  hole.ponds.forEach((p, k) => {
+    p.sea = !!hole.sea && k === 0; p.moat = !!hole.island && k === 0;
+    p.level = p.sea ? low - 0.6 : p.moat ? hole.pinH - 0.2 : baseH(p[0], p[1]); p.waterY = p.level - 0.3;
+  });
+
+  if (course) { scene.remove(course); course.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); }
+  course = new THREE.Group(); scene.add(course); waters = [];
+  const AW = AREA.x1 - AREA.x0, AL = AREA.z1 - AREA.z0;
+
+  // ground colour texture (also used for the minimap)
+  const CW = 1024, CH = 2048, cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
+  const cx = cv.getContext('2d'), img = cx.createImageData(CW, CH), d = img.data, T = theme.grass;
+  const COL = [[38, 84, 40], [62, 126, 52], [98, 176, 72], [132, 206, 98], [236, 221, 176], [112, 188, 86], [52, 112, 160]];
+  for (let py = 0, o = 0; py < CH; py++) {
+    const z = AREA.z0 + (py + 0.5) / CH * AL;
+    for (let px = 0; px < CW; px++, o += 4) {
+      const x = AREA.x0 + (px + 0.5) / CW * AW, wob = 0.7 * Math.sin(x * 0.63 + z * 1.1) + 0.7 * Math.sin(z * 0.81 - x * 0.37);
+      const t = surf(x + wob, z + wob * 0.6), c = COL[t];
+      const blotch = Math.sin(x * 0.11 + Math.sin(z * 0.07) * 2) * Math.sin(z * 0.13 + Math.sin(x * 0.09) * 2);
+      let m = 1, n = (Math.random() - 0.5) * 8, tint = t !== BUNKER && t !== WATER;
+      if (t === FAIRWAY || t === TEE) m = 0.93 + 0.04 * (Math.floor((x + z) / 8) & 1) + 0.04 * (Math.floor((x - z) / 8) & 1) + blotch * 0.02;
+      else if (t === GREEN) m = (Math.floor((x - z) / 2.5) & 1) ? 1 : 0.955;
+      else if (t === ROUGH) { m = (0.92 + blotch * 0.08) * (lastDl > 48 ? 0.85 : 1); n *= 2; }
+      else if (t === OB) { m = 0.9 + blotch * 0.1; n *= 2.5; }
+      else if (t === BUNKER) m = 0.97 + 0.03 * Math.sin((x + z) * 2.2);
+      d[o] = c[0] * m * (tint ? T[0] : 1) + n; d[o + 1] = c[1] * m * (tint ? T[1] : 1) + n; d[o + 2] = c[2] * m * (tint ? T[2] : 1) + n; d[o + 3] = 255;
+    }
+  }
+  cx.putImageData(img, 0, 0);
+  miniBase = document.createElement('canvas'); miniBase.width = 110; miniBase.height = 220;
+  miniBase.getContext('2d').drawImage(cv, 0, 0, 110, 220);
+  const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+  const geo = new THREE.PlaneGeometry(AW, AL, 150, 300).rotateX(-Math.PI / 2);
+  const cz = (AREA.z0 + AREA.z1) / 2, pos = geo.attributes.position, uv2 = new Float32Array(pos.count * 2);
+  for (let k = 0; k < pos.count; k++) { const x = pos.getX(k), z = pos.getZ(k) + cz; pos.setZ(k, z); pos.setY(k, H(x, z)); uv2[k * 2] = x / 5; uv2[k * 2 + 1] = z / 5; }
+  geo.setAttribute('uv2', new THREE.BufferAttribute(uv2, 2)); geo.computeVertexNormals();
+  const terrain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0, aoMap: detailTex, aoMapIntensity: 1.2 }));
+  terrain.receiveShadow = true; course.add(terrain);
+
+  for (const p of hole.ponds) {
+    const map = waveTex.clone(); map.needsUpdate = true; map.repeat.set(p[2] / 5, p[3] / 5);
+    const w = new THREE.Mesh(new THREE.CircleGeometry(1, 64).rotateX(-Math.PI / 2),
+      new THREE.MeshPhongMaterial({ color: theme.water, transparent: true, opacity: 0.88, shininess: 180, specular: 0xffffff, bumpMap: map, bumpScale: 0.6 }));
+    w.scale.set(p[2] * 1.4, 1, p[3] * 1.4); w.position.set(p[0], p.waterY, p[1]); course.add(w); waters.push(map);
+  }
+  // trees
+  const spots = [];
+  for (let k = 0; k < 5000 && spots.length < 700; k++) {
+    const x = AREA.x0 + Math.random() * AW, z = AREA.z0 + Math.random() * AL;
+    if (distLine(x, z) < 55 || hole.ponds.some(p => ell(p, x, z) < 1.5)) continue;
+    spots.push([x, z, 9 + Math.random() * 10, Math.random(), H(x, z)]);
+  }
+  const pines = spots.filter(s => s[3] < 0.5), rounds = spots.filter(s => s[3] >= 0.5), dm = new THREE.Object3D(), col = new THREE.Color();
+  const inst = (geom, mat, list, fn, hueFn) => {
+    const m = new THREE.InstancedMesh(geom, mat, list.length); m.castShadow = true; m.frustumCulled = false;
+    list.forEach((s, k) => { fn(s); dm.updateMatrix(); m.setMatrixAt(k, dm.matrix); if (hueFn) { hueFn(s); m.setColorAt(k, col); } });
+    course.add(m);
+  };
+  const leaf = () => new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true });
+  const r7 = s => (s[3] * 7) % 1, pineHue = s => col.setHSL(0.3 + r7(s) * 0.07, 0.5, 0.17 + r7(s) * 0.08);
+  const leafHue = s => col.setHSL(lerp(theme.hue[0], theme.hue[1], r7(s)), theme.sat, 0.26 + ((s[3] * 13) % 1) * 0.14);
+  inst(new THREE.CylinderGeometry(0.22, 0.4, 1, 6), new THREE.MeshStandardMaterial({ color: 0x5e4129, roughness: 1 }), spots, s => { dm.position.set(s[0], s[4] + s[2] * 0.2, s[1]); dm.scale.set(1, s[2] * 0.4, 1); dm.rotation.y = 0; });
+  inst(new THREE.ConeGeometry(1, 1, 8), leaf(), pines, s => { dm.position.set(s[0], s[4] + s[2] * 0.48, s[1]); dm.scale.set(s[2] * 0.3, s[2] * 0.6, s[2] * 0.3); dm.rotation.y = s[3] * 9; }, pineHue);
+  inst(new THREE.ConeGeometry(1, 1, 8), leaf(), pines, s => { dm.position.set(s[0], s[4] + s[2] * 0.78, s[1]); dm.scale.set(s[2] * 0.2, s[2] * 0.5, s[2] * 0.2); dm.rotation.y = s[3] * 5; }, pineHue);
+  inst(new THREE.IcosahedronGeometry(1, 1), leaf(), rounds, s => { dm.position.set(s[0], s[4] + s[2] * 0.58, s[1]); dm.scale.set(s[2] * 0.36, s[2] * 0.36, s[2] * 0.36); dm.rotation.y = s[3] * 9; }, leafHue);
+  inst(new THREE.IcosahedronGeometry(1, 1), leaf(), rounds, s => { dm.position.set(s[0] + s[2] * 0.16, s[4] + s[2] * 0.42, s[1] + s[2] * 0.1); dm.scale.set(s[2] * 0.26, s[2] * 0.24, s[2] * 0.26); dm.rotation.y = s[3] * 4; }, leafHue);
+  // pin
+  const ph = H(pin[0], pin[1]);
+  const cup = new THREE.Mesh(new THREE.CircleGeometry(0.13, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x0a0a0a }));
+  cup.position.set(pin[0], ph + 0.02, pin[1]); course.add(cup);
+  const rim = new THREE.Mesh(new THREE.RingGeometry(0.13, 0.16, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  rim.position.copy(cup.position); course.add(rim);
+  flagGroup = new THREE.Group(); flagGroup.position.set(pin[0], ph, pin[1]);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.4, 8), new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.4 }));
+  pole.position.y = 1.2; pole.castShadow = true; flagGroup.add(pole);
+  flagCloth = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.48, 8, 1).translate(0.375, 0, 0), new THREE.MeshStandardMaterial({ color: 0xe8302a, side: THREE.DoubleSide, roughness: 0.8 }));
+  flagCloth.position.y = 2.15; flagCloth.castShadow = true; flagGroup.add(flagCloth); course.add(flagGroup);
+  for (const sx of [-2.2, 2.2]) {
+    const tm = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), new THREE.MeshStandardMaterial({ color: 0x2a6fe0, roughness: 0.5 }));
+    tm.position.set(sx, H(sx, 0.4) + 0.08, 0.4); tm.castShadow = true; course.add(tm);
+  }
+  // contour grid on the green (shown while putting)
+  const gv = [], R = hole.greenR * 1.12, add = (x, z) => gv.push(x, H(x, z) + 0.035, z);
+  for (let a = -Math.floor(R / 2) * 2; a <= R; a += 2) {
+    const half = Math.sqrt(Math.max(R * R - a * a, 0));
+    for (let b = -half; b < half; b += 1) { const b2 = Math.min(b + 1, half);
+      add(pin[0] + a, pin[1] + b); add(pin[0] + a, pin[1] + b2); add(pin[0] + b, pin[1] + a); add(pin[0] + b2, pin[1] + a); }
+  }
+  const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gv, 3));
+  greenGrid = new THREE.LineSegments(gg, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.32 })); course.add(greenGrid);
+}
+
+// ball, shadow, trail, aim helpers
+const ballMesh = new THREE.Mesh(new THREE.SphereGeometry(0.035, 20, 14), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 }));
+ballMesh.castShadow = true; scene.add(ballMesh);
+const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.045, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.35, depthWrite: false }));
+scene.add(shadow);
+const mkLine = (n, color, opacity) => {
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color, transparent: true, opacity })); l.frustumCulled = false; scene.add(l); return l;
+};
+const aimLine = mkLine(400, 0xffffff, 0.9), trailLine = mkLine(600, 0xffffff, 0.75);
+const marker = new THREE.Mesh(new THREE.RingGeometry(0.7, 1.05, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffe14a, transparent: true, opacity: 0.9, depthTest: false }));
+marker.renderOrder = 5; scene.add(marker);
+let trailN = 0;
+// putt preview: a flat ribbon on the green that follows the predicted roll
+const RIB_N = 90, ribGeo = new THREE.BufferGeometry();
+ribGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(RIB_N * 6), 3));
+{ const ix = []; for (let i = 0; i < RIB_N - 1; i++) ix.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2); ribGeo.setIndex(ix); }
+const ribbon = new THREE.Mesh(ribGeo, new THREE.MeshBasicMaterial({ color: 0x7df0ff, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide }));
+ribbon.frustumCulled = false; ribbon.renderOrder = 4; scene.add(ribbon);
+// green slope hint: dots that drift downhill
+const SLOPE_N = 260, slopeGeo = new THREE.BufferGeometry(), slopeLife = new Float32Array(SLOPE_N);
+slopeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SLOPE_N * 3), 3));
+const slopeDots = new THREE.Points(slopeGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, transparent: true, opacity: 0.8 }));
+slopeDots.frustumCulled = false; scene.add(slopeDots);
+// wind streaks drifting past the camera
+const WIND_N = 70, windGeo = new THREE.BufferGeometry(), windP = new Float32Array(WIND_N * 3).fill(1e6);
+windGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(WIND_N * 6), 3));
+const windLines = new THREE.LineSegments(windGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 }));
+windLines.frustumCulled = false; scene.add(windLines);
+
+// golfer (right-handed). Local -z is the target direction, the ball sits at the origin.
+const golfer = new THREE.Group(), swingPivot = new THREE.Group();
+const SWING_AXIS = new THREE.Vector3(1.36, 0.77, 0).normalize();
+{
+  const mat = (c, r = 0.8) => new THREE.MeshStandardMaterial({ color: c, roughness: r });
+  const body = new THREE.Group(); body.position.x = -0.85; golfer.add(body);
+  for (const s of [-0.16, 0.16]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.07, 0.82, 12), mat(0x2b3550)); leg.position.set(0, 0.41, s); body.add(leg);
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.09, 0.12), mat(0xffffff, 0.5)); shoe.position.set(0.05, 0.045, s); body.add(shoe);
+  }
+  const hips = new THREE.Mesh(new THREE.SphereGeometry(0.18, 14, 10), mat(0x2b3550)); hips.scale.set(0.9, 0.7, 1.15); hips.position.set(0, 0.84, 0); body.add(hips);
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.17, 0.6, 14), mat(0x2f7fe0)); torso.position.set(0.05, 1.12, 0); torso.rotation.z = -0.22; body.add(torso);
+  const shoulders = new THREE.Mesh(new THREE.SphereGeometry(0.21, 14, 10), mat(0x2f7fe0)); shoulders.scale.set(0.9, 0.55, 1.2); shoulders.position.set(0.11, 1.4, 0); body.add(shoulders);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 18, 14), mat(0xf2c9a0, 0.6)); head.position.set(0.15, 1.63, 0); body.add(head);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.148, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xffffff)); cap.position.set(0.15, 1.65, 0); body.add(cap);
+  const brim = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.02, 0.2), mat(0xffffff)); brim.position.set(0.31, 1.66, 0); body.add(brim);
+  swingPivot.position.set(-0.77, 1.38, 0); golfer.add(swingPivot);
+  const rod = new THREE.Group(); rod.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0.77, -1.36, 0).normalize()); swingPivot.add(rod);
+  const arms = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.05, 0.62, 10), mat(0x2f7fe0)); arms.position.y = -0.31; rod.add(arms);
+  const hands = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), mat(0xffffff)); hands.position.y = -0.63; rod.add(hands);
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.9, 6), mat(0xc8ccd4, 0.3)); shaft.position.y = -1.08; rod.add(shaft);
+  const headC = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.13), mat(0x1c1c1c, 0.3)); headC.position.set(0, -1.52, -0.04); rod.add(headC);
+  golfer.traverse(o => { if (o.isMesh) o.castShadow = true; }); scene.add(golfer);
+}
+
+// ---------- physics ----------
+function airStep(b, dt, wx, wz) {
+  const rx = b.v.x - wx, ry = b.v.y, rz = b.v.z - wz, sp = Math.hypot(rx, ry, rz), S = b.S, k = KL * b.spin * sp;
+  b.v.x += (-KD * sp * rx + k * (S.y * rz - S.z * ry)) * dt;
+  b.v.y += (-G - KD * sp * ry + k * (S.z * rx - S.x * rz)) * dt;
+  b.v.z += (-KD * sp * rz + k * (S.x * ry - S.y * rx)) * dt;
+  b.spin *= Math.exp(-dt / 8);
+  b.p.x += b.v.x * dt; b.p.y += b.v.y * dt; b.p.z += b.v.z * dt;
+}
+// rolling: slope gravity + grass drag that grows a little with speed. Returns true when the ball has come to rest.
+function rollStep(b, dt) {
+  const g = grad(b.p.x, b.p.z), mu = PHYS[surf(b.p.x, b.p.z)].mu, sp = Math.hypot(b.v.x, b.v.z);
+  let ax = -G * g[0], az = -G * g[1];
+  if (sp < 0.06 && Math.hypot(ax, az) < mu * G) return true;
+  if (sp > 1e-4) { const f = mu * G * (1 + RK * sp) / sp; ax -= f * b.v.x; az -= f * b.v.z; }
+  b.v.x += ax * dt; b.v.z += az * dt; b.p.x += b.v.x * dt; b.p.z += b.v.z * dt; b.p.y = H(b.p.x, b.p.z);
+  return false;
+}
+const GMU = PHYS[GREEN].mu;
+const rollDist = v => (RK * v - Math.log(1 + RK * v)) / (GMU * G * RK * RK); // flat-green roll for a start speed
+function speedFor(d) { let lo = 0, hi = 20; for (let i = 0; i < 26; i++) { const m = (lo + hi) / 2; if (rollDist(m) < d) lo = m; else hi = m; } return (lo + hi) / 2; }
+function launchState(x, y, z, yaw, speed, loftDeg, tilt) {
+  const l = loftDeg * Math.PI / 180, c = Math.cos(l), fx = Math.sin(yaw), fz = -Math.cos(yaw);
+  // spin axis: "right" tilted by sidespin; back: how much the ball bites when it lands
+  return { p: { x, y, z }, v: { x: fx * c * speed, y: Math.sin(l) * speed, z: fz * c * speed },
+           S: { x: Math.cos(yaw) * Math.cos(tilt), y: Math.sin(tilt), z: Math.sin(yaw) * Math.cos(tilt) }, spin: 1, mode: 'air', back: clamp((loftDeg - 10) / 32, 0, 1), y0: y };
+}
+function carryFlat(speed, loft) {
+  const b = launchState(0, 0, 0, 0, speed, loft, 0);
+  for (let i = 0; i < 3000; i++) { airStep(b, 1 / 120, 0, 0); if (b.p.y < 0) break; }
+  return Math.hypot(b.p.x, b.p.z);
+}
+for (const c of CLUBS) if (!c.putter) { // find the launch speed that gives each club its carry
+  let lo = 5, hi = 130;
+  for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (carryFlat(m, c.loft) < c.carry) lo = m; else hi = m; }
+  c.v0 = (lo + hi) / 2; c.table = [];
+  for (let i = 0; i <= 10; i++) c.table.push(i ? carryFlat(c.v0 * Math.pow(i / 10, 0.6), c.loft) : 0);
+}
+
+// ---------- game state ----------
+let holeIndex = 0, strokes = 0, scores = [], state = 'title';
+let ball = { p: { x: 0, y: 0, z: 0 }, v: { x: 0, y: 0, z: 0 }, S: { x: 1, y: 0, z: 0 }, spin: 0, mode: 'roll', back: 0, y0: 0 };
+let shotStart = { x: 0, z: 0 }, yaw = 0, club = 0, lie = TEE, maxPutt = 10, wind = { x: 0, z: 0, speed: 0 };
+let mPos = 0, mDir = 1, power = 0, swing = 0, follow = -1, flyTime = 0, physAcc = 0, landing = null, puttIn = false;
+let timers = [], time = 0, audio = null, windGain = null;
+const camPos = new THREE.Vector3(0, 3, 8), camLook = new THREE.Vector3(), camAim = new THREE.Vector3(), followDir = { x: 0, z: -1 };
+const keys = {}, held = { l: false, r: false };
+const after = (sec, fn) => timers.push({ t: sec, fn });
+const pinDist = () => Math.hypot(ball.p.x - pin[0], ball.p.z - pin[1]);
+const lieFactor = () => lie === ROUGH || lie === WATER ? 0.88 : lie === BUNKER ? (CLUBS[club].n === 'SW' ? 0.85 : 0.6) : lie === OB ? 0.75 : 1;
+// how far a putt of the given meter power ends up from the ball, rolled over the real slopes
+function simPutt(p) {
+  const v = speedFor(p * maxPutt), b = { p: { x: ball.p.x, y: ball.p.y, z: ball.p.z }, v: { x: Math.sin(yaw) * v, y: 0, z: -Math.cos(yaw) * v } };
+  for (let i = 0; i < 700; i++) if (rollStep(b, 1 / 30)) break;
+  return Math.hypot(b.p.x - ball.p.x, b.p.z - ball.p.z);
+}
+// meter position (0..1) that rolls the ball just past the cup on the current line (>1: out of range)
+let tickNow = 0;
+function puttTick() {
+  const want = pinDist() + 0.3; let lo = 0.02, hi = 1;
+  if (simPutt(1) < want) return 1.05;
+  for (let i = 0; i < 10; i++) { const m = (lo + hi) / 2; if (simPutt(m) < want) lo = m; else hi = m; }
+  return hi;
+}
+
+function say(text, sec = 1.8) { const m = $('msg'); m.textContent = text; m.style.opacity = 1; clearTimeout(say.t); say.t = setTimeout(() => m.style.opacity = 0, sec * 1000); }
+function showPanel(html, btn, fn) {
+  $('panel').innerHTML = html + `<div><button id="go">${btn}</button></div><p class="back"><a href="../../">← ゲーム一覧にもどる</a></p>`; $('overlay').classList.remove('hidden');
+  $('go').onclick = () => { initAudio(); $('overlay').classList.add('hidden'); fn(); };
+}
+function startHole(i) {
+  holeIndex = i; buildHole(i); strokes = 0; timers = [];
+  const a = Math.random() * Math.PI * 2, sp = Math.round((1 + Math.random() * (3.5 + i)) * 10) / 10;
+  wind = { x: Math.cos(a) * sp, z: Math.sin(a) * sp, speed: sp };
+  ball.p.x = 0; ball.p.z = 0; ball.p.y = H(0, 0);
+  slopeLife.fill(0); windP.fill(1e6);
+  setupShot();
+  camPos.copy(camAim); // jump straight to the tee
+  say(`ホール ${i + 1}「${hole.name}」 パー ${hole.par} ・ ${Math.round(hole.len * YD)}y`, 2.8);
+}
+function setupShot() {
+  state = 'aim'; ball.mode = 'roll'; ball.v.x = ball.v.y = ball.v.z = 0; ball.p.y = H(ball.p.x, ball.p.z);
+  lie = surf(ball.p.x, ball.p.z); trailN = 0; swing = 0; follow = -1; mPos = 0;
+  const d = pinDist();
+  if (lie === GREEN) club = PUTTER;
+  else { club = lie === TEE ? 0 : 1; for (let k = PUTTER - 1; k >= 0; k--) if (CLUBS[k].carry >= d * 0.97) { club = k; break; } }
+  let t = pin;
+  if (!CLUBS[club].putter && d > CLUBS[club].carry * 1.1) { distLine(ball.p.x, ball.p.z); t = pointAt(lastS + CLUBS[club].carry + 15); }
+  yaw = Math.atan2(t[0] - ball.p.x, -(t[1] - ball.p.z));
+  for (const m of [10, 25, 45, 70]) { maxPutt = m; if (puttTick() <= 0.85) break; }
+}
+function changeClub(dir) { if (state !== 'aim') return; club = clamp(club + dir, 0, PUTTER); }
+function action() {
+  initAudio();
+  if (state === 'aim') { state = 'power'; mPos = 0; mDir = 1; }
+  else if (state === 'power') { power = Math.max(mPos, 0.03); if (CLUBS[club].putter) fire(0); else state = 'accuracy'; }
+  else if (state === 'accuracy') fire(clamp(mPos / 0.12, -1, 1));
+}
+function fire(err, missed = false, msg = null) {
+  const c = CLUBS[club]; strokes++; shotStart = { x: ball.p.x, z: ball.p.z };
+  follow = 0; flyTime = 0; physAcc = 0; trailN = 0; state = 'fly';
+  if (c.putter) {
+    const v = speedFor(power * maxPutt);
+    ball.mode = 'roll'; ball.back = 0; ball.v.x = Math.sin(yaw) * v; ball.v.y = 0; ball.v.z = -Math.cos(yaw) * v; sfx.putt();
+  } else {
+    const wild = lie === ROUGH || lie === BUNKER || lie === OB || lie === WATER ? (Math.random() - 0.5) * 0.09 : 0;
+    const y2 = yaw + err * 0.05 + wild, sp = c.v0 * Math.pow(power, 0.6) * lieFactor();
+    ball = launchState(ball.p.x, ball.p.y + 0.02, ball.p.z, y2, sp, c.loft, -err * 0.22);
+    if (lie === ROUGH || lie === OB) ball.back *= 0.4; // a flyer out of the rough has little backspin
+    sfx.hit();
+    say(msg || (missed ? 'インパクト(③)も押してね!' : Math.abs(err) < 0.25 ? 'ナイスショット!' : err > 0 ? 'スライス…(押すのが早い)' : 'フック…(押すのが遅い)'), 1.8);
+  }
+  followDir.x = Math.sin(yaw); followDir.z = -Math.cos(yaw);
+}
+function penalty(text) {
+  state = 'settle'; strokes++; say(text, 2);
+  after(1.8, () => { ball.p.x = shotStart.x; ball.p.z = shotStart.z; afterShot(); });
+}
+function afterShot() {
+  if (strokes >= hole.par + 5) { say('ギブアップ…', 1.6); strokes = hole.par + 5; after(1.6, finishHole); state = 'settle'; }
+  else setupShot();
+}
+function stopBall() {
+  state = 'settle'; ball.v.x = ball.v.y = ball.v.z = 0;
+  const t = surf(ball.p.x, ball.p.z);
+  if (t === OB) return penalty('OB… +1打');
+  const moved = Math.hypot(ball.p.x - shotStart.x, ball.p.z - shotStart.z);
+  if (!CLUBS[club].putter) say(`${Math.round(moved * YD)}y ・ ${SURF_NAME[t]}`, 1.6);
+  after(1.3, afterShot);
+}
+function holed() {
+  state = 'holed'; ball.p.x = pin[0]; ball.p.z = pin[1]; ball.p.y = H(pin[0], pin[1]) - 0.08; sfx.cup();
+  after(1.2, finishHole);
+}
+function resultName(s, par) {
+  if (s === 1) return '🌟 ホールインワン!! 🌟';
+  const d = s - par;
+  return d <= -3 ? '🦅 アルバトロス!' : d === -2 ? '🦅 イーグル!' : d === -1 ? '🐦 バーディー!' : d === 0 ? '👍 パー!' : d === 1 ? 'ボギー' : d === 2 ? 'ダブルボギー' : '+' + d;
+}
+const fmtDiff = d => d === 0 ? '±0' : d > 0 ? '+' + d : '' + d;
+function finishHole() {
+  scores[holeIndex] = strokes; const last = holeIndex === HOLES.length - 1;
+  if (strokes <= hole.par) sfx.cheer();
+  showPanel(`<h2>${resultName(strokes, hole.par)}</h2><p>ホール ${holeIndex + 1}:${strokes}打(パー ${hole.par})<br>トータル ${fmtDiff(scores.reduce((a, s, i) => a + s - HOLES[i].par, 0))}</p>`,
+    last ? 'スコアカード 🏆' : 'つぎのホールへ ▶', () => last ? showEnd() : startHole(holeIndex + 1));
+}
+function showEnd() {
+  state = 'end';
+  const total = scores.reduce((a, b) => a + b, 0), par = HOLES.reduce((a, h) => a + h.par, 0);
+  let best = null; try { best = JSON.parse(localStorage.getItem('golf3dBest2')); } catch (e) {}
+  const isBest = best === null || total < best; if (isBest) { try { localStorage.setItem('golf3dBest2', total); } catch (e) {} }
+  const cls = (s, p) => s < p ? 'good' : s > p ? 'bad' : '';
+  showPanel(`<h2>ラウンド終了!</h2><table><tr><th>ホール</th>${HOLES.map((_, i) => `<th>${i + 1}</th>`).join('')}<th>計</th></tr>
+    <tr><th>パー</th>${HOLES.map(h => `<td>${h.par}</td>`).join('')}<td>${par}</td></tr>
+    <tr><th>スコア</th>${scores.map((s, i) => `<td class="${cls(s, HOLES[i].par)}">${s}</td>`).join('')}<td><b>${total}</b></td></tr></table>
+    <p>トータル <b>${fmtDiff(total - par)}</b> ${isBest ? '🎉 ベスト更新!' : `(ベスト ${best}打)`}</p>`, 'もう1ラウンド ↺', () => { scores = []; startHole(0); });
+}
+
+function liveStep(dt) {
+  const b = ball;
+  if (b.mode === 'air') {
+    const k = clamp(0.5 + (b.p.y - b.y0) / 30, 0.5, 1.3); // wind is stronger higher up
+    airStep(b, dt, wind.x * k, wind.z * k);
+    const h = H(b.p.x, b.p.z);
+    if (b.p.y <= h) {
+      if (inWater(b.p.x, b.p.z, h)) { sfx.splash(); return penalty('池ポチャ… +1打'); }
+      b.p.y = h;
+      if (Math.hypot(b.p.x - pin[0], b.p.z - pin[1]) < 0.13) return holed();
+      const g = grad(b.p.x, b.p.z), nl = Math.hypot(g[0], 1, g[1]), nx = -g[0] / nl, ny = 1 / nl, nz = -g[1] / nl;
+      const vn = b.v.x * nx + b.v.y * ny + b.v.z * nz, t = surf(b.p.x, b.p.z), ph = PHYS[t];
+      if (vn < 0) {
+        // backspin grabs the turf (most on the green); hard landings lose more energy
+        const tf = ph.tf * (1 - Math.min(0.75, 0.55 * b.back * (t === GREEN ? 1.3 : 1))), e = ph.e * clamp(1 + vn / 45, 0.55, 1);
+        const tx = (b.v.x - vn * nx) * tf, ty = (b.v.y - vn * ny) * tf, tz = (b.v.z - vn * nz) * tf;
+        b.back *= 0.5;
+        if (-vn < 1.5 || ph.e < 0.1) { b.mode = 'roll'; b.v.x = tx; b.v.y = 0; b.v.z = tz; if (-vn > 1.5) sfx.land(); }
+        else { b.v.x = tx - e * vn * nx; b.v.y = ty - e * vn * ny; b.v.z = tz - e * vn * nz; b.spin *= 0.4; sfx.land(); }
+      }
+    }
+  } else {
+    const sp = Math.hypot(b.v.x, b.v.z);
+    if (rollStep(b, dt)) return stopBall();
+    if (inWater(b.p.x, b.p.z, b.p.y)) { sfx.splash(); return penalty('池ポチャ… +1打'); }
+    if (Math.hypot(b.p.x - pin[0], b.p.z - pin[1]) < 0.13 && sp < 2.4) return holed();
+  }
+  if (b.p.x < AREA.x0 + 2 || b.p.x > AREA.x1 - 2 || b.p.z < AREA.z0 + 2 || b.p.z > AREA.z1 - 2) return penalty('OB… +1打');
+}
+
+// ---------- per-frame update ----------
+function setLine(line, pts, n) { line.geometry.attributes.position.array.set(pts.subarray(0, n * 3)); line.geometry.attributes.position.needsUpdate = true; line.geometry.setDrawRange(0, n); }
+const tmpPts = new Float32Array(400 * 3);
+function updateAimHelpers() {
+  const c = CLUBS[club]; let n = 0;
+  if (c.putter) {
+    // roll the ball at the suggested strength and draw where it would go
+    const v = speedFor(clamp(tickNow, 0.03, 1) * maxPutt), b = { p: { x: ball.p.x, y: ball.p.y, z: ball.p.z }, v: { x: Math.sin(yaw) * v, y: 0, z: -Math.cos(yaw) * v } };
+    const a = ribGeo.attributes.position.array; puttIn = false;
+    for (let i = 0; i < 900 && n < RIB_N; i++) {
+      if (i % 10 === 0) { tmpPts[n * 3] = b.p.x; tmpPts[n * 3 + 1] = b.p.y; tmpPts[n * 3 + 2] = b.p.z; n++; }
+      const sp = Math.hypot(b.v.x, b.v.z);
+      if (Math.hypot(b.p.x - pin[0], b.p.z - pin[1]) < 0.13 && sp < 2.4) { puttIn = true; break; }
+      if (rollStep(b, 1 / 60)) break;
+    }
+    if (n < RIB_N) { tmpPts[n * 3] = b.p.x; tmpPts[n * 3 + 1] = b.p.y; tmpPts[n * 3 + 2] = b.p.z; n++; }
+    for (let i = 0; i < n; i++) {
+      const j = Math.min(i + 1, n - 1), k = Math.max(j - 1, 0);
+      let dx = tmpPts[j * 3] - tmpPts[k * 3], dz = tmpPts[j * 3 + 2] - tmpPts[k * 3 + 2]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+      const x = tmpPts[i * 3], y = tmpPts[i * 3 + 1] + 0.04, z = tmpPts[i * 3 + 2], w = 0.045;
+      a[i * 6] = x - dz * w; a[i * 6 + 1] = y; a[i * 6 + 2] = z + dx * w; a[i * 6 + 3] = x + dz * w; a[i * 6 + 4] = y; a[i * 6 + 5] = z - dx * w;
+    }
+    ribGeo.attributes.position.needsUpdate = true; ribGeo.setDrawRange(0, Math.max(n - 1, 0) * 6);
+    ribbon.material.color.setHex(puttIn ? 0xffe14a : 0x7df0ff);
+    landing = { x: b.p.x, z: b.p.z };
+    marker.visible = !puttIn; marker.position.set(b.p.x, b.p.y + 0.05, b.p.z); marker.scale.setScalar(0.16);
+    aimLine.visible = false; ribbon.visible = true;
+  } else {
+    const b = launchState(ball.p.x, ball.p.y + 0.02, ball.p.z, yaw, c.v0 * lieFactor(), c.loft, 0);
+    for (let i = 0; i < 3000; i++) {
+      if (i % 6 === 0 && n < 399) { tmpPts[n * 3] = b.p.x; tmpPts[n * 3 + 1] = b.p.y; tmpPts[n * 3 + 2] = b.p.z; n++; }
+      airStep(b, 1 / 120, 0, 0); if (b.p.y <= H(b.p.x, b.p.z)) break;
+    }
+    tmpPts[n * 3] = b.p.x; tmpPts[n * 3 + 1] = b.p.y; tmpPts[n * 3 + 2] = b.p.z; n++;
+    landing = { x: b.p.x, z: b.p.z };
+    marker.visible = true; marker.position.set(b.p.x, H(b.p.x, b.p.z) + 0.1, b.p.z);
+    marker.scale.setScalar(Math.max(1, camera.position.distanceTo(marker.position) / 45));
+    setLine(aimLine, tmpPts, n); aimLine.visible = true; ribbon.visible = false;
+  }
+}
+function updateSlopeDots(dt) {
+  const a = slopeGeo.attributes.position.array;
+  for (let k = 0; k < SLOPE_N; k++) {
+    slopeLife[k] -= dt;
+    if (slopeLife[k] <= 0) {
+      const r = Math.sqrt(Math.random()) * hole.greenR * 1.05, an = Math.random() * 6.283;
+      a[k * 3] = pin[0] + Math.cos(an) * r; a[k * 3 + 2] = pin[1] + Math.sin(an) * r; slopeLife[k] = 1 + Math.random() * 2;
+    }
+    const g = grad(a[k * 3], a[k * 3 + 2]);
+    a[k * 3] -= g[0] * dt * 28; a[k * 3 + 2] -= g[1] * dt * 28; a[k * 3 + 1] = H(a[k * 3], a[k * 3 + 2]) + 0.04;
+  }
+  slopeGeo.attributes.position.needsUpdate = true;
+}
+function updateWind(dt) {
+  const a = windGeo.attributes.position.array, sp = Math.max(wind.speed, 0.01), ux = wind.x / sp, uz = wind.z / sp, len = 0.8 + sp * 0.45;
+  for (let k = 0; k < WIND_N; k++) {
+    let x = windP[k * 3] + wind.x * dt * 2.2, y = windP[k * 3 + 1], z = windP[k * 3 + 2] + wind.z * dt * 2.2;
+    if (Math.abs(x - camPos.x) > 32 || Math.abs(z - camPos.z) > 32) {
+      x = camPos.x + (Math.random() - 0.5) * 60; z = camPos.z + (Math.random() - 0.5) * 60; y = H(x, z) + 0.6 + Math.random() * 11;
+    }
+    windP[k * 3] = x; windP[k * 3 + 1] = y; windP[k * 3 + 2] = z;
+    a[k * 6] = x; a[k * 6 + 1] = y; a[k * 6 + 2] = z; a[k * 6 + 3] = x - ux * len; a[k * 6 + 4] = y; a[k * 6 + 5] = z - uz * len;
+  }
+  windGeo.attributes.position.needsUpdate = true; windLines.material.opacity = clamp(sp / 14, 0.06, 0.5);
+  if (windGain) windGain.gain.value = 0.004 + sp * 0.006;
+}
+function update(dt) {
+  time += dt;
+  for (const t of timers) t.t -= dt;
+  const due = timers.filter(t => t.t <= 0); timers = timers.filter(t => t.t > 0); due.forEach(t => t.fn());
+  if (!hole) return;
+  const c = CLUBS[club], aiming = state === 'aim' || state === 'drag' || state === 'power' || state === 'accuracy';
+
+  if (state === 'aim') {
+    const rate = (c.putter ? 0.12 : 0.55) * (keys.Shift ? 0.3 : 1);
+    if (keys.ArrowLeft || held.l) yaw -= rate * dt;
+    if (keys.ArrowRight || held.r) yaw += rate * dt;
+  } else if (state === 'drag') {
+    swing = -clamp(sw.cur, 0, 1) * (c.putter ? 0.5 : 2.7); // the club follows the finger
+  } else if (state === 'power') {
+    mPos += mDir * dt * (c.putter ? 0.7 : 0.95);
+    if (mPos >= 1) { mPos = 1; mDir = -1; }
+    if (mDir < 0 && mPos <= 0) { state = 'aim'; mPos = 0; }
+    swing = -mPos * (c.putter ? 0.5 : 2.7);
+  } else if (state === 'accuracy') {
+    mPos -= dt * 0.85; swing = -Math.max(mPos, 0) * 2.7;
+    if (mPos <= -0.143) fire((Math.random() - 0.5) * 0.6, true);
+  } else if (state === 'fly') {
+    flyTime += dt; physAcc += dt;
+    while (physAcc > 0 && state === 'fly') { liveStep(1 / 240); physAcc -= 1 / 240; }
+    if (state === 'fly' && flyTime > 45) stopBall();
+    if (trailN < 600 && ball.mode === 'air') { const a = trailLine.geometry.attributes.position.array; a[trailN * 3] = ball.p.x; a[trailN * 3 + 1] = ball.p.y; a[trailN * 3 + 2] = ball.p.z; trailN++; trailLine.geometry.attributes.position.needsUpdate = true; }
+  }
+  if (follow >= 0) { follow = Math.min(follow + dt * 5, 1); swing = follow * (c.putter ? 0.5 : 2.5); }
+
+  // meshes
+  ballMesh.position.set(ball.p.x, ball.p.y + 0.035, ball.p.z);
+  const gh = H(ball.p.x, ball.p.z); shadow.position.set(ball.p.x, gh + 0.02, ball.p.z);
+  trailLine.geometry.setDrawRange(0, trailN); trailLine.visible = trailN > 1;
+  slopeDots.visible = greenGrid.visible = c.putter && state !== 'holed'; if (slopeDots.visible) updateSlopeDots(dt);
+  if (aiming) {
+    if (c.putter) tickNow = puttTick();
+    updateAimHelpers();
+    golfer.visible = true; golfer.position.set(ball.p.x, gh, ball.p.z); golfer.rotation.y = -yaw;
+  } else aimLine.visible = ribbon.visible = marker.visible = false;
+  swingPivot.quaternion.setFromAxisAngle(SWING_AXIS, swing);
+  flagCloth.rotation.y = Math.atan2(-wind.z, wind.x) + Math.sin(time * (3 + wind.speed)) * (0.08 + wind.speed * 0.03);
+  for (const w of waters) { w.offset.x = time * 0.02; w.offset.y = time * 0.013; }
+  updateWind(dt);
+
+  // camera
+  const fx = Math.sin(yaw), fz = -Math.cos(yaw);
+  let look;
+  if (aiming) {
+    const back = c.putter ? 4.4 : 6.5, up = c.putter ? 2.3 : 2.4, side = c.putter ? 0.25 : 0.5;
+    camAim.set(ball.p.x - fx * back - fz * side, 0, ball.p.z - fz * back + fx * side);
+    camAim.y = Math.max(gh + up, H(camAim.x, camAim.z) + 1);
+    const ahead = c.putter ? clamp(pinDist(), 3, 12) * 0.75 : 18;
+    look = new THREE.Vector3(ball.p.x + fx * ahead, gh + (c.putter ? 0 : 1.2), ball.p.z + fz * ahead);
+    camPos.lerp(camAim, 1 - Math.exp(-dt * 5));
+  } else {
+    look = new THREE.Vector3(ball.p.x, ball.p.y, ball.p.z);
+    const far = Math.hypot(ball.p.x - shotStart.x, ball.p.z - shotStart.z);
+    if (!(c.putter && far < 14) && state !== 'holed') {
+      const hv = Math.hypot(ball.v.x, ball.v.z); if (hv > 1) { followDir.x = ball.v.x / hv; followDir.z = ball.v.z / hv; }
+      const d = new THREE.Vector3(ball.p.x - followDir.x * 10, ball.p.y + 4, ball.p.z - followDir.z * 10);
+      d.y = Math.max(d.y, H(d.x, d.z) + 1.5);
+      camPos.lerp(d, 1 - Math.exp(-dt * 3));
+    }
+  }
+  camLook.lerp(look, 1 - Math.exp(-dt * 8));
+  camera.position.copy(camPos); camera.lookAt(camLook);
+  skyDome.position.copy(camPos); sunSprite.position.copy(camPos).addScaledVector(sunDir, 4000);
+  // keep the shadow map over the area in front of the camera
+  const vx = camLook.x - camPos.x, vz = camLook.z - camPos.z, vl = Math.hypot(vx, vz) || 1;
+  const sr = aiming ? 32 : 95, sc = sun.shadow.camera; // tighter (sharper) shadows while standing over the ball
+  if (sc.right !== sr) { sc.left = sc.bottom = -sr; sc.right = sc.top = sr; sc.updateProjectionMatrix(); }
+  sun.target.position.set(camPos.x + vx / vl * sr * 0.6, gh, camPos.z + vz / vl * sr * 0.6);
+  sun.position.copy(sun.target.position).addScaledVector(sunDir, 300);
+  const cd = camera.position.distanceTo(ballMesh.position), bs = Math.max(1, cd / 9);
+  ballMesh.scale.setScalar(bs); shadow.scale.setScalar(bs);
+  ballMesh.visible = state !== 'holed';
+  flagGroup.scale.setScalar(clamp(camera.position.distanceTo(flagGroup.position) / 35, 1, 5));
+  updateHud(fx, fz);
+}
+function updateHud(fx, fz) {
+  const c = CLUBS[club], d = pinDist(), aiming = state === 'aim' || state === 'drag' || state === 'power' || state === 'accuracy';
+  $('iHole').textContent = `ホール ${holeIndex + 1} ・ パー ${hole.par}`;
+  $('iStroke').textContent = `${strokes + (aiming ? 1 : 0)}打目`;
+  $('iLie').textContent = SURF_NAME[lie];
+  $('iRemain').textContent = state === 'holed' ? 'カップイン!' : lie === GREEN || d < 30 ? d.toFixed(1) + 'm' : Math.round(d * YD) + 'y';
+  const dh = Math.round((hole.pinH - ball.p.y) * 100);
+  $('iExtra').textContent = !aiming ? '' : c.putter ? (Math.abs(dh) < 3 ? 'ほぼ平ら' : dh > 0 ? `上り ${dh}cm(強めに)` : `下り ${-dh}cm(弱めに)`) : d < 150 && Math.abs(dh) >= 100 ? `高低差 ${dh > 0 ? '+' : ''}${(dh / 100).toFixed(1)}m` : '';
+  $('clubName').textContent = c.putter ? `パター(最大 ${maxPutt}m)` : `${c.n} ${c.name}(${Math.round(c.carry * lieFactor() * YD)}y)`;
+  // wind relative to the aim direction
+  const wf = wind.x * fx + wind.z * fz, wr = wind.x * -fz + wind.z * fx;
+  $('windSpeed').textContent = wind.speed.toFixed(1) + ' m/s';
+  $('windArrow').style.transform = `rotate(${Math.atan2(wr, wf)}rad)`;
+  $('windLabel').textContent = wind.speed < 0.3 ? '無風' : Math.abs(wf) > Math.abs(wr) * 1.5 ? (wf > 0 ? '追い風(飛ぶ)' : '向かい風(飛ばない)') : Math.abs(wr) > Math.abs(wf) * 1.5 ? (wr > 0 ? '横風(右へ流れる)' : '横風(左へ流れる)') : (wf > 0 ? '追い風' : '向かい風') + (wr > 0 ? '+右へ' : '+左へ');
+  // meter
+  const pct = p => 12 + p * 84;
+  $('mCur').style.left = pct(state === 'power' || state === 'accuracy' ? mPos : 0) + '%';
+  $('mFill').style.width = (state === 'drag' ? sw.back : state === 'power' ? Math.max(mPos, 0) : state === 'accuracy' ? power : 0) * 84 + '%';
+  let tick = -1;
+  if (c.putter) tick = tickNow;
+  else { const need = d / lieFactor(); for (let i = 0; i < 10; i++) if (need >= c.table[i] && need <= c.table[i + 1]) tick = (i + (need - c.table[i]) / (c.table[i + 1] - c.table[i])) / 10; }
+  const showTick = tick >= 0 && tick <= 1;
+  $('mTick').style.display = showTick ? '' : 'none'; $('mTick').style.left = pct(tick) + '%';
+  $('mZone').style.visibility = c.putter ? 'hidden' : '';
+  const sc = c.putter ? [[0.5, (maxPutt / 2) + 'm'], [1, maxPutt + 'm']] : [[0.5, '50%'], [1, '100%']];
+  const scaleHtml = sc.map(s => `<span style="left:${pct(s[0])}%">${s[1]}</span>`).join('') + (showTick ? `<span class="cup" style="left:${pct(tick)}%">▲${c.putter ? 'カップ' : 'ピン'}</span>` : '');
+  if ($('mScale').innerHTML !== scaleHtml) $('mScale').innerHTML = scaleHtml;
+  $('shot').textContent = state === 'power' ? 'パワー決定!' : state === 'accuracy' ? 'インパクト!' : 'ショット';
+  $('help').textContent = state === 'aim' ? (c.putter
+      ? (puttIn ? '⭕ 黄色い線=入るライン! 画面を下に引いて「▲カップ」まで → 上に戻すとパット' : '←→で水色の線(転がる道すじ)の先をカップに合わせよう → 画面を下に引いて上に戻すとパット')
+      : '画面を下に引いて → 上にシュッ!と払うとショット(引く量=最大パワー / 速く払う / 左右に払うと曲がる)')
+    : state === 'drag' ? (c.putter ? '「▲カップ」の線まで引いたら、上に戻して打つ' : (showTick ? '「▲ピン」の線まで引いて、' : 'いっぱいまで引いて、') + '上にまっすぐシュッ!と速く払う')
+    : state === 'power' ? (c.putter ? '赤いバーが「▲カップ」に来たらスペース!' : '赤いバーが「▲ピン」(なければ右端)に来たらスペース!')
+    : state === 'accuracy' ? '白いラインに戻ってきた瞬間にスペース!' : '';
+  drawSwing(showTick ? tick : -1, c);
+  // minimap
+  const m = $('mini').getContext('2d'), mx = x => (x - AREA.x0) / 300 * 110, mz = z => (z - AREA.z0) / 600 * 220;
+  m.drawImage(miniBase, 0, 0);
+  if (landing && aiming) { m.strokeStyle = '#fff'; m.lineWidth = 1.5; m.beginPath(); m.moveTo(mx(ball.p.x), mz(ball.p.z)); m.lineTo(mx(landing.x), mz(landing.z)); m.stroke(); }
+  m.fillStyle = '#e8302a'; m.beginPath(); m.moveTo(mx(pin[0]), mz(pin[1])); m.lineTo(mx(pin[0]), mz(pin[1]) - 9); m.lineTo(mx(pin[0]) + 6, mz(pin[1]) - 6.5); m.lineTo(mx(pin[0]), mz(pin[1]) - 4); m.fill();
+  m.fillStyle = '#fff'; m.strokeStyle = '#000'; m.lineWidth = 1; m.beginPath(); m.arc(mx(ball.p.x), mz(ball.p.z), 3, 0, 7); m.fill(); m.stroke();
+}
+
+// ---------- sound ----------
+function noiseBuf(dur, fade) { const n = audio.sampleRate * dur, buf = audio.createBuffer(1, n, audio.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (fade ? 1 - i / n : 1); return buf; }
+function initAudio() {
+  if (!audio) { try {
+    audio = new (window.AudioContext || window.webkitAudioContext)();
+    const s = audio.createBufferSource(), f = audio.createBiquadFilter(); windGain = audio.createGain();
+    s.buffer = noiseBuf(3, false); s.loop = true; f.type = 'lowpass'; f.frequency.value = 420; windGain.gain.value = 0.01;
+    s.connect(f).connect(windGain).connect(audio.destination); s.start();
+  } catch (e) {} }
+  if (audio && audio.state === 'suspended') audio.resume();
+}
+function tone(f, dur, type = 'sine', vol = 0.15, to = null, delay = 0) {
+  if (!audio) return; const t = audio.currentTime + delay, o = audio.createOscillator(), g = audio.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); o.connect(g).connect(audio.destination); o.start(t); o.stop(t + dur);
+}
+function noise(dur, vol, freq, q = 1) {
+  if (!audio) return; const s = audio.createBufferSource(), f = audio.createBiquadFilter(), g = audio.createGain();
+  s.buffer = noiseBuf(dur, true); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q; g.gain.value = vol; s.connect(f).connect(g).connect(audio.destination); s.start();
+}
+const sfx = {
+  hit: () => { noise(0.25, 0.5, 1800, 0.6); tone(900, 0.06, 'square', 0.2, 300); },
+  putt: () => tone(700, 0.05, 'triangle', 0.2, 400),
+  land: () => noise(0.12, 0.25, 220, 1),
+  splash: () => noise(0.7, 0.5, 900, 0.5),
+  cup: () => { tone(500, 0.08, 'triangle', 0.25, 250); tone(380, 0.1, 'triangle', 0.2, 200, 0.09); [659, 784, 1047].forEach((f, i) => tone(f, 0.25, 'triangle', 0.15, null, 0.3 + i * 0.1)); },
+  cheer: () => { for (let i = 0; i < 5; i++) setTimeout(() => noise(0.5, 0.12, 2500 + Math.random() * 1500, 0.4), i * 120); },
+};
+
+// ---------- input ----------
+addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key === ' ' || e.key.startsWith('Arrow')) e.preventDefault();
+  if (e.repeat || !$('overlay').classList.contains('hidden')) return;
+  if (e.key === ' ') action(); else if (e.key === 'ArrowUp') changeClub(-1); else if (e.key === 'ArrowDown') changeClub(1);
+});
+addEventListener('keyup', e => { keys[e.key] = false; });
+const press = (id, down, up) => { const el = $(id); el.addEventListener('pointerdown', e => { e.preventDefault(); down(); }); if (up) for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) el.addEventListener(ev, up); };
+press('shot', action); press('clubUp', () => changeClub(-1)); press('clubDown', () => changeClub(1));
+press('aimL', () => held.l = true, () => held.l = false); press('aimR', () => held.r = true, () => held.r = false);
+// drag swing: pull down (take-back = max power), then flick up through the starting line to hit
+const sw = { on: false, x0: 0, y0: 0, bx: 0, by: 0, bt: 0, back: 0, cur: 0, pts: [] };
+const backPx = () => clamp(innerHeight * 0.32, 120, 300);
+$('gl').addEventListener('pointerdown', e => {
+  initAudio();
+  if (state !== 'aim' || !$('overlay').classList.contains('hidden')) return;
+  try { $('gl').setPointerCapture(e.pointerId); } catch (err) {}
+  const now = performance.now();
+  Object.assign(sw, { on: true, id: e.pointerId, x0: e.clientX, y0: e.clientY, bx: e.clientX, by: e.clientY, bt: now, back: 0, cur: 0, pts: [{ x: e.clientX, y: e.clientY, t: now }] });
+  state = 'drag';
+});
+$('gl').addEventListener('pointermove', e => {
+  if (!sw.on || state !== 'drag' || e.pointerId !== sw.id) return;
+  const now = performance.now(), x = e.clientX, y = e.clientY;
+  sw.pts.push({ x, y, t: now }); while (sw.pts.length > 2 && now - sw.pts[0].t > 500) sw.pts.shift();
+  if (y > sw.by) { sw.by = y; sw.bx = x; sw.bt = now; }
+  sw.back = clamp((sw.by - sw.y0) / backPx(), 0, 1); sw.cur = (y - sw.y0) / backPx();
+  if (y <= sw.y0 && sw.back > 0.03) swingImpact(x, y, now);
+});
+function endDrag(e) {
+  if (!sw.on || e.pointerId !== sw.id) return; sw.on = false;
+  if (state === 'drag') { state = 'aim'; swing = 0; if (sw.back > 0.03) say('引いたら、上に払って打とう!', 1.6); }
+}
+$('gl').addEventListener('pointerup', endDrag); $('gl').addEventListener('pointercancel', endDrag);
+function swingImpact(x, y, now) {
+  sw.on = false;
+  if (CLUBS[club].putter) { power = Math.max(sw.back, 0.02); fire(0); return; }
+  // speed of the up-stroke over roughly the last 0.1s (ignoring time spent before the bottom of the take-back)
+  let p = null;
+  for (const q of sw.pts) if (q.t >= sw.bt && now - q.t <= 110) { p = q; break; }
+  if (!p) p = sw.pts[Math.max(sw.pts.length - 2, 0)];
+  const speed = (p.y - y) / Math.max((now - p.t) / 1000, 0.008), sp = clamp(speed / (innerHeight * 1.9), 0, 1);
+  const ang = Math.atan2(x - sw.bx, sw.by - y); // + : swiped toward the right
+  const err = Math.sign(ang) * clamp((Math.abs(ang) - 0.06) / 0.4, 0, 1);
+  power = Math.max(sw.back * (0.25 + 0.75 * sp), 0.03);
+  const pct = Math.round(power * 100);
+  fire(err, false, sp < 0.75 ? `もっと速く振ろう!(パワー ${pct}%)` : Math.abs(err) < 0.2 ? `ナイスショット!(パワー ${pct}%)` : err > 0 ? 'スライス…(右に払った)' : 'フック…(左に払った)');
+}
+function drawSwing(tick, c) {
+  const cv = $('swing'), g = cv.getContext('2d');
+  if (cv.width !== innerWidth || cv.height !== innerHeight) { cv.width = innerWidth; cv.height = innerHeight; }
+  g.clearRect(0, 0, cv.width, cv.height);
+  if (state !== 'drag') return;
+  const L = backPx(), gx = sw.x0 + 80 < innerWidth - 30 ? sw.x0 + 80 : sw.x0 - 80;
+  g.font = 'bold 13px sans-serif'; g.textAlign = 'center'; g.lineCap = 'round';
+  g.setLineDash([10, 7]); g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(sw.x0 - 130, sw.y0); g.lineTo(sw.x0 + 130, sw.y0); g.stroke(); g.setLineDash([]);
+  g.fillStyle = '#fff'; g.fillText('↑ ここを通過でインパクト', sw.x0, sw.y0 - 10);
+  g.fillStyle = 'rgba(10,40,70,.65)'; g.fillRect(gx - 9, sw.y0, 18, L);
+  const gr = g.createLinearGradient(0, sw.y0, 0, sw.y0 + L); gr.addColorStop(0, '#49d17a'); gr.addColorStop(0.6, '#ffe14a'); gr.addColorStop(1, '#ff5a3c');
+  g.fillStyle = gr; g.fillRect(gx - 9, sw.y0, 18, L * sw.back);
+  g.strokeStyle = '#fff'; g.lineWidth = 2; g.strokeRect(gx - 9, sw.y0, 18, L);
+  if (tick >= 0) {
+    const ty = sw.y0 + L * tick; g.strokeStyle = '#7df0ff'; g.lineWidth = 4;
+    g.beginPath(); g.moveTo(gx - 16, ty); g.lineTo(gx + 16, ty); g.stroke();
+    g.fillStyle = '#7df0ff'; g.textAlign = 'left'; g.fillText(c.putter ? '◀ カップ' : '◀ ピン', gx + 20, ty + 5);
+  }
+  g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 5; g.beginPath();
+  sw.pts.forEach((q, i) => i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y)); g.stroke();
+}
+function resize() { renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+// ---------- boot ----------
+let prev = performance.now();
+function loop(now) { const dt = Math.min((now - prev) / 1000, 0.05); prev = now; update(dt); renderer.render(scene, camera); requestAnimationFrame(loop); }
+buildHole(0); ball.p.y = H(0, 0); setupShot(); state = 'title'; camPos.set(-6, hole.teeH + 5, 12); requestAnimationFrame(loop);
+showPanel(`<h2>⛳ グリーンヒルズ ゴルフ 3D</h2>
+  <p>地形と風をよんで、少ない打数でカップインをめざそう!(全6ホール)<br>
+  <b>ショット</b>:画面を<b>下に引いて</b>(引く量=最大パワー)、<b>上にシュッと払う</b>!<br>
+  速く払うほど強い / まっすぐ払うとストレート / 右に払うとスライス・左に払うとフック<br>
+  <b>パット</b>:水色の線が転がる道すじ。←→で線の先をカップに合わせ、「◀カップ」まで引いて上に戻す。<br>
+  <b>←→</b> 方向 / <b>↑↓</b> クラブ変更(スペース3回押しの操作も使えます)<br>
+  風は右上の矢印の向きに吹いていて、高く上がるほど強く流されます。</p>`, 'ティーオフ ▶', () => startHole(0));
+</script>
+</body>
+</html>
