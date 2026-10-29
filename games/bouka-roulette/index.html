@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>防火防災管理者ルーレット</title>
+<style>
+  :root {
+    --gold: #f5c542; --gold2: #ffe9a0; --red: #d62828; --black: #141414; --green: #1e8449;
+    --bg1: #3a0b0b; --bg2: #090909; --fg: #fff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    color: var(--fg); font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    background: radial-gradient(ellipse at 50% 20%, var(--bg1), var(--bg2) 70%);
+    overflow-x: hidden;
+  }
+  header { text-align: center; padding: 20px 16px 4px; }
+  h1 {
+    margin: 0; font-size: clamp(26px, 6vw, 48px); font-weight: 900; letter-spacing: .04em; line-height: 1.2;
+    background: linear-gradient(180deg, #fff6c8 0%, var(--gold) 45%, #b8860b 55%, var(--gold2) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 2px 0 #5a3d00) drop-shadow(0 0 14px rgba(245,197,66,.6));
+  }
+  h1 .fire { display: inline-block; animation: flicker .5s infinite alternate; -webkit-text-fill-color: initial; color: initial; filter: none; }
+  @keyframes flicker { from { transform: scale(1) rotate(-6deg); } to { transform: scale(1.18) rotate(6deg); } }
+  header p { margin: 6px 0 0; color: var(--gold2); font-size: 14px; letter-spacing: .3em; }
+
+  main { max-width: 1000px; margin: 0 auto; padding: 8px 16px 24px; display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; align-items: flex-start; }
+  .stage { position: relative; width: min(92vw, 560px); }
+  canvas#wheel { display: block; width: 100%; height: auto; }
+  .hot .stage { animation: shake .09s infinite; }
+  @keyframes shake {
+    0% { transform: translate(1px, 1px); } 25% { transform: translate(-2px, 1px); }
+    50% { transform: translate(2px, -1px); } 75% { transform: translate(-1px, -2px); } 100% { transform: translate(1px, 2px); }
+  }
+  .hot::before { content: ''; position: fixed; inset: 0; background: #d62828; z-index: -1; pointer-events: none; animation: hotbg .25s infinite alternate; }
+  @keyframes hotbg { from { opacity: 0; } to { opacity: .45; } }
+
+  #status { text-align: center; min-height: 1.6em; margin: 6px 0 0; font-size: 18px; color: var(--gold2); font-weight: 700; letter-spacing: .1em; }
+  .hot #status { color: #fff; animation: blink .18s infinite; font-size: 24px; }
+  @keyframes blink { 50% { opacity: .2; } }
+
+  #spin {
+    display: block; margin: 12px auto 0; padding: 16px 48px; font-size: 26px; font-weight: 900; letter-spacing: .2em;
+    color: #3a2300; border: 3px solid #fff2b0; border-radius: 999px; cursor: pointer;
+    background: linear-gradient(180deg, #fff2b0, var(--gold) 50%, #c9961a);
+    box-shadow: 0 6px 0 #7a5a10, 0 0 24px rgba(245,197,66,.7);
+    animation: pulse 1.1s infinite;
+  }
+  @keyframes pulse { 50% { transform: scale(1.05); box-shadow: 0 6px 0 #7a5a10, 0 0 40px rgba(245,197,66,1); } }
+  #spin:active { transform: translateY(4px); box-shadow: 0 2px 0 #7a5a10; }
+  #spin:disabled { animation: none; filter: grayscale(.6) brightness(.7); cursor: default; }
+
+  .panel { width: min(92vw, 320px); background: rgba(0,0,0,.45); border: 1px solid rgba(245,197,66,.4); border-radius: 12px; padding: 14px; }
+  .panel label { display: block; font-size: 13px; color: var(--gold2); margin-bottom: 6px; }
+  textarea { width: 100%; height: 220px; resize: vertical; font: 16px/1.6 inherit; padding: 8px; border-radius: 8px; border: 1px solid #666; background: #111; color: #fff; }
+  #odds { margin: 10px 0 0; font-size: 14px; line-height: 1.7; color: #ddd; }
+  #odds b { color: var(--gold); font-size: 22px; }
+  .panel .row { margin-top: 10px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .panel .warn { color: #ff9d9d; font-size: 13px; min-height: 1.4em; margin: 6px 0 0; }
+
+  #result { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; z-index: 10; overflow: hidden; }
+  #result[hidden] { display: none; }
+  #result .rays {
+    position: absolute; left: 50%; top: 50%; width: 300vmax; height: 300vmax; transform: translate(-50%, -50%);
+    background: repeating-conic-gradient(rgba(245,197,66,.35) 0 8deg, rgba(0,0,0,.85) 8deg 16deg);
+    animation: spinrays 10s linear infinite;
+  }
+  @keyframes spinrays { to { transform: translate(-50%, -50%) rotate(360deg); } }
+  #result .box { position: relative; padding: 24px 16px; max-width: 92vw; }
+  #result .label { font-size: clamp(18px, 4vw, 28px); letter-spacing: .3em; color: var(--gold2); animation: drop .4s ease-out both; }
+  #result .name {
+    margin: 10px 0; font-size: clamp(44px, 12vw, 120px); font-weight: 900; line-height: 1.1; word-break: break-all;
+    background: linear-gradient(180deg, #fff6c8, var(--gold) 45%, #b8860b 55%, var(--gold2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 4px 0 #5a3d00) drop-shadow(0 0 30px rgba(255,220,100,.9));
+    animation: slam .5s cubic-bezier(.2, 1.6, .4, 1) .25s both;
+  }
+  @keyframes slam { from { transform: scale(4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes drop { from { transform: translateY(-40px); opacity: 0; } to { transform: none; opacity: 1; } }
+  #result .stamp {
+    display: inline-block; padding: 4px 18px; border: 5px solid var(--red); color: var(--red); font-size: clamp(28px, 7vw, 56px); font-weight: 900;
+    letter-spacing: .2em; transform: rotate(-12deg); background: rgba(255,255,255,.92); border-radius: 6px;
+    animation: stamp .3s cubic-bezier(.2, 1.8, .4, 1) .9s both;
+  }
+  @keyframes stamp { from { transform: rotate(-12deg) scale(3); opacity: 0; } to { transform: rotate(-12deg) scale(1); opacity: 1; } }
+  #result .line { margin: 18px 0 0; font-size: clamp(16px, 3vw, 22px); color: #fff; animation: drop .4s ease-out 1.3s both; }
+  #result .btns { margin-top: 26px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; animation: drop .4s ease-out 1.8s both; }
+  #result button { padding: 12px 22px; font-size: 16px; font-weight: 700; border-radius: 999px; border: 2px solid var(--gold); background: #1a1a1a; color: var(--gold2); cursor: pointer; }
+  #result button.ok { background: var(--gold); color: #3a2300; }
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 11; }
+
+  footer { text-align: center; padding: 8px 16px 28px; font-size: 14px; }
+  footer a { color: #ffd37a; }
+  #test-result { position: fixed; left: 8px; top: 8px; margin: 0; padding: 8px; background: rgba(0,0,0,.8); color: #fff; font-size: 12px; z-index: 20; white-space: pre-wrap; max-width: 90vw; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="fire">🔥</span> 防火防災管理者ルーレット <span class="fire">🔥</span></h1>
+  <p>誰がやるかは運命が決める</p>
+</header>
+<main>
+  <section class="stage">
+    <canvas id="wheel" width="700" height="700"></canvas>
+    <p id="status">ボタンを押して運命を回せ</p>
+    <button id="spin">回 す</button>
+  </section>
+  <aside class="panel">
+    <label for="names">候補者（1行に1人）</label>
+    <textarea id="names" spellcheck="false"></textarea>
+    <p id="odds"></p>
+    <p class="warn" id="warn"></p>
+    <div class="row"><input type="checkbox" id="sound" checked><label for="sound" style="margin:0">音を出す</label></div>
+  </aside>
+</main>
+<div id="result" hidden>
+  <div class="rays"></div>
+  <div class="box">
+    <div class="label">防火防災管理者は</div>
+    <div class="name" id="winner"></div>
+    <div class="stamp">決 定</div>
+    <div class="line" id="line"></div>
+    <div class="btns">
+      <button id="again">異議あり（もう一回）</button>
+      <button id="accept" class="ok">受け入れる</button>
+    </div>
+  </div>
+</div>
+<canvas id="confetti"></canvas>
+<footer><a href="../../">← ゲーム一覧にもどる</a></footer>
+
+<script>
+(function () {
+'use strict';
+var TEST = location.search.indexOf('test') >= 0;
+var TAU = Math.PI * 2;
+var DEFAULT_NAMES = ['社長', '副社長', '部長', '課長', '係長', '主任', '新人', 'インターン'];
+var STORE_KEY = 'bouka-roulette-names';
+var LINES = ['拒否権はありません', '拍手！', '運命です', '講習の日程を確認しましょう', '満場一致（ルーレットによる）', '次回もお楽しみに'];
+var BULBS = 36;
+
+var canvas = document.getElementById('wheel');
+var ctx = canvas.getContext('2d');
+var namesEl = document.getElementById('names');
+var oddsEl = document.getElementById('odds');
+var warnEl = document.getElementById('warn');
+var statusEl = document.getElementById('status');
+var spinBtn = document.getElementById('spin');
+var soundEl = document.getElementById('sound');
+var resultEl = document.getElementById('result');
+var winnerEl = document.getElementById('winner');
+var lineEl = document.getElementById('line');
+var confettiCv = document.getElementById('confetti');
+var cctx = confettiCv.getContext('2d');
+
+var names = [];
+var angle = 0;                 // 盤の回転（ラジアン、時計回り）
+var state = 'idle';            // idle / spinning / result
+var spinStart = 0, spinDur = 0, startAngle = 0, totalRot = 0, lastIdx = -1, hot = false;
+var bulbFlash = 0, lastTick = 0, lastBeat = 0;
+var particles = [];
+var W = canvas.width;
+
+// ---- 純粋な計算（テスト対象） ----
+function parseNames(text) {
+  return text.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
+}
+// 針（真上）の下にある区画の番号
+function indexAt(a, n) {
+  var seg = TAU / n;
+  var local = ((-Math.PI / 2 - a) % TAU + TAU) % TAU;
+  return Math.floor(local / seg) % n;
+}
+// 一定の摩擦で減速する回り方。t は 0〜1
+function ease(t) { return 1 - (1 - t) * (1 - t); }
+function segColor(i, n) {
+  if (n % 2 === 1 && i === n - 1) return '#1e8449';   // 奇数のときの最後は緑（ルーレットの 0）
+  return i % 2 === 0 ? '#d62828' : '#141414';
+}
+
+// ---- 保存 ----
+function loadNames() {
+  if (TEST) return DEFAULT_NAMES.join('\n');
+  try { var s = localStorage.getItem(STORE_KEY); if (s) return s; } catch (e) {}
+  return DEFAULT_NAMES.join('\n');
+}
+function saveNames(text) { try { localStorage.setItem(STORE_KEY, text); } catch (e) {} }
+
+// ---- 音（全部その場で合成。外部ファイルなし） ----
+var AC = null;
+function ac() {
+  if (!soundEl.checked) return null;
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === 'suspended') AC.resume();
+    return AC;
+  } catch (e) { return null; }
+}
+function tone(freq, dur, type, vol, delay, slideTo) {
+  var c = ac(); if (!c) return;
+  var t0 = c.currentTime + (delay || 0);
+  var o = c.createOscillator(), g = c.createGain();
+  o.type = type || 'square';
+  o.frequency.setValueAtTime(freq, t0);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(c.destination);
+  o.start(t0); o.stop(t0 + dur + 0.05);
+}
+function sTick() { tone(1600 + Math.random() * 400, 0.035, 'square', 0.12); }
+function sWhoosh() { tone(180, 0.9, 'sawtooth', 0.12, 0, 1400); }
+function sBeat() { tone(60, 0.22, 'sine', 0.8); tone(50, 0.25, 'sine', 0.6, 0.22); }
+function sFanfare() {
+  var notes = [523, 659, 784, 1047];
+  notes.forEach(function (f, i) { tone(f, 0.28, 'square', 0.12, i * 0.13); });
+  [1047, 1319, 1568, 2093].forEach(function (f) { tone(f, 1.6, 'triangle', 0.1, 0.6); });
+  tone(80, 1.2, 'sine', 0.5, 0.6);
+}
+
+// ---- 描画 ----
+function resizeCanvas() {
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var css = canvas.getBoundingClientRect().width || 560;
+  W = Math.round(css * dpr);
+  if (canvas.width !== W) { canvas.width = W; canvas.height = W; }
+}
+function draw(now) {
+  var n = names.length;
+  var cx = W / 2, cy = W / 2, R = W / 2 - W * 0.085;
+  ctx.clearRect(0, 0, W, W);
+
+  // 外枠（金）
+  var rim = ctx.createLinearGradient(0, 0, W, W);
+  rim.addColorStop(0, '#fff2b0'); rim.addColorStop(0.5, '#b8860b'); rim.addColorStop(1, '#fff2b0');
+  ctx.beginPath(); ctx.arc(cx, cy, R + W * 0.075, 0, TAU); ctx.fillStyle = rim; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, R + W * 0.065, 0, TAU); ctx.fillStyle = '#2a1500'; ctx.fill();
+
+  // 電球
+  var speed = state === 'spinning' ? 1 : 0;
+  for (var b = 0; b < BULBS; b++) {
+    var ba = b / BULBS * TAU - Math.PI / 2;
+    var on;
+    if (state === 'result') on = Math.floor(now / 90 + b) % 2 === 0;
+    else if (state === 'spinning') on = ((b + Math.floor(now / (hot ? 40 : 70))) % 3) === 0;
+    else on = Math.sin(now / 400 + b * 0.7) > 0.3;
+    var bx = cx + Math.cos(ba) * (R + W * 0.04), by = cy + Math.sin(ba) * (R + W * 0.04);
+    ctx.beginPath(); ctx.arc(bx, by, W * 0.012, 0, TAU);
+    ctx.fillStyle = on ? (hot || state === 'result' ? '#fff' : '#ffe066') : '#5a3a10';
+    ctx.shadowColor = on ? '#ffe066' : 'transparent'; ctx.shadowBlur = on ? W * 0.02 : 0;
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+
+  if (n === 0) {
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fillStyle = '#222'; ctx.fill();
+    ctx.fillStyle = '#aaa'; ctx.font = 'bold ' + W * 0.045 + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('右の欄に名前を書いて', cx, cy);
+    return;
+  }
+
+  var seg = TAU / n;
+  var cur = indexAt(angle, n);
+  for (var i = 0; i < n; i++) {
+    var a0 = angle + i * seg, a1 = a0 + seg;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a1); ctx.closePath();
+    ctx.fillStyle = segColor(i, n);
+    ctx.fill();
+    if (state !== 'spinning' && i === cur) { ctx.fillStyle = 'rgba(255,230,120,.45)'; ctx.fill(); }
+    ctx.strokeStyle = '#f5c542'; ctx.lineWidth = Math.max(1, W * 0.004); ctx.stroke();
+
+    // 名前
+    ctx.save();
+    var mid = a0 + seg / 2;
+    var left = Math.cos(mid) < 0;   // 左半分の区画は文字を180°回して、逆さまにならないようにする
+    ctx.translate(cx, cy); ctx.rotate(left ? mid + Math.PI : mid);
+    ctx.textAlign = left ? 'left' : 'right'; ctx.textBaseline = 'middle';
+    var fs = Math.min(W * 0.055, W * 0.95 * seg / 2.2);
+    ctx.font = '900 ' + fs + 'px -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif';
+    ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 4;
+    ctx.fillText(names[i], left ? -R * 0.93 : R * 0.93, 0, R * 0.62);
+    ctx.restore();
+  }
+
+  // 中心
+  var hub = ctx.createRadialGradient(cx - W * 0.01, cy - W * 0.01, 2, cx, cy, W * 0.075);
+  hub.addColorStop(0, '#fff6c8'); hub.addColorStop(1, '#b8860b');
+  ctx.beginPath(); ctx.arc(cx, cy, W * 0.075, 0, TAU); ctx.fillStyle = hub; ctx.fill();
+  ctx.fillStyle = '#7a1010'; ctx.font = '900 ' + W * 0.07 + 'px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('火', cx, cy + W * 0.004);
+
+  // 針（真上）
+  var tipY = cy - R + W * 0.045, baseY = cy - R - W * 0.03;
+  ctx.beginPath(); ctx.moveTo(cx, tipY); ctx.lineTo(cx - W * 0.03, baseY); ctx.lineTo(cx + W * 0.03, baseY); ctx.closePath();
+  ctx.fillStyle = hot ? '#fff' : '#ff3b3b'; ctx.strokeStyle = '#fff2b0'; ctx.lineWidth = W * 0.005;
+  ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 6; ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
+}
+
+// ---- 紙吹雪 ----
+function burst() {
+  confettiCv.width = innerWidth; confettiCv.height = innerHeight;
+  var colors = ['#f5c542', '#fff', '#d62828', '#ffe9a0', '#ff8c00'];
+  for (var i = 0; i < 260; i++) {
+    var a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6;
+    var v = 9 + Math.random() * 11;
+    particles.push({
+      x: innerWidth / 2 + (Math.random() - 0.5) * 40, y: innerHeight * 0.55,
+      vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: Math.random() * TAU, vr: (Math.random() - 0.5) * 0.3,
+      s: 6 + Math.random() * 8, c: colors[i % colors.length], life: 240 + Math.random() * 120
+    });
+  }
+}
+function drawConfetti() {
+  cctx.clearRect(0, 0, confettiCv.width, confettiCv.height);
+  for (var i = particles.length - 1; i >= 0; i--) {
+    var p = particles[i];
+    p.vy += 0.25; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.life--;
+    if (p.life <= 0 || p.y > confettiCv.height + 20) { particles.splice(i, 1); continue; }
+    cctx.save(); cctx.translate(p.x, p.y); cctx.rotate(p.r);
+    cctx.fillStyle = p.c; cctx.globalAlpha = Math.min(1, p.life / 60);
+    cctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2);
+    cctx.restore();
+  }
+}
+
+// ---- 進行 ----
+function updateNames() {
+  names = parseNames(namesEl.value);
+  var n = names.length;
+  if (n === 0) oddsEl.innerHTML = '';
+  else oddsEl.innerHTML = '候補 ' + n + ' 人<br>1人あたりの当選確率 <b>' + (100 / n).toFixed(1) + '%</b>';
+  warnEl.textContent = n === 1 ? '1人だと回す意味がありません' : '';
+  if (state !== 'spinning') angle = 0;
+}
+function spin() {
+  updateNames();
+  var n = names.length;
+  if (n < 2) { warnEl.textContent = '候補者を2人以上書いてください'; namesEl.focus(); return; }
+  saveNames(namesEl.value);
+  ac();
+  state = 'spinning'; hot = false;
+  document.body.classList.remove('hot');
+  spinBtn.disabled = true; namesEl.disabled = true;
+  spinStart = performance.now();
+  spinDur = 6500 + Math.random() * 2500;
+  startAngle = angle;
+  totalRot = (10 + Math.random() * 4) * TAU + Math.random() * TAU;
+  lastIdx = indexAt(angle, n);
+  statusEl.textContent = '回転中…';
+  sWhoosh();
+}
+function stepSpin(now) {
+  var n = names.length;
+  var t = Math.min(1, (now - spinStart) / spinDur);
+  angle = startAngle + totalRot * ease(t);
+  var idx = indexAt(angle, n);
+  if (idx !== lastIdx) {
+    lastIdx = idx;
+    if (now - lastTick > 35) { sTick(); lastTick = now; }
+  }
+  var remaining = totalRot * (1 - ease(t));
+  if (!hot && remaining < TAU) {
+    hot = true;
+    document.body.classList.add('hot');
+    statusEl.textContent = '激 熱';
+  }
+  if (hot && now - lastBeat > 480) { sBeat(); lastBeat = now; }
+  if (t >= 1) finish();
+}
+function finish() {
+  state = 'result'; hot = false;
+  document.body.classList.remove('hot');
+  var w = names[indexAt(angle, names.length)];
+  statusEl.textContent = '決定：' + w;
+  setTimeout(function () {
+    winnerEl.textContent = w;
+    lineEl.textContent = LINES[Math.floor(Math.random() * LINES.length)];
+    resultEl.hidden = false;
+    sFanfare();
+    burst();
+    setTimeout(burst, 700);
+  }, 450);
+}
+function closeResult(retry) {
+  resultEl.hidden = true;
+  state = 'idle';
+  spinBtn.disabled = false; namesEl.disabled = false;
+  if (retry) { spin(); } else { statusEl.textContent = 'おつかれさまでした'; }
+}
+function loop(now) {
+  if (state === 'spinning') stepSpin(now);
+  draw(now);
+  if (particles.length) drawConfetti();
+  else if (confettiCv.width) cctx.clearRect(0, 0, confettiCv.width, confettiCv.height);
+  requestAnimationFrame(loop);
+}
+
+spinBtn.addEventListener('click', spin);
+namesEl.addEventListener('input', updateNames);
+document.getElementById('again').addEventListener('click', function () { closeResult(true); });
+document.getElementById('accept').addEventListener('click', function () { closeResult(false); });
+window.addEventListener('resize', resizeCanvas);
+
+namesEl.value = loadNames();
+updateNames();
+resizeCanvas();
+
+// ---- 動作の確認（アドレスの最後に ?test を付けたときだけ動く） ----
+function selfTest() {
+  var r = {};
+  r.parseTrimsAndDropsEmpty = JSON.stringify(parseNames(' a \n\n b\n  \nc')) === '["a","b","c"]';
+  r.indexTopAtZero = indexAt(0, 4) === 3;          // 回転 0 のとき真上は区画 3（270°〜360°）
+  r.indexAfterQuarterTurn = indexAt(Math.PI / 2, 4) === 2;
+  r.indexWrapsNegative = indexAt(-TAU * 3 + 0.1, 8) === indexAt(0.1, 8);
+  var all = true;
+  for (var i = 0; i < 8; i++) {
+    var mid = -Math.PI / 2 - (i + 0.5) * (TAU / 8);  // 区画 i の中央が真上に来る回転
+    if (indexAt(mid, 8) !== i) all = false;
+  }
+  r.indexEverySegment = all;
+  var mono = true, prev = -1;
+  for (var k = 0; k <= 100; k++) { var e = ease(k / 100); if (e < prev) mono = false; prev = e; }
+  r.easeMonotone = mono && ease(0) === 0 && ease(1) === 1;
+  r.easeSlowsDown = (ease(0.2) - ease(0)) > (ease(1) - ease(0.8));
+  r.oddCountGetsGreen = segColor(4, 5) === '#1e8449' && segColor(4, 6) !== '#1e8449';
+  r.evenCountNoClash = segColor(0, 6) !== segColor(5, 6);
+  r.defaultNamesLoaded = names.length === 8;
+  r.ok = Object.keys(r).every(function (k) { return r[k] === true; });
+  var pre = document.createElement('pre');
+  pre.id = 'test-result';
+  pre.textContent = JSON.stringify(r);
+  document.body.appendChild(pre);
+}
+if (TEST) {
+  try { selfTest(); }
+  catch (e) {
+    var pre = document.createElement('pre');
+    pre.id = 'test-result';
+    pre.textContent = 'ERROR ' + e.message;
+    document.body.appendChild(pre);
+  }
+}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
