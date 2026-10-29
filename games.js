@@ -4,4 +4,10 @@
 // id は games/ の中のフォルダ名と同じ。author は GitHub のユーザー名（本名は書かない）。
 window.GAMES = [
   { id: "hakoniwa", title: "箱庭", author: "loohcskshirasaki", description: "歩く・掘る・置く。第2回で1プロンプトから出した箱庭" },
+  // ---- yuuuuuuuuuuhh ----
+  // { id: "yuuuuuuuuuuhh", title: "ゲームの名前", author: "yuuuuuuuuuuhh", description: "ひとこと説明" },
+
+  // ---- ishiritsu0-web ----
+  // { id: "ishiritsu0-web", title: "ゲームの名前", author: "ishiritsu0-web", description: "ひとこと説明" },
+
 ];
