@@ -3846,13 +3846,18 @@ body {
     if (slowN < 120) return;
     if (slowT / slowN > 1 / 45 && quality < 3) {
       quality++;
-      if (quality === 3) sun.castShadow = false;
+      if (quality === 3) { sun.castShadow = false; scene.environment = null; hemi.intensity *= 1.8; }   // 影と環境マップを外し、半球光で補う
       else { renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 1 ? 1.5 : 1)); resize(); }
     }
     slowT = slowN = 0;
   }
+  var TOUCH = /[?&]touch\b/.test(location.search) || !!(window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches);   // ?touch で PC からも試せる
+  if (TOUCH) {                                 // スマホは最初から一段軽く。解像度は 1.5 倍まで、影は 1024px。足りなければ watchSpeed が更に落とす
+    quality = 1; renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)); resize();
+    sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+  }
   pickStage(0);
-  if (window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches) enableTouch();
+  if (TOUCH) enableTouch();
 
   // ---------- 計測と撮影（見た目を直すときに、前後を同じ条件で比べるため） ----------
   // ?fps        : 右下に fps・描画呼び出し数・三角形数・画質段階を出す
@@ -3881,7 +3886,7 @@ body {
     fpsN++; fpsT += dt;
     if (fpsT < 0.5) return;
     var r = renderer.info.render;
-    fpsEl.textContent = Math.round(fpsN / fpsT) + ' fps\ncalls ' + r.calls + '  tris ' + r.triangles + '\nq' + quality + ' pr' + renderer.getPixelRatio().toFixed(2) + ' ' + vw + 'x' + vh;
+    fpsEl.textContent = Math.round(fpsN / fpsT) + ' fps\ncalls ' + r.calls + '  tris ' + r.triangles + '\nq' + quality + ' pr' + renderer.getPixelRatio().toFixed(2) + ' ' + vw + 'x' + vh + (TOUCH ? ' touch' : '') + (LQ ? ' lq' : '');
     fpsN = 0; fpsT = 0;
   }
   window.mochi.shot = shot;
