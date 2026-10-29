@@ -383,6 +383,10 @@ body {
   sun.shadow.camera.left = sun.shadow.camera.bottom = -170; sun.shadow.camera.right = sun.shadow.camera.top = 170;
   sun.shadow.camera.near = 20; sun.shadow.camera.far = 700; sun.shadow.camera.updateProjectionMatrix();
   var shDir = new THREE.Vector3(0.4, 0.8, 0.3);
+  // 縁光。太陽の反対側から弱い寒色を当てて、物の輪郭を背景から浮かせる（もちの縁が透けて見える感じの安い代用）
+  var rim = new THREE.DirectionalLight(0xbfe6ff, 0.3);
+  scene.add(rim); scene.add(rim.target);
+  var sunV = new THREE.Vector3(0.4, 0.8, 0.3);   // いまのステージの太陽の向き（sky() が入れる）
 
   function resize() {
     var g = $('game'), w = g.clientWidth || 800, h = g.clientHeight || 600;
@@ -965,6 +969,7 @@ body {
     disc.lookAt(bounds.cx, 0, bounds.cz);
     world.add(disc);
     shDir.set(sd.x, Math.max(sd.y, 0.55), sd.z).normalize();
+    sunV.copy(sd);
     if (st.clouds) {
       var puffs = [];
       for (var c = 0; c < st.clouds[0]; c++) {
@@ -2077,7 +2082,8 @@ body {
       puff: function () { return [K.SPHL, lam(0xffffff)]; }
     };
     K.flush = function () {
-      Object.keys(K.batches).forEach(function (n) { if (K.batches[n].length) { var d = K.defs[n](); instanced(d[0], d[1], K.batches[n]); } });
+      var NOSHADOW = { drip: 1, fall: 1, puff: 1, splash: 1 };        // 半透明や水の演出は影を落とさない
+      Object.keys(K.batches).forEach(function (n) { if (K.batches[n].length) { var d = K.defs[n](); instanced(d[0], d[1], K.batches[n]).castShadow = !NOSHADOW[n]; } });
       K.batches = {};
     };
     return K;
@@ -2454,7 +2460,7 @@ body {
     { name: 'もちもちワンダーパーク', note: '雲の上のスイーツ遊園地。跳ねて・のびて・くっついて走る', road: '#f4e3a4', roadLook: { kerbA: '#ff7eb3', kerbB: '#ffffff', line: '#ffb8d6', glow: 0x2a2618 },
       horizon: '#b5e3ff', below: '#d3efff',                                       // a clear midday sky over a sea of white cloud
       sky: [[0, '#1f8fe6'], [0.5, '#4fb3f3'], [0.85, '#8fd2fb'], [1, '#b5e3ff']], clouds: [22, 0xffffff],
-      fog: [2200, 8000], hemi: [0xd6eaff, 0xffe3cf, 0.5], sun: [0xfff1dc, 0.75], sunDir: [0.45, 0.8, -0.4], sunCol: '#fffbe8',   // 空は青、地面の照り返しは桃色。太陽を主役にして影を出す
+      fog: [2200, 8000], hemi: [0xd6eaff, 0xffe3cf, 0.5], sun: [0xfff1dc, 0.75], sunDir: [0.6, 0.55, -0.5], sunCol: '#fffbe8', rim: [0xa8d8ff, 0.35],   // 太陽は低めの斜光で影を伸ばす。空側は青、地面側は生成りの照り返し
       crowd: 0, gate: 0xff7ab6, props: parkProps, park: true, path: parkPath, noCuts: true, pads: [], ramps: [], hills: [], haz: null, dirt: 0xd9b97e }
   ];
 
@@ -2512,6 +2518,7 @@ body {
     airFog = { c: new THREE.Color(st.horizon), n: st.fog[0], f: st.fog[1] };
     hemi.color.setHex(st.hemi[0]); hemi.groundColor.setHex(st.hemi[1]); hemi.intensity = st.hemi[2];
     sun.color.setHex(st.sun[0]); sun.intensity = st.sun[1];
+    var rm = st.rim || [0xbfe6ff, 0.3]; rim.color.setHex(rm[0]); rim.intensity = rm[1];
     sky(st);
     var rmat = roadMat(st.road, st.cobble, st.roadLook);
     if (st.roadLook && st.roadLook.glow) rmat.emissive.setHex(st.roadLook.glow);   // keeps a pale road pale in the shade
@@ -3656,6 +3663,26 @@ body {
   });
   $('reset').addEventListener('click', function () { $('reset').blur(); begin(); });
 
+  // ---------- 接地影 ----------
+  // カートの真下に丸いぼかしを敷く。ジャンプ中は小さくなる。影マップを切った段階（スマホ）でも足元の接地感が残る
+  var blobTex = canvasTex(64, 64, function (g) {
+    var gr = g.createRadialGradient(32, 32, 3, 32, 32, 30);
+    gr.addColorStop(0, 'rgba(0,0,0,0.5)'); gr.addColorStop(0.55, 'rgba(0,0,0,0.22)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  });
+  blobTex.wrapS = blobTex.wrapT = THREE.ClampToEdgeWrapping;
+  var blobG = new THREE.PlaneGeometry(5.4, 6.6); blobG.rotateX(-Math.PI / 2);
+  var blobs = new THREE.InstancedMesh(blobG, new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), karts.length);
+  blobs.frustumCulled = false; blobs.renderOrder = 1; scene.add(blobs);
+  function blobTick() {
+    karts.forEach(function (k, i) {
+      var gy = groundY(k.x, k.z, k.alt), h = Math.max(0, k.alt - gy), sc = Math.max(0.3, 1 - h / 14);
+      dummy.position.set(k.x, gy + 0.12, k.z); dummy.rotation.set(0, k.h, 0); dummy.scale.set(sc, 1, sc);
+      dummy.updateMatrix(); blobs.setMatrixAt(i, dummy.matrix);
+    });
+    blobs.instanceMatrix.needsUpdate = true;
+  }
+
   // ---------- camera + loop ----------
   var cams = [{ cam: camera, k: player, h: 0, y: 0 }, { cam: camera2, k: p2, h: 0, y: 0 }];
   var comfort = true;                          // on: while the view swings round, the edges of the screen darken, since it is the
@@ -3743,8 +3770,13 @@ body {
     fitCheck(); netStep(dt);
     if (!paused) { step(dt); tickers.forEach(function (f) { f(dt); }); }
     cam(cams[0], dt); hud(); engineTick();
-    sun.target.position.set(player.x, player.alt, player.z); sun.target.updateMatrixWorld();
-    sun.position.set(player.x + shDir.x * 320, player.alt + shDir.y * 320, player.z + shDir.z * 320);
+    // 影と縁光の中心はプレイヤー。撮影の固定視点のときは、見ている先に置く（走ってそこに来たときの見え方になる）
+    var lx = viewAt ? viewAt[3] : player.x, ly = viewAt ? viewAt[4] : player.alt, lz = viewAt ? viewAt[5] : player.z;
+    sun.target.position.set(lx, ly, lz); sun.target.updateMatrixWorld();
+    sun.position.set(lx + shDir.x * 320, ly + shDir.y * 320, lz + shDir.z * 320);
+    rim.target.position.copy(sun.target.position); rim.target.updateMatrixWorld();
+    rim.position.set(lx - sunV.x * 300, ly + 110, lz - sunV.z * 300);
+    blobTick();
     if (twoP) {
       cam(cams[1], dt);
       renderer.setScissorTest(true);
