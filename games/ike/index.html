@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>池</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0f3d40; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: crosshair; }
+  #hint {
+    position: fixed; left: 0; right: 0; bottom: 30px; text-align: center; padding: 0 16px;
+    color: rgba(255, 255, 255, .8); font: 14px/1.8 "Hiragino Mincho ProN", "Yu Mincho", serif;
+    letter-spacing: .22em; pointer-events: none; transition: opacity 2.5s;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, .5);
+  }
+  #hint span { display: inline-block; margin: 0 .6em; }
+  #back {
+    position: fixed; left: 14px; top: 12px; color: rgba(255, 255, 255, .7); text-decoration: none;
+    font: 13px/1.6 "Hiragino Mincho ProN", "Yu Mincho", serif; letter-spacing: .1em;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, .5);
+  }
+  #back:hover { color: #fff; }
+  #test {
+    position: fixed; left: 16px; top: 48px; margin: 0; padding: 12px 16px;
+    background: rgba(0, 0, 0, .72); color: #fff; font: 13px/1.7 ui-monospace, Menlo, monospace;
+    border-radius: 6px; white-space: pre-wrap; max-width: calc(100vw - 64px);
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="back" href="../../">← ゲーム一覧にもどる</a>
+<div id="hint"><span>水面にふれると餌が落ちる</span><span>なぞると逃げる</span><br><span>R 雨</span><span>F 全画面</span></div>
+<pre id="test" hidden></pre>
+<script>
+'use strict';
+/*
+  池。真上から眺める。
+  ?test      自己テスト
+  ?hour=21   時刻を固定（0〜24）。付けなければ実際の時刻
+  ?rain      雨を降らせたままにする
+  ?seed=3    池の並びを固定
+  ?skip=20   20秒ぶん進めたところから始める（確認用）
+*/
+
+// ---------- 道具 ----------
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+function angDiff(a, b) {
+  let d = (a - b) % TAU;
+  if (d > Math.PI) d -= TAU;
+  if (d < -Math.PI) d += TAU;
+  return d;
+}
+function rng32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ---------- 鯉 ----------
+const SEG = 12; // 背骨の節の数
+const RED = '#d6442a', BLACK = '#1b1b1e', WHITE = '#f3eee4';
+const KINDS = [
+  { name: '紅白', base: WHITE, patch: [RED] },
+  { name: '紅白', base: WHITE, patch: [RED] },
+  { name: '大正三色', base: WHITE, patch: [RED, RED, BLACK] },
+  { name: '丹頂', base: WHITE, patch: [RED], tancho: true },
+  { name: '山吹黄金', base: '#e6b23c', patch: [] },
+  { name: '緋鯉', base: '#d8562e', patch: [] },
+  { name: '浅黄', base: '#6d8ca3', patch: ['#c65a33'] },
+  { name: '烏鯉', base: '#2a2c30', patch: [] },
+];
+
+// 体の半分の幅（体長に対する割合）。t=0 が頭、t=1 が尾の付け根
+const WIDTH_KEYS = [[0, .06], [.08, .102], [.25, .128], [.45, .116], [.7, .07], [.9, .031], [1, .019]];
+function widthAt(t) {
+  t = clamp(t, 0, 1);
+  for (let i = 1; i < WIDTH_KEYS.length; i++) {
+    if (t <= WIDTH_KEYS[i][0]) {
+      const [t0, w0] = WIDTH_KEYS[i - 1], [t1, w1] = WIDTH_KEYS[i];
+      let u = (t - t0) / (t1 - t0);
+      u = u * u * (3 - 2 * u);
+      return lerp(w0, w1, u);
+    }
+  }
+  return WIDTH_KEYS[WIDTH_KEYS.length - 1][1];
+}
+
+function makePatches(R, kind) {
+  const out = [];
+  if (kind.tancho) { out.push({ t: .075, off: 0, r: .05, c: kind.patch[0] }); return out; }
+  if (!kind.patch.length) return out;
+  const groups = 2 + Math.floor(R() * 3);
+  for (let g = 0; g < groups; g++) {
+    const t0 = .06 + R() * .78;
+    const c = kind.patch[Math.floor(R() * kind.patch.length)];
+    const n = 2 + Math.floor(R() * 3);
+    for (let j = 0; j < n; j++) {
+      out.push({
+        t: clamp(t0 + (R() - .5) * .16, .03, .95),
+        off: (R() - .5) * 1.4,
+        r: (.035 + R() * .06) * (c === BLACK ? .55 : 1),
+        c,
+      });
+    }
+  }
+  return out;
+}
+
+function makeFish(world) {
+  const R = world.R, S = world.scale;
+  const len = (80 + R() * 75) * S;
+  const a = R() * TAU;
+  const kind = KINDS[Math.floor(R() * KINDS.length)];
+  const f = {
+    x: lerp(.15, .85, R()) * world.w, y: lerp(.15, .85, R()) * world.h,
+    a, len, seg: len / SEG,
+    cruise: (24 + R() * 20) * S, v: 0, turn: 0,
+    depth: R(),            // 0 が水面近く、1 が底近く
+    ph: R() * TAU, wander: R() * 100, swim: R() * TAU,
+    kind, patches: makePatches(R, kind), sp: [],
+  };
+  f.v = f.cruise;
+  for (let k = 0; k <= SEG; k++) f.sp.push({ x: f.x - Math.cos(a) * k * f.seg, y: f.y - Math.sin(a) * k * f.seg });
+  return f;
+}
+
+function stepFish(world, f, dt) {
+  const S = world.scale;
+  f.wander += dt;
+  let steer = (Math.sin(f.wander * .7 + f.ph) + .8 * Math.sin(f.wander * .23 + f.ph * 2.1)) * .3;
+  let vt = f.cruise * (.7 + .4 * Math.sin(f.wander * .31 + f.ph * 3));
+  let quick = 3, maxTurn = 2.2;
+
+  // 餌に寄る
+  let best = -1, bd = 420 * S;
+  for (let i = 0; i < world.food.length; i++) {
+    const p = world.food[i];
+    if (p.age < .4) continue;
+    const d = Math.hypot(p.x - f.x, p.y - f.y);
+    if (d < bd) { bd = d; best = i; }
+  }
+  const chasing = best >= 0;
+  if (chasing) {
+    const p = world.food[best];
+    if (bd < f.len * .16 + 5 * S) {
+      world.food.splice(best, 1);
+      addRipple(world, p.x, p.y, .3);
+      f.v *= .5;
+    } else {
+      steer += angDiff(Math.atan2(p.y - f.y, p.x - f.x), f.a) * 2.6;
+      vt = f.cruise * (1 + Math.min(1.7, bd / (150 * S)));
+      maxTurn = 3.2; quick = 5;
+    }
+  }
+
+  // ほかの鯉を避ける（餌を追っている間は弱める）
+  for (const o of world.fish) {
+    if (o === f) continue;
+    const dx = o.x - f.x, dy = o.y - f.y;
+    const d = Math.hypot(dx, dy), range = (f.len + o.len) * .45;
+    if (d < range && d > .001) {
+      const rel = angDiff(Math.atan2(dy, dx), f.a);
+      if (Math.abs(rel) < 2) steer -= Math.sign(rel || 1) * (1 - d / range) * (chasing ? .7 : 1.8);
+    }
+  }
+
+  // 岸から離れる
+  const m = 120 * S;
+  let ix = 0, iy = 0;
+  if (f.x < m) ix = (m - f.x) / m; else if (f.x > world.w - m) ix = -(f.x - (world.w - m)) / m;
+  if (f.y < m) iy = (m - f.y) / m; else if (f.y > world.h - m) iy = -(f.y - (world.h - m)) / m;
+  if (ix || iy) steer += angDiff(Math.atan2(iy, ix), f.a) * Math.min(1.6, Math.hypot(ix, iy)) * 2.4;
+
+  // 驚いて逃げる
+  for (const s of world.scares) {
+    const dx = f.x - s.x, dy = f.y - s.y;
+    const d = Math.hypot(dx, dy), range = 180 * S;
+    if (d < range) {
+      const k = (1 - d / range) * (s.life / s.life0);
+      steer += angDiff(Math.atan2(dy, dx), f.a) * 5 * k;
+      vt = Math.max(vt, f.cruise * (1 + 3.5 * k));
+      maxTurn = 4.5; quick = 9;
+    }
+  }
+
+  f.turn += (clamp(steer, -maxTurn, maxTurn) - f.turn) * Math.min(1, dt * quick);
+  f.a += f.turn * dt;
+  f.v += (vt - f.v) * Math.min(1, dt * (quick > 5 ? 4 : 1.5));
+  f.swim += dt * (1.5 + 4 * f.v / f.cruise);
+  f.x = clamp(f.x + Math.cos(f.a) * f.v * dt, -f.len * .5, world.w + f.len * .5);
+  f.y = clamp(f.y + Math.sin(f.a) * f.v * dt, -f.len * .5, world.h + f.len * .5);
+
+  // 背骨：頭に引かれて、節の間隔を保ったままついていく
+  f.sp[0].x = f.x; f.sp[0].y = f.y;
+  for (let k = 1; k <= SEG; k++) {
+    const a = f.sp[k - 1], b = f.sp[k];
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1e-6;
+    b.x = a.x + dx / d * f.seg; b.y = a.y + dy / d * f.seg;
+  }
+
+  // ときどき水面をつつく
+  if (world.R() < dt * .012) addRipple(world, f.x, f.y, .25);
+}
+
+// ---------- 池 ----------
+function makeWorld(w, h, seed, count) {
+  const R = rng32(seed);
+  const scale = clamp(Math.min(w, h) / 800, .55, 1.5);
+  const world = {
+    w, h, R, scale, seed, t: 0,
+    fish: [], food: [], ripples: [], scares: [], pads: [],
+    rainForced: false, rainLevel: 0, rainUntil: -1, nextRain: 90 + R() * 240,
+  };
+  const n = count != null ? count : clamp(Math.round(w * h / 85000), 6, 20);
+  for (let i = 0; i < n; i++) world.fish.push(makeFish(world));
+  world.fish.sort((a, b) => b.depth - a.depth); // 深い鯉から描く
+
+  // 睡蓮の葉。隅に寄せて、まんなかを空ける
+  const corners = [[.1, .16], [.9, .82], [.88, .14], [.1, .86]];
+  const start = Math.floor(R() * 4), clusters = 2 + (w * h > 900000 ? 1 : 0);
+  for (let c = 0; c < clusters; c++) {
+    const [cx, cy] = corners[(start + c * (c === 2 ? 1 : 2) + (c === 2 ? 1 : 0)) % 4];
+    const k = 3 + Math.floor(R() * 4);
+    for (let i = 0; i < k; i++) {
+      for (let tries = 0; tries < 30; tries++) {
+        const r = (26 + R() * 34) * scale;
+        const ang = R() * TAU, dist = Math.sqrt(R()) * 170 * scale;
+        const x = cx * w + Math.cos(ang) * dist, y = cy * h + Math.sin(ang) * dist;
+        if (world.pads.some(p => Math.hypot(p.x - x, p.y - y) < (p.r + r) * .92)) continue;
+        world.pads.push({
+          x, y, ax: x, ay: y, r, rot: R() * TAU, vx: 0, vy: 0, vr: (R() - .5) * .02,
+          flower: R() < .28 ? (R() < .5 ? 'pink' : 'white') : null, ph: R() * TAU,
+        });
+        break;
+      }
+    }
+  }
+  for (let i = 0; i < 240; i++) step(world, 1 / 30); // 始まった瞬間から泳いでいる姿にする
+  world.ripples.length = 0;
+  return world;
+}
+
+function addRipple(world, x, y, strength) {
+  const S = world.scale, life = 1.2 + 1.6 * strength;
+  const r = { x, y, max: (18 + 110 * strength) * S, life, life0: life, strength };
+  world.ripples.push(r);
+  if (strength >= .5) {
+    for (const p of world.pads) { // 波が葉を押す
+      const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy);
+      if (d < 260 * S && d > .001) { const k = 36 * strength * S * (1 - d / (260 * S)) / d; p.vx += dx * k; p.vy += dy * k; }
+    }
+  }
+  return r;
+}
+function addFood(world, x, y) {
+  const R = world.R, S = world.scale;
+  for (let i = 0; i < 3; i++) {
+    const a = R() * TAU, d = R() * 16 * S;
+    world.food.push({ x: clamp(x + Math.cos(a) * d, 4, world.w - 4), y: clamp(y + Math.sin(a) * d, 4, world.h - 4), age: 0 });
+  }
+}
+function addScare(world, x, y) { world.scares.push({ x, y, life: 1.2, life0: 1.2 }); }
+
+function step(world, dt) {
+  const R = world.R;
+  world.t += dt;
+
+  // 通り雨
+  if (world.t > world.nextRain) {
+    world.rainUntil = world.t + 40 + R() * 60;
+    world.nextRain = world.rainUntil + 150 + R() * 400;
+  }
+  const raining = world.rainForced || world.t < world.rainUntil;
+  world.rainLevel += ((raining ? 1 : 0) - world.rainLevel) * Math.min(1, dt * .35);
+  if (world.rainLevel > .02) {
+    const n = Math.floor(world.rainLevel * world.w * world.h / 1e6 * 42 * dt + R());
+    for (let i = 0; i < n; i++) addRipple(world, R() * world.w, R() * world.h, .06 + R() * .1);
+  }
+
+  for (const f of world.fish) stepFish(world, f, dt);
+
+  for (let i = world.food.length - 1; i >= 0; i--) { const p = world.food[i]; p.age += dt; if (p.age > 45) world.food.splice(i, 1); }
+  for (let i = world.ripples.length - 1; i >= 0; i--) { const r = world.ripples[i]; r.life -= dt; if (r.life <= 0) world.ripples.splice(i, 1); }
+  for (let i = world.scares.length - 1; i >= 0; i--) { const s = world.scares[i]; s.life -= dt; if (s.life <= 0) world.scares.splice(i, 1); }
+  for (const p of world.pads) {
+    p.vx += (p.ax - p.x) * .25 * dt; p.vy += (p.ay - p.y) * .25 * dt;
+    const damp = Math.max(0, 1 - 1.2 * dt);
+    p.vx *= damp; p.vy *= damp;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+  }
+}
+
+// ---------- 時刻の光 ----------
+const TINT_KEYS = [
+  [0, [62, 84, 138]], [4.5, [70, 90, 140]], [6, [235, 190, 185]], [8, [255, 244, 230]], [12, [255, 255, 255]],
+  [16, [255, 244, 222]], [18, [255, 196, 150]], [19.5, [150, 120, 160]], [21, [62, 84, 138]], [24, [62, 84, 138]],
+];
+function tintAt(hour) {
+  const h = ((hour % 24) + 24) % 24;
+  for (let i = 1; i < TINT_KEYS.length; i++) {
+    if (h <= TINT_KEYS[i][0]) {
+      const [h0, c0] = TINT_KEYS[i - 1], [h1, c1] = TINT_KEYS[i];
+      const u = (h - h0) / (h1 - h0);
+      return [0, 1, 2].map(j => Math.round(lerp(c0[j], c1[j], u)));
+    }
+  }
+  return TINT_KEYS[0][1].slice();
+}
+function nightAt(hour) {
+  const h = ((hour % 24) + 24) % 24;
+  if (h >= 21 || h < 4.5) return 1;
+  if (h >= 19.5) return (h - 19.5) / 1.5;
+  if (h < 6) return 1 - (h - 4.5) / 1.5;
+  return 0;
+}
+
+// ---------- 描く ----------
+function getBody(f) {
+  const sp = f.sp, B = [];
+  const amp = f.len * .055 * (.35 + .65 * Math.min(1.8, f.v / f.cruise));
+  for (let k = 0; k <= SEG; k++) {
+    const a = sp[Math.max(0, k - 1)], b = sp[Math.min(SEG, k + 1)];
+    let tx = a.x - b.x, ty = a.y - b.y;
+    const d = Math.hypot(tx, ty) || 1; tx /= d; ty /= d;
+    const nx = -ty, ny = tx, t = k / SEG;
+    const off = Math.sin(f.swim - k * .55) * amp * Math.pow(t, 1.3); // 尾に向かって大きくなる波
+    B.push({ x: sp[k].x + nx * off, y: sp[k].y + ny * off, tx, ty, nx, ny, w: widthAt(t) * f.len });
+  }
+  return B;
+}
+function bodyPath(ctx, f, B) {
+  const pts = [[B[0].x + B[0].tx * f.len * .045, B[0].y + B[0].ty * f.len * .045]];
+  for (let k = 0; k <= SEG; k++) pts.push([B[k].x + B[k].nx * B[k].w, B[k].y + B[k].ny * B[k].w]);
+  for (let k = SEG; k >= 0; k--) pts.push([B[k].x - B[k].nx * B[k].w, B[k].y - B[k].ny * B[k].w]);
+  const n = pts.length;
+  ctx.beginPath();
+  ctx.moveTo((pts[n - 1][0] + pts[0][0]) / 2, (pts[n - 1][1] + pts[0][1]) / 2);
+  for (let i = 0; i < n; i++) {
+    const a = pts[i], b = pts[(i + 1) % n];
+    ctx.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+  }
+  ctx.closePath();
+}
+function tailPath(ctx, f, B) {
+  const e = B[SEG], base = Math.atan2(-e.ty, -e.tx);
+  const sw = Math.sin(f.swim - SEG * .55 - .9) * .5 * Math.min(1.4, .3 + .8 * f.v / f.cruise);
+  const L = f.len * .26;
+  const P = (ang, l) => [e.x + Math.cos(base + sw + ang) * l, e.y + Math.sin(base + sw + ang) * l];
+  const tl = P(.5, L), tr = P(-.5, L), no = P(0, L * .45), cl = P(.85, L * .5), cr = P(-.85, L * .5);
+  ctx.beginPath();
+  ctx.moveTo(e.x, e.y);
+  ctx.quadraticCurveTo(cl[0], cl[1], tl[0], tl[1]);
+  ctx.quadraticCurveTo(no[0], no[1], tr[0], tr[1]);
+  ctx.quadraticCurveTo(cr[0], cr[1], e.x, e.y);
+  ctx.closePath();
+}
+function leaf(ctx, x, y, ang, L, Wd) {
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const mx = x + c * L * .45, my = y + s * L * .45;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.quadraticCurveTo(mx - s * Wd, my + c * Wd, x + c * L, y + s * L);
+  ctx.quadraticCurveTo(mx + s * Wd * .3, my - c * Wd * .3, x, y);
+  ctx.fill();
+}
+function sideFin(ctx, b, side, theta, L, Wd) {
+  const dx = -b.tx * Math.cos(theta) + side * b.nx * Math.sin(theta);
+  const dy = -b.ty * Math.cos(theta) + side * b.ny * Math.sin(theta);
+  leaf(ctx, b.x + side * b.nx * b.w * .85, b.y + side * b.ny * b.w * .85, Math.atan2(dy, dx), L, -Wd * side);
+}
+
+function drawFishShadow(ctx, f, B, S) {
+  const o = (8 + (1 - f.depth) * 16) * S; // 水面に近いほど、影は遠くに落ちる
+  ctx.save();
+  ctx.translate(o * .7, o);
+  ctx.fillStyle = 'rgba(4, 28, 30, .22)';
+  bodyPath(ctx, f, B); ctx.fill();
+  tailPath(ctx, f, B); ctx.fill();
+  ctx.restore();
+}
+
+function drawFish(ctx, f, B) {
+  const len = f.len, base = f.kind.base;
+  // ひれ
+  ctx.globalAlpha = .7;
+  ctx.fillStyle = base;
+  tailPath(ctx, f, B); ctx.fill();
+  const flap = .25 * Math.sin(f.swim * .5);
+  sideFin(ctx, B[3], 1, 1.0 + flap, len * .17, len * .06);
+  sideFin(ctx, B[3], -1, 1.0 - flap, len * .17, len * .06);
+  sideFin(ctx, B[7], 1, .7, len * .09, len * .035);
+  sideFin(ctx, B[7], -1, .7, len * .09, len * .035);
+  ctx.globalAlpha = 1;
+
+  // 体
+  bodyPath(ctx, f, B);
+  ctx.fillStyle = base; ctx.fill();
+  ctx.save();
+  ctx.clip();
+  for (const p of f.patches) { // 模様は背骨に乗せて、体と一緒にしなる
+    const u = p.t * SEG, k = Math.min(SEG - 1, Math.floor(u)), fr = u - k;
+    const a = B[k], b = B[k + 1], w = lerp(a.w, b.w, fr);
+    ctx.fillStyle = p.c;
+    ctx.beginPath();
+    ctx.arc(lerp(a.x, b.x, fr) + a.nx * p.off * w, lerp(a.y, b.y, fr) + a.ny * p.off * w, p.r * len, 0, TAU);
+    ctx.fill();
+  }
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  bodyPath(ctx, f, B); // ふちを暗くして丸みを出す
+  ctx.strokeStyle = 'rgba(0, 0, 0, .2)'; ctx.lineWidth = len * .035; ctx.stroke();
+  ctx.beginPath(); // 背の光
+  ctx.moveTo(B[1].x, B[1].y);
+  for (let k = 2; k <= SEG - 2; k++) ctx.lineTo(B[k].x, B[k].y);
+  ctx.strokeStyle = 'rgba(255, 255, 255, .16)'; ctx.lineWidth = len * .06; ctx.stroke();
+  ctx.restore();
+
+  // 背びれ
+  ctx.beginPath();
+  ctx.moveTo(B[3].x, B[3].y);
+  for (let k = 4; k <= 8; k++) ctx.lineTo(B[k].x, B[k].y);
+  ctx.strokeStyle = 'rgba(0, 0, 0, .22)'; ctx.lineWidth = len * .014; ctx.lineCap = 'round'; ctx.stroke();
+
+  // 目
+  const h = B[0];
+  ctx.fillStyle = '#0d0d0f';
+  for (const s of [1, -1]) {
+    ctx.beginPath();
+    ctx.arc(h.x + h.tx * len * .008 + s * h.nx * h.w * .8, h.y + h.ty * len * .008 + s * h.ny * h.w * .8, len * .013, 0, TAU);
+    ctx.fill();
+  }
+
+  // 深いところの鯉には水の色をかぶせる
+  if (f.depth > .05) {
+    ctx.fillStyle = `rgba(22, 86, 88, ${(.42 * f.depth).toFixed(3)})`;
+    bodyPath(ctx, f, B); ctx.fill();
+    tailPath(ctx, f, B); ctx.fill();
+  }
+}
+
+function padPath(ctx, r) {
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, r, .2, TAU - .2);
+  ctx.closePath();
+}
+function drawPad(ctx, p, t) {
+  ctx.save();
+  ctx.translate(p.x + Math.sin(t * .4 + p.ph) * 1.5, p.y + Math.cos(t * .33 + p.ph) * 1.5);
+  ctx.rotate(p.rot);
+  const g = ctx.createRadialGradient(0, 0, p.r * .1, 0, 0, p.r);
+  g.addColorStop(0, '#6aa85c'); g.addColorStop(.7, '#3f8347'); g.addColorStop(1, '#2c6b3c');
+  padPath(ctx, p.r);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = 'rgba(16, 56, 30, .55)'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.strokeStyle = 'rgba(200, 235, 175, .2)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < 9; i++) {
+    const a = .2 + (TAU - .4) * (i + .5) / 9;
+    ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * p.r * .9, Math.sin(a) * p.r * .9);
+  }
+  ctx.stroke();
+  if (p.flower) {
+    const pink = p.flower === 'pink', R0 = p.r * .62;
+    ctx.translate(-p.r * .25, 0);
+    for (const [n, L, col, rot] of [[9, R0, pink ? '#ec9db5' : '#eae6dc', 0], [7, R0 * .72, pink ? '#f6c3d2' : '#f7f4ee', .3], [5, R0 * .45, pink ? '#fbe2ea' : '#ffffff', .1]]) {
+      ctx.fillStyle = col;
+      for (let i = 0; i < n; i++) {
+        const a = rot + TAU * i / n;
+        leaf(ctx, 0, 0, a, L, L * .32);
+        leaf(ctx, 0, 0, a, L, -L * .32);
+      }
+    }
+    ctx.fillStyle = '#eec242';
+    ctx.beginPath(); ctx.arc(0, 0, R0 * .13, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function buildFloor(w, h, seed) {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
+  const g = c.getContext('2d'), R = rng32(seed * 7 + 1);
+  const grad = g.createRadialGradient(w * .5, h * .45, 0, w * .5, h * .5, Math.hypot(w, h) * .62);
+  grad.addColorStop(0, '#3a9a8d'); grad.addColorStop(.55, '#25766f'); grad.addColorStop(1, '#134c50');
+  g.fillStyle = grad; g.fillRect(0, 0, w, h);
+  const stones = Math.round(w * h / 5200);
+  for (let i = 0; i < stones; i++) { // 底の石
+    const x = R() * w, y = R() * h, r = 7 + R() * R() * 46, light = R() < .5;
+    g.fillStyle = light ? `rgba(190, 225, 200, ${(.04 + R() * .07).toFixed(3)})` : `rgba(6, 40, 44, ${(.06 + R() * .1).toFixed(3)})`;
+    g.beginPath(); g.ellipse(x, y, r, r * (.55 + R() * .4), R() * Math.PI, 0, TAU); g.fill();
+  }
+  for (let i = 0; i < stones * 5; i++) { // 砂
+    g.fillStyle = R() < .5 ? 'rgba(220, 240, 215, .07)' : 'rgba(0, 30, 34, .09)';
+    g.fillRect(R() * w, R() * h, 1.5, 1.5);
+  }
+  return c;
+}
+
+function render(ctx, world, floor, hour) {
+  const { w, h, t, scale: S } = world;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.drawImage(floor, 0, 0, w, h);
+
+  // 底にゆれる光
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 11; i++) {
+    const x = w * (.5 + .5 * Math.sin(t * .031 * (1 + i * .13) + i * 2.4));
+    const y = h * (.5 + .5 * Math.cos(t * .027 * (1 + i * .11) + i * 1.7));
+    const r = (150 + 70 * Math.sin(t * .23 + i)) * S;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, 'rgba(170, 255, 230, .085)'); g.addColorStop(1, 'rgba(170, 255, 230, 0)');
+    ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  // 影
+  const bodies = world.fish.map(getBody);
+  world.fish.forEach((f, i) => drawFishShadow(ctx, f, bodies[i], S));
+  ctx.fillStyle = 'rgba(4, 28, 30, .2)';
+  for (const p of world.pads) {
+    ctx.save(); ctx.translate(p.x + 16 * S, p.y + 22 * S); ctx.rotate(p.rot);
+    padPath(ctx, p.r); ctx.fill(); ctx.restore();
+  }
+
+  // 餌
+  for (const p of world.food) {
+    const a = Math.min(1, p.age * 3) * Math.min(1, (45 - p.age) / 5);
+    ctx.fillStyle = `rgba(4, 28, 30, ${(.25 * a).toFixed(3)})`;
+    ctx.beginPath(); ctx.arc(p.x + 5 * S, p.y + 7 * S, 3 * S, 0, TAU); ctx.fill();
+    ctx.fillStyle = `rgba(214, 170, 108, ${a.toFixed(3)})`;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3.2 * S, 0, TAU); ctx.fill();
+  }
+
+  // 鯉
+  world.fish.forEach((f, i) => drawFish(ctx, f, bodies[i]));
+
+  // 水面に映る空
+  const sheen = ctx.createLinearGradient(0, 0, w * .7, h);
+  sheen.addColorStop(0, 'rgba(235, 250, 255, .13)'); sheen.addColorStop(.5, 'rgba(235, 250, 255, .02)'); sheen.addColorStop(1, 'rgba(0, 20, 30, .1)');
+  ctx.fillStyle = sheen; ctx.fillRect(0, 0, w, h);
+
+  // 波紋
+  for (const r of world.ripples) {
+    const u = 1 - r.life / r.life0, a = (1 - u) * (1 - u);
+    const rad = Math.max(.5, r.max * (1 - (1 - u) * (1 - u)));
+    ctx.lineWidth = (1 + r.strength) * S;
+    ctx.strokeStyle = `rgba(0, 30, 36, ${(a * .16).toFixed(3)})`;
+    ctx.beginPath(); ctx.arc(r.x, r.y, rad + 2 * S, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = `rgba(236, 255, 250, ${(a * .6).toFixed(3)})`;
+    ctx.beginPath(); ctx.arc(r.x, r.y, rad, 0, TAU); ctx.stroke();
+    if (r.strength > .2) {
+      ctx.strokeStyle = `rgba(236, 255, 250, ${(a * .3).toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(r.x, r.y, rad * .6, 0, TAU); ctx.stroke();
+    } else if (u < .18) { // 雨粒のはね
+      ctx.fillStyle = `rgba(245, 255, 252, ${(.7 * (1 - u / .18)).toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(r.x, r.y, 1.4 * S, 0, TAU); ctx.fill();
+    }
+  }
+
+  // 睡蓮
+  for (const p of world.pads) drawPad(ctx, p, t);
+
+  // 雨のあいだは少し暗い
+  if (world.rainLevel > .01) {
+    ctx.fillStyle = `rgba(40, 56, 70, ${(.2 * world.rainLevel).toFixed(3)})`;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  // 時刻の光
+  const tint = tintAt(hour);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = `rgb(${tint[0]}, ${tint[1]}, ${tint[2]})`;
+  ctx.fillRect(0, 0, w, h);
+
+  // 夜：月と蛍
+  const night = nightAt(hour);
+  if (night > .01) {
+    ctx.globalCompositeOperation = 'lighter';
+    const mx = w * .7, my = h * .3, mr = 34 * S;
+    const halo = ctx.createRadialGradient(mx, my, 0, mx, my, mr * 5);
+    halo.addColorStop(0, `rgba(200, 215, 255, ${(.16 * night).toFixed(3)})`); halo.addColorStop(1, 'rgba(200, 215, 255, 0)');
+    ctx.fillStyle = halo; ctx.fillRect(mx - mr * 5, my - mr * 5, mr * 10, mr * 10);
+    ctx.fillStyle = `rgba(255, 250, 225, ${(.5 * night).toFixed(3)})`;
+    for (let i = -5; i <= 5; i++) { // 水にゆれて、横に切れた月
+      const yy = i / 5.5, half = mr * Math.sqrt(1 - yy * yy);
+      ctx.beginPath();
+      ctx.ellipse(mx + Math.sin(t * 1.1 + i * 1.3) * 3.5 * S, my + i * mr / 5.5, half * (1 + .06 * Math.sin(t * 1.7 + i)), mr / 9, 0, 0, TAU);
+      ctx.fill();
+    }
+    for (let i = 0; i < 12; i++) {
+      const x = w * (.5 + .47 * Math.sin(t * .05 * (1 + i * .17) + i * 3.1));
+      const y = h * (.5 + .47 * Math.cos(t * .043 * (1 + i * .21) + i * 1.3));
+      const b = Math.pow(Math.max(0, Math.sin(t * 1.3 + i * 2.2)), 3) * night;
+      if (b < .02) continue;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, 16 * S);
+      g.addColorStop(0, `rgba(215, 255, 130, ${(.9 * b).toFixed(3)})`);
+      g.addColorStop(.25, `rgba(190, 255, 110, ${(.3 * b).toFixed(3)})`);
+      g.addColorStop(1, 'rgba(190, 255, 110, 0)');
+      ctx.fillStyle = g; ctx.fillRect(x - 16 * S, y - 16 * S, 32 * S, 32 * S);
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// ---------- 自己テスト ----------
+function runTests() {
+  const out = [];
+  const check = (name, fn) => {
+    let ok = false, note = '';
+    try { const r = fn(); ok = r === true; if (!ok) note = '  ' + String(r); } catch (e) { note = '  ' + e.message; }
+    out.push({ ok, text: (ok ? 'OK  ' : 'NG  ') + name + note });
+  };
+  const run = (wd, sec) => { for (let i = 0; i < sec * 30; i++) step(wd, 1 / 30); };
+
+  check('同じ種からは同じ池になる', () => {
+    const a = makeWorld(1200, 800, 5, 10), b = makeWorld(1200, 800, 5, 10);
+    run(a, 10); run(b, 10);
+    return a.fish.every((f, i) => f.x === b.fish[i].x && f.y === b.fish[i].y) || '位置がずれた';
+  });
+  check('背骨の節の間隔が保たれる', () => {
+    const wd = makeWorld(1200, 800, 1, 10); run(wd, 20);
+    let worst = 0;
+    for (const f of wd.fish) for (let k = 1; k <= SEG; k++) worst = Math.max(worst, Math.abs(Math.hypot(f.sp[k].x - f.sp[k - 1].x, f.sp[k].y - f.sp[k - 1].y) - f.seg));
+    return worst < 1e-6 || '最大のずれ ' + worst;
+  });
+  check('100秒泳いでも池の外へ出ない・数値が壊れない', () => {
+    const wd = makeWorld(1200, 800, 2, 12); run(wd, 100);
+    for (const f of wd.fish) {
+      if (!Number.isFinite(f.x + f.y + f.a + f.v)) return '数値が壊れた';
+      if (f.x < 0 || f.x > 1200 || f.y < 0 || f.y > 800) return `外に出た (${f.x.toFixed(0)}, ${f.y.toFixed(0)})`;
+    }
+    return true;
+  });
+  check('餌を落とすと食べられる', () => {
+    const wd = makeWorld(1200, 800, 3, 10);
+    addFood(wd, 600, 400);
+    if (wd.food.length !== 3) return '餌が3粒落ちない';
+    run(wd, 40);
+    return wd.food.length === 0 || '残り ' + wd.food.length + ' 粒';
+  });
+  check('誰も食べない餌は45秒で消える', () => {
+    const wd = makeWorld(1200, 800, 3, 0);
+    addFood(wd, 600, 400); run(wd, 46);
+    return wd.food.length === 0 || '残り ' + wd.food.length;
+  });
+  check('驚かすと、驚かさないときより遠くへ行く', () => {
+    const dist = scare => {
+      const wd = makeWorld(1200, 800, 4, 1), f = wd.fish[0];
+      f.x = 600; f.y = 400; f.a = 0; f.turn = 0;
+      for (let k = 0; k <= SEG; k++) { f.sp[k].x = 600 - k * f.seg; f.sp[k].y = 400; }
+      if (scare) addScare(wd, 650, 400);
+      run(wd, 1.5);
+      return Math.hypot(f.x - 650, f.y - 400);
+    };
+    const a = dist(true), b = dist(false);
+    return a > b + 30 || `驚かした ${a.toFixed(0)} / 驚かさない ${b.toFixed(0)}`;
+  });
+  check('波紋は消える', () => {
+    const wd = makeWorld(1200, 800, 6, 4);
+    const r = addRipple(wd, 600, 400, 1); run(wd, 5);
+    return !wd.ripples.includes(r) || '残っている';
+  });
+  check('雨を降らせると波紋が増え、やめると減る', () => {
+    const wd = makeWorld(1200, 800, 7, 0);
+    wd.rainForced = true; run(wd, 12);
+    const wet = wd.ripples.length;
+    wd.rainForced = false; run(wd, 25);
+    return (wet > 20 && wd.ripples.length < 3) || `雨 ${wet} / やんだあと ${wd.ripples.length}`;
+  });
+  check('大きな波紋は睡蓮の葉を押し、葉は元の場所へ戻る', () => {
+    const wd = makeWorld(1200, 800, 8, 0), p = wd.pads[0];
+    if (!p) return '葉がない';
+    addRipple(wd, p.x - 40, p.y, 1); run(wd, 1);
+    const moved = Math.hypot(p.x - p.ax, p.y - p.ay);
+    run(wd, 60);
+    const back = Math.hypot(p.x - p.ax, p.y - p.ay);
+    return (moved > .5 && back < moved * .5) || `押された ${moved.toFixed(2)} / 60秒後 ${back.toFixed(2)}`;
+  });
+  check('体の幅はどこでも正', () => {
+    for (let i = 0; i <= 100; i++) if (!(widthAt(i / 100) > 0)) return 't=' + i / 100;
+    return true;
+  });
+  check('時刻の色は 0〜255 に収まり、0時と24時でつながる', () => {
+    for (let h = 0; h <= 24; h += .25) {
+      const c = tintAt(h), n = nightAt(h);
+      if (c.some(v => !(v >= 0 && v <= 255))) return h + '時の色 ' + c;
+      if (!(n >= 0 && n <= 1)) return h + '時の夜の度合い ' + n;
+    }
+    return tintAt(0).join() === tintAt(24).join() || '0時と24時が違う';
+  });
+  check('昼は夜でなく、深夜は夜', () => (nightAt(12) === 0 && nightAt(0) === 1) || `昼 ${nightAt(12)} / 深夜 ${nightAt(0)}`);
+
+  return { out, check };
+}
+
+// ---------- 動かす ----------
+(function main() {
+  const Q = new URLSearchParams(location.search);
+  const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+  const hint = document.getElementById('hint');
+
+  const seed = Q.has('seed') ? (parseInt(Q.get('seed'), 10) || 0) : (Date.now() & 0xffff);
+  let dpr = 1, world = null, floor = null;
+
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    if (!world) {
+      world = makeWorld(w, h, seed);
+      world.rainForced = Q.has('rain');
+      if (world.rainForced) world.rainLevel = 1;
+    } else {
+      const kx = w / world.w, ky = h / world.h;
+      for (const p of world.pads) { p.x *= kx; p.y *= ky; p.ax *= kx; p.ay *= ky; }
+      for (const f of world.fish) { const dx = f.x * kx - f.x, dy = f.y * ky - f.y; f.x += dx; f.y += dy; for (const s of f.sp) { s.x += dx; s.y += dy; } }
+      world.w = w; world.h = h;
+    }
+    floor = buildFloor(w, h, seed);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const hideHint = () => { hint.style.opacity = 0; };
+  setTimeout(hideHint, 9000);
+
+  let drag = null;
+  canvas.addEventListener('pointerdown', e => {
+    drag = { x: e.clientX, y: e.clientY };
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    addRipple(world, e.clientX, e.clientY, 1);
+    addFood(world, e.clientX, e.clientY);
+    hideHint();
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 34) {
+      drag.x = e.clientX; drag.y = e.clientY;
+      addRipple(world, e.clientX, e.clientY, .5);
+      addScare(world, e.clientX, e.clientY);
+    }
+  });
+  const endDrag = () => { drag = null; };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  window.addEventListener('keydown', e => {
+    if (e.key === 'r' || e.key === 'R') world.rainForced = !world.rainForced;
+    if (e.key === 'f' || e.key === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+    }
+  });
+
+  if (Q.has('test')) {
+    const { out, check } = runTests();
+    check('画面を押すと餌3粒と波紋、なぞると驚かす点ができる（合成したイベントで確認）', () => {
+      const food = world.food.length, rip = world.ripples.length;
+      canvas.dispatchEvent(new PointerEvent('pointerdown', { clientX: 200, clientY: 200, pointerId: 1 }));
+      canvas.dispatchEvent(new PointerEvent('pointermove', { clientX: 260, clientY: 200, pointerId: 1 }));
+      canvas.dispatchEvent(new PointerEvent('pointerup', { clientX: 260, clientY: 200, pointerId: 1 }));
+      const ok = world.food.length === food + 3 && world.ripples.length === rip + 2 && world.scares.length === 1 && drag === null;
+      return ok || `餌 +${world.food.length - food} / 波紋 +${world.ripples.length - rip} / 驚かす点 ${world.scares.length}`;
+    });
+    const pass = out.filter(o => o.ok).length, el = document.getElementById('test');
+    el.textContent = `自己テスト ${pass}/${out.length}\n` + out.map(o => o.text).join('\n');
+    el.hidden = false;
+    document.title = `池 テスト ${pass}/${out.length}`;
+  }
+
+  const skip = Math.min(600, parseFloat(Q.get('skip')) || 0);
+  for (let i = 0; i < skip * 30; i++) step(world, 1 / 30);
+
+  const fixedHour = Q.has('hour') ? parseFloat(Q.get('hour')) : NaN;
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(.05, Math.max(0, (now - last) / 1000));
+    last = now;
+    step(world, dt);
+    const d = new Date();
+    const hour = Number.isFinite(fixedHour) ? fixedHour : d.getHours() + d.getMinutes() / 60;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    render(ctx, world, floor, hour);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
