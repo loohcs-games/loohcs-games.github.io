@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>図書カード抽選会</title>
+<style>
+  :root {
+    --paper: #f3ebda; --paper2: #fbf7ee; --ink: #1f2a44; --shu: #b23a2e; --gold: #a98646; --mute: #7b7566;
+    --mincho: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif;
+    --num: Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    color: var(--ink); font-family: var(--mincho); line-height: 1.9;
+    background-color: var(--paper);
+    /* 原稿用紙のマス目。中央は白く抜いて読みやすくする */
+    background-image:
+      radial-gradient(ellipse 70% 60% at 50% 38%, rgba(251,247,238,.96) 0, rgba(251,247,238,.75) 55%, rgba(251,247,238,0) 100%),
+      linear-gradient(rgba(178,58,46,.13) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(178,58,46,.13) 1px, transparent 1px);
+    background-size: 100% 100%, 34px 34px, 34px 34px;
+    background-attachment: fixed;
+    overflow-x: hidden;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px 20px 0; display: grid; gap: 14px 44px; grid-template-areas: "head" "dial" "cards"; justify-items: center; }
+  header { grid-area: head; text-align: center; max-width: 540px; }
+  .eyebrow { margin: 0; font-size: 13px; letter-spacing: .42em; color: var(--shu); }
+  h1 { margin: 4px 0 0; font-size: clamp(30px, 3.5vw, 46px); font-weight: 600; letter-spacing: .16em; text-indent: .16em; line-height: 1.3; white-space: nowrap; }
+  .rule { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 10px auto 8px; color: var(--gold); font-size: 12px; }
+  .rule::before, .rule::after { content: ''; width: min(22vw, 140px); height: 3px; border-top: 1px solid var(--gold); border-bottom: 1px solid var(--gold); }
+  .lead { margin: 0; font-size: 15.5px; line-height: 1.8; }
+  .lead strong { font-weight: 600; color: var(--shu); }
+  .tag { margin: 6px 0 0; font-size: 13px; color: var(--mute); letter-spacing: .2em; }
+  #intro[hidden], #thanks[hidden] { display: none; }
+  #thanks { animation: rise 1s ease-out both; }
+  #thanks h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: .22em; text-indent: .22em; color: var(--shu); }
+  #thanks p { margin: 4px 0 0; font-size: 15px; line-height: 1.8; }
+  #thanks .record { margin-top: 8px; font-size: 12.5px; color: var(--mute); letter-spacing: .06em; }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+  .dial { grid-area: dial; width: min(92vw, 560px); text-align: center; }
+  canvas#dial { display: block; width: 100%; height: auto; }
+  #status { margin: 4px 0 0; min-height: 1.9em; font-size: 16px; letter-spacing: .14em; color: var(--mute); }
+  #status b { font-family: var(--num); font-size: 22px; color: var(--shu); font-weight: 600; letter-spacing: .02em; }
+  #draw {
+    margin: 4px auto 0; display: inline-block; padding: 13px 46px; font: 600 20px var(--mincho); letter-spacing: .3em; text-indent: .3em;
+    color: #f5e6c0; background: var(--ink); border: 0; border-radius: 4px; cursor: pointer;
+    box-shadow: inset 0 0 0 4px var(--ink), inset 0 0 0 5px rgba(201,168,106,.85), 0 8px 18px rgba(31,42,68,.25);
+    transition: transform .15s, opacity .3s;
+  }
+  #draw:hover { transform: translateY(-2px); }
+  #draw:active { transform: translateY(1px); }
+  #draw:disabled { opacity: .35; cursor: default; transform: none; }
+  #draw[hidden] { display: block; visibility: hidden; }
+
+  /* 当選のしおり（横長のカード） */
+  .cards { grid-area: cards; width: min(92vw, 540px); display: flex; flex-direction: column; gap: 12px; }
+  .card { width: 100%; height: 104px; perspective: 1200px; }
+  .inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform .9s cubic-bezier(.2, .8, .2, 1); }
+  .card.open .inner { transform: rotateX(180deg); }
+  .face { position: absolute; inset: 0; border-radius: 8px; overflow: hidden; -webkit-backface-visibility: hidden; backface-visibility: hidden; box-shadow: 0 8px 18px rgba(31,42,68,.2); }
+  .back {
+    color: #d9bd82; background-color: var(--ink);
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 2px, transparent 2px 5px), repeating-linear-gradient(-45deg, rgba(0,0,0,.08) 0 2px, transparent 2px 5px);
+  }
+  .back::after { content: ''; position: absolute; inset: 8px; border: 1px solid rgba(201,168,106,.8); border-radius: 4px; }
+  .back svg { position: absolute; left: 50%; top: 50%; height: 40%; transform: translate(-50%, -50%); }
+  .back .ord { position: absolute; left: 28px; top: 50%; transform: translateY(-50%); font-size: 17px; letter-spacing: .3em; }
+  .back .gift { position: absolute; right: 28px; top: 50%; transform: translateY(-50%); font-size: 12px; letter-spacing: .16em; }
+  .front { transform: rotateX(180deg); background: linear-gradient(135deg, #fffdf8, #f4ecdb); }
+  .front .spine {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 46px; background: var(--ink); color: #d9bd82; writing-mode: vertical-rl;
+    display: flex; align-items: center; justify-content: center; font-size: 15px; letter-spacing: .22em;
+    box-shadow: inset -4px 0 0 var(--ink), inset -5px 0 0 rgba(201,168,106,.9);
+  }
+  .front .gift { position: absolute; left: 62px; top: 9px; font-size: 11px; letter-spacing: .16em; color: var(--mute); }
+  .front .num { position: absolute; left: 46px; right: 96px; top: 50%; transform: translateY(-44%); text-align: center; font-family: var(--num); line-height: 1; white-space: nowrap; }
+  .front .num small { font-size: 19px; font-style: italic; color: var(--mute); margin-right: 10px; }
+  .front .num b { font-size: 68px; font-weight: 600; }
+  .stamp {
+    position: absolute; right: 24px; top: 50%; margin-top: -29px; width: 58px; height: 58px; border: 2.5px solid var(--shu); border-radius: 50%; color: var(--shu);
+    display: flex; align-items: center; justify-content: center; font: 700 19px/1 var(--mincho); writing-mode: vertical-rl; letter-spacing: .08em;
+    transform: rotate(-10deg) scale(0); opacity: 0;
+  }
+  .card.open .stamp { animation: stamp .35s cubic-bezier(.2, 1.7, .4, 1) .95s both; }
+  @keyframes stamp { from { transform: rotate(-10deg) scale(2.6); opacity: 0; } to { transform: rotate(-10deg) scale(1); opacity: .92; } }
+
+  /* 広い画面：左に盤、右に見出しとしおり。1画面に収める */
+  @media (min-width: 1040px) {
+    .wrap { min-height: 100vh; padding-bottom: 14px; grid-template-columns: auto minmax(440px, 540px); grid-template-areas: "dial head" "dial cards"; align-content: center; justify-content: center; align-items: center; }
+    .dial { width: clamp(340px, calc(100vh - 140px), 580px); }
+    header { align-self: end; }
+    .cards { align-self: start; width: 100%; }
+  }
+
+  footer { max-width: 40em; margin: 0 auto; padding: 26px 16px 34px; text-align: center; font-size: 13px; color: var(--mute); }
+  footer a { color: var(--ink); }
+  details { margin: 0 auto 12px; text-align: left; display: inline-block; }
+  summary { cursor: pointer; text-align: center; letter-spacing: .2em; }
+  .set { margin-top: 8px; padding: 12px 16px; background: rgba(255,255,255,.7); border: 1px solid rgba(31,42,68,.18); border-radius: 6px; line-height: 2.4; }
+  .set input[type=number] { width: 4.5em; }
+  .set input[type=text] { width: 13em; }
+  .set input, .set button { font: 14px var(--mincho); padding: 2px 6px; }
+  .set button { cursor: pointer; margin-right: 4px; }
+  .note { margin: 0 0 8px; }
+  #warn { color: var(--shu); min-height: 1.5em; margin: 0; }
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #test-result { position: fixed; left: 8px; top: 8px; margin: 0; padding: 8px; background: rgba(0,0,0,.8); color: #fff; font: 12px monospace; z-index: 20; white-space: pre-wrap; max-width: 90vw; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">塾生アンケート　ご回答のお礼</p>
+    <h1>図書カード抽選会</h1>
+    <div class="rule">◆</div>
+    <div id="intro">
+      <p class="lead">アンケートへのご回答、ありがとうございました。<br>答えてくれた皆さんの中から、抽選で<strong>3名</strong>に<br>図書カード<strong>1,000円分</strong>を贈ります。</p>
+      <p class="tag">読書の秋に、ささやかなお礼を。</p>
+    </div>
+    <div id="thanks" hidden>
+      <h2>おめでとうございます</h2>
+      <p>当選した3名の皆さんに、図書カード1,000円分を贈ります。<br>そして、アンケートに答えてくれたすべての皆さんへ。<br>ひとつひとつの声を、大切に読ませてもらいます。<br>本当にありがとうございました。</p>
+      <p class="record" id="record"></p>
+    </div>
+  </header>
+  <section class="dial">
+    <canvas id="dial" width="1120" height="1120"></canvas>
+    <p id="status">ボタンを押すと、抽選が始まります</p>
+    <button id="draw">一人目を引く</button>
+  </section>
+  <section class="cards" id="cards"></section>
+</div>
+
+<footer>
+  <details>
+    <summary>設定</summary>
+    <div class="set">
+      番号 <input type="number" id="min" value="2"> 〜 <input type="number" id="max" value="88"><br>
+      除外する番号 <input type="text" id="exclude" placeholder="例: 13, 40"><br>
+      <label><input type="checkbox" id="sound" checked> 音を出す</label><br>
+      <span id="redo"></span><br>
+      <button id="reset">最初からやり直す</button>
+    </div>
+  </details>
+  <p id="warn"></p>
+  <p class="note">抽選はブラウザの暗号用乱数（crypto.getRandomValues）で行います。同じ番号が二度当たることはありません。</p>
+  <a href="../../">← ゲーム一覧にもどる</a>
+</footer>
+<canvas id="confetti"></canvas>
+
+<script>
+(function () {
+'use strict';
+var TEST = location.search.indexOf('test') >= 0;
+var TAU = Math.PI * 2;
+var WINNERS = 3;
+var ORD = ['一人目', '二人目', '三人目'];
+var INK = '#1f2a44', SHU = '#b23a2e', GOLD = '#a98646', MUTE = '#7b7566';
+var MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif';
+var NUMF = 'Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif';
+
+var canvas = document.getElementById('dial');
+var ctx = canvas.getContext('2d');
+var statusEl = document.getElementById('status');
+var drawBtn = document.getElementById('draw');
+var cardsEl = document.getElementById('cards');
+var thanksEl = document.getElementById('thanks');
+var introEl = document.getElementById('intro');
+var recordEl = document.getElementById('record');
+var minEl = document.getElementById('min'), maxEl = document.getElementById('max'), exEl = document.getElementById('exclude');
+var soundEl = document.getElementById('sound');
+var redoEl = document.getElementById('redo');
+var warnEl = document.getElementById('warn');
+var confettiCv = document.getElementById('confetti');
+var cctx = confettiCv.getContext('2d');
+
+var numbers = [];              // 円環に並ぶ番号
+var excluded = [];             // 設定で除外した番号
+var winners = [null, null, null];
+var voided = [];               // 引き直しで無効にした番号（もう当たらない）
+var state = 'idle';            // idle / spinning / landed
+var pos = 0, landedOnce = false, shownSlot = 0;   // shownSlot: 本に出ている番号が何人目のものか
+var slot = 0, target = 0, startPos = 0, total = 0, spinStart = 0, spinDur = 0, lastIdx = -1, lastTick = 0;
+var bits = [];
+var W = canvas.width;
+
+// ---- 純粋な計算（テスト対象） ----
+function buildNumbers(min, max) { var a = []; for (var n = min; n <= max; n++) a.push(n); return a; }
+function parseExclude(text) { return (text.match(/\d+/g) || []).map(Number); }
+function eligibleOf(nums, ex, win, vd) {
+  return nums.filter(function (n) { return ex.indexOf(n) < 0 && win.indexOf(n) < 0 && vd.indexOf(n) < 0; });
+}
+// 0〜n-1 の整数を偏りなく1つ（暗号用乱数。端数は捨てて引き直す）
+function randInt(n) {
+  if (window.crypto && crypto.getRandomValues) {
+    var lim = Math.floor(4294967296 / n) * n, a = new Uint32Array(1);
+    do { crypto.getRandomValues(a); } while (a[0] >= lim);
+    return a[0] % n;
+  }
+  return Math.floor(Math.random() * n);
+}
+function pick(list, rnd) { return list[(rnd || randInt)(list.length)]; }
+// いまの位置から、何マス進めば targetIdx に止まるか（laps 周してから）
+function travel(from, targetIdx, n, laps) { return laps * n + ((targetIdx - (from % n) + n) % n); }
+function ease(t) { return 1 - (1 - t) * (1 - t); }   // 一定の割合で減速
+function mod(a, n) { return ((a % n) + n) % n; }
+
+// ---- 音（その場で合成。外部ファイルなし） ----
+var AC = null, noiseBuf = null;
+function ac() {
+  if (!soundEl.checked) return null;
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === 'suspended') AC.resume();
+    return AC;
+  } catch (e) { return null; }
+}
+// 紙をめくるような短い音
+function sTick() {
+  var c = ac(); if (!c) return;
+  if (!noiseBuf) {
+    noiseBuf = c.createBuffer(1, c.sampleRate * 0.05, c.sampleRate);
+    var d = noiseBuf.getChannelData(0);
+    for (var i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+  }
+  var src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+  src.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.value = 2600; f.Q.value = 1.2; g.gain.value = 0.22;
+  src.connect(f); f.connect(g); g.connect(c.destination); src.start();
+}
+// 鈴のような音
+function sBell(freq, delay, vol) {
+  var c = ac(); if (!c) return;
+  var t0 = c.currentTime + (delay || 0);
+  [[1, 1], [2.76, 0.35], [5.4, 0.12]].forEach(function (p) {
+    var o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.value = freq * p[0];
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime((vol || 0.16) * p[1], t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.8);
+    o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + 1.9);
+  });
+}
+function sLand() { sBell(1175, 0); sBell(1568, 0.16); }
+function sFinale() { [784, 988, 1175, 1568, 1976].forEach(function (f, i) { sBell(f, i * 0.17, 0.13); }); }
+
+// ---- 描画 ----
+function resizeCanvas() {
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var css = canvas.getBoundingClientRect().width || 560;
+  W = Math.round(css * dpr);
+  if (canvas.width !== W) { canvas.width = W; canvas.height = W; }
+}
+function draw() {
+  var N = numbers.length, s = W / 600, cx = W / 2, cy = W / 2;
+  ctx.clearRect(0, 0, W, W);
+
+  // 盤
+  ctx.beginPath(); ctx.arc(cx, cy, W * 0.487, 0, TAU); ctx.fillStyle = '#fbf7ee'; ctx.fill();
+  ctx.lineWidth = 1.6 * s; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, W * 0.474, 0, TAU); ctx.lineWidth = 0.8 * s; ctx.strokeStyle = GOLD; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, W * 0.380, 0, TAU); ctx.lineWidth = 0.8 * s; ctx.strokeStyle = INK; ctx.stroke();
+  if (N === 0) return;
+
+  var cur = landedOnce || state === 'spinning' ? mod(Math.round(pos), N) : -1;
+  var Rn = W * 0.427;
+  var fs = Math.max(6 * s, Math.min(13 * s, TAU * Rn / N * 0.62));
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (var i = 0; i < N; i++) {
+    var a = -Math.PI / 2 + i / N * TAU;
+    var x = cx + Math.cos(a) * Rn, y = cy + Math.sin(a) * Rn;
+    var n = numbers[i];
+    var won = winners.indexOf(n) >= 0;
+    var out = excluded.indexOf(n) >= 0 || voided.indexOf(n) >= 0;
+    var head = i === cur;
+    var behind = mod(cur - i, N);
+    var color = out ? 'rgba(31,42,68,.22)' : INK, bold = false;
+
+    // 目盛り
+    var long = n % 10 === 0;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * W * 0.380, cy + Math.sin(a) * W * 0.380);
+    ctx.lineTo(cx + Math.cos(a) * W * (long ? 0.362 : 0.371), cy + Math.sin(a) * W * (long ? 0.362 : 0.371));
+    ctx.lineWidth = (long ? 1.2 : 0.6) * s; ctx.strokeStyle = long ? INK : 'rgba(31,42,68,.45)'; ctx.stroke();
+
+    if (state === 'spinning' && cur >= 0 && behind > 0 && behind <= 7) {
+      ctx.beginPath(); ctx.arc(x, y, fs * 1.0, 0, TAU);
+      ctx.fillStyle = 'rgba(178,58,46,' + (0.42 * (1 - behind / 8)).toFixed(3) + ')'; ctx.fill();
+    }
+    if (won && !head) {
+      ctx.beginPath(); ctx.arc(x, y, fs * 1.05, 0, TAU); ctx.fillStyle = GOLD; ctx.fill();
+      color = '#fff'; bold = true;
+    }
+    if (head) {
+      ctx.beginPath(); ctx.arc(x, y, fs * 1.25, 0, TAU); ctx.fillStyle = SHU;
+      ctx.shadowColor = 'rgba(178,58,46,.5)'; ctx.shadowBlur = 10 * s; ctx.fill(); ctx.shadowBlur = 0;
+      color = '#fff'; bold = true;
+    }
+    ctx.save();
+    ctx.translate(x, y);
+    var rot = a + Math.PI / 2;
+    if (Math.sin(a) > 0.0001) rot += Math.PI;   // 下半分は逆さまにしない
+    ctx.rotate(rot);
+    ctx.font = (bold ? '700 ' : '400 ') + (head ? fs * 1.12 : fs) + 'px ' + NUMF;
+    ctx.fillStyle = color;
+    ctx.fillText(String(n), 0, fs * 0.06);
+    ctx.restore();
+  }
+
+  // 中央の本
+  var label = ORD[shownSlot];
+  var big = cur >= 0 ? String(numbers[cur]) : '?';
+  drawBook(cx, cy, s, label, big, state === 'landed' || (state === 'idle' && landedOnce) ? SHU : INK);
+}
+function drawBook(cx, cy, s, label, big, bigColor) {
+  var bw = 336 * s, bh = 212 * s, top = cy - bh / 2 + 4 * s, bot = cy + bh / 2 + 4 * s;
+  function rr(x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  // 表紙
+  ctx.save();
+  ctx.shadowColor = 'rgba(31,42,68,.28)'; ctx.shadowBlur = 20 * s; ctx.shadowOffsetY = 9 * s;
+  rr(cx - bw / 2 - 9 * s, top - 2 * s, bw + 18 * s, bh + 8 * s, 7 * s); ctx.fillStyle = INK; ctx.fill();
+  ctx.restore();
+  rr(cx - bw / 2 - 5 * s, top + 2 * s, bw + 10 * s, bh, 4 * s); ctx.lineWidth = 0.8 * s; ctx.strokeStyle = 'rgba(201,168,106,.9)'; ctx.stroke();
+  // ページ
+  function page(dir) {
+    var x1 = cx + dir * bw / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, top + 12 * s);
+    ctx.quadraticCurveTo(cx + dir * bw * 0.2, top - 10 * s, x1, top + 6 * s);
+    ctx.lineTo(x1, bot - 8 * s);
+    ctx.quadraticCurveTo(cx + dir * bw * 0.2, bot - 24 * s, cx, bot - 2 * s);
+    ctx.closePath();
+    var g = ctx.createLinearGradient(cx, 0, x1, 0);
+    g.addColorStop(0, '#d9ccb0'); g.addColorStop(0.1, '#f3ebd9'); g.addColorStop(0.45, '#fffdf8'); g.addColorStop(1, '#fbf6ea');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.lineWidth = 0.7 * s; ctx.strokeStyle = 'rgba(31,42,68,.28)'; ctx.stroke();
+  }
+  page(-1); page(1);
+  // しおりのリボン
+  ctx.beginPath();
+  var rx = cx + 9 * s, rw = 11 * s, ry0 = top + 6 * s, ry1 = bot + 30 * s;
+  ctx.moveTo(rx, ry0); ctx.lineTo(rx + rw, ry0); ctx.lineTo(rx + rw, ry1); ctx.lineTo(rx + rw / 2, ry1 - 8 * s); ctx.lineTo(rx, ry1); ctx.closePath();
+  ctx.fillStyle = SHU; ctx.fill();
+
+  // 左のページ
+  var lx = cx - bw * 0.265, rxc = cx + bw * 0.27;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = MUTE; ctx.font = '400 ' + 12 * s + 'px ' + MINCHO;
+  ctx.fillText('当 選 番 号', lx, cy - 46 * s);
+  ctx.fillStyle = INK; ctx.font = '600 ' + 30 * s + 'px ' + MINCHO;
+  ctx.fillText(label, lx, cy - 8 * s);
+  ctx.strokeStyle = 'rgba(31,42,68,.2)'; ctx.lineWidth = 0.8 * s;
+  [[30, 96], [44, 110], [58, 74]].forEach(function (l) {
+    ctx.beginPath(); ctx.moveTo(lx - l[1] / 2 * s, cy + l[0] * s); ctx.lineTo(lx + l[1] / 2 * s, cy + l[0] * s); ctx.stroke();
+  });
+  // 右のページ
+  ctx.fillStyle = MUTE; ctx.font = 'italic 400 ' + 15 * s + 'px ' + NUMF;
+  ctx.fillText('No.', rxc, cy - 58 * s);
+  ctx.fillStyle = bigColor; ctx.font = '600 ' + 96 * s + 'px ' + NUMF;
+  ctx.fillText(big, rxc + 4 * s, cy + 8 * s, bw * 0.4);
+}
+
+// ---- 紙吹雪（静かに降る） ----
+function sprinkle(count) {
+  confettiCv.width = innerWidth; confettiCv.height = innerHeight;
+  var colors = [INK, SHU, GOLD, '#5c7a66', '#d9bd82'];
+  for (var i = 0; i < count; i++) {
+    bits.push({
+      x: Math.random() * innerWidth, y: -20 - Math.random() * innerHeight * 0.5,
+      vy: 1.2 + Math.random() * 1.8, sway: Math.random() * TAU, amp: 0.6 + Math.random() * 1.2,
+      r: Math.random() * TAU, vr: (Math.random() - 0.5) * 0.12, w: 6 + Math.random() * 7, h: 9 + Math.random() * 8,
+      c: colors[i % colors.length]
+    });
+  }
+}
+function drawBits() {
+  cctx.clearRect(0, 0, confettiCv.width, confettiCv.height);
+  for (var i = bits.length - 1; i >= 0; i--) {
+    var p = bits[i];
+    p.sway += 0.04; p.x += Math.sin(p.sway) * p.amp; p.y += p.vy; p.r += p.vr;
+    if (p.y > confettiCv.height + 30) { bits.splice(i, 1); continue; }
+    cctx.save(); cctx.translate(p.x, p.y); cctx.rotate(p.r);
+    cctx.globalAlpha = 0.85; cctx.fillStyle = p.c;
+    cctx.fillRect(-p.w / 2, -p.h / 2 * Math.abs(Math.cos(p.sway)), p.w, p.h * Math.abs(Math.cos(p.sway)));
+    cctx.restore();
+  }
+}
+
+// ---- 進行 ----
+function buildCards() {
+  var book = '<svg viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M32 10C24 4 12 4 4 8v34c8-4 20-4 28 2 8-6 20-6 28-2V8C52 4 40 4 32 10z"/><path d="M32 10v34"/></svg>';
+  var html = '';
+  for (var i = 0; i < WINNERS; i++) {
+    html += '<div class="card" id="card' + i + '"><div class="inner">' +
+      '<div class="face back"><span class="ord">' + ORD[i] + '</span>' + book + '<span class="gift">図書カード 1,000円分</span></div>' +
+      '<div class="face front"><span class="spine">' + ORD[i] + '</span><span class="gift">図書カード 1,000円分</span>' +
+      '<div class="num"><small>No.</small><b id="num' + i + '"></b></div><span class="stamp">当選</span></div>' +
+      '</div></div>';
+  }
+  cardsEl.innerHTML = html;
+}
+function nextSlot() { var i = winners.indexOf(null); return i < 0 ? WINNERS : i; }
+function readSettings() {
+  var min = parseInt(minEl.value, 10), max = parseInt(maxEl.value, 10);
+  warnEl.textContent = '';
+  if (!(min >= 0) || !(max > min)) { warnEl.textContent = '番号の範囲を確かめてください'; return false; }
+  if (max - min + 1 > 300) { warnEl.textContent = '番号は300個までにしてください'; return false; }
+  numbers = buildNumbers(min, max);
+  excluded = parseExclude(exEl.value);
+  return true;
+}
+function refresh() {
+  slot = nextSlot();
+  var done = slot >= WINNERS;
+  drawBtn.hidden = done;
+  drawBtn.disabled = state !== 'idle';
+  if (!done) drawBtn.textContent = ORD[slot] + 'を引く';
+  var locked = state !== 'idle' || winners.some(function (w) { return w !== null; });
+  minEl.disabled = maxEl.disabled = locked;
+  exEl.disabled = state !== 'idle';
+  var html = '';
+  for (var i = 0; i < WINNERS; i++) {
+    html += '<button data-redo="' + i + '"' + (winners[i] === null || state !== 'idle' ? ' disabled' : '') + '>' + ORD[i] + 'を引き直す</button>';
+  }
+  redoEl.innerHTML = html;
+}
+function startDraw() {
+  if (state !== 'idle') return;
+  if (!readSettings()) return;
+  slot = nextSlot();
+  if (slot >= WINNERS) return;
+  var el = eligibleOf(numbers, excluded, winners, voided);
+  if (el.length === 0) { warnEl.textContent = '当選できる番号が残っていません'; return; }
+  ac();
+  var N = numbers.length;
+  target = pick(el);
+  startPos = mod(Math.round(pos), N);
+  total = travel(startPos, numbers.indexOf(target), N, Math.max(3, Math.ceil(250 / N)) + randInt(2));
+  spinStart = performance.now();
+  spinDur = 7500 + Math.random() * 1500;
+  lastIdx = startPos;
+  shownSlot = slot;
+  state = 'spinning';
+  thanksEl.hidden = true; introEl.hidden = false;
+  statusEl.textContent = ORD[slot] + 'を抽選しています…';
+  refresh();
+}
+function stepSpin(now) {
+  var N = numbers.length;
+  var t = Math.min(1, (now - spinStart) / spinDur);
+  pos = startPos + total * ease(t);
+  var idx = mod(Math.round(pos), N);
+  if (idx !== lastIdx) {
+    lastIdx = idx;
+    if (now - lastTick > 40) { sTick(); lastTick = now; }
+  }
+  if (t >= 1) land();
+}
+function land() {
+  pos = startPos + total;
+  state = 'landed'; landedOnce = true;
+  var s = slot, n = target;
+  winners[s] = n;
+  statusEl.innerHTML = ORD[s] + '　<b>No. ' + n + '</b>';
+  setTimeout(function () {
+    sLand();
+    document.getElementById('num' + s).textContent = n;
+    document.getElementById('card' + s).classList.add('open');
+    sprinkle(26);
+    state = 'idle';
+    refresh();
+    if (nextSlot() >= WINNERS) setTimeout(finishAll, 1500);
+  }, 550);
+}
+function finishAll() {
+  if (nextSlot() < WINNERS || state !== 'idle') return;
+  var d = new Date();
+  var when = d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2);
+  var pool = numbers.length - excluded.filter(function (n) { return numbers.indexOf(n) >= 0; }).length;
+  recordEl.textContent = '抽選日時 ' + when + '　対象 ' + numbers[0] + '〜' + numbers[numbers.length - 1] + '（' + pool + '名）　当選番号 ' + winners.join('・');
+  introEl.hidden = true; thanksEl.hidden = false;
+  statusEl.textContent = '抽選は以上です';
+  sFinale();
+  sprinkle(130);
+  thanksEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  resizeCanvas();
+}
+function redo(i) {
+  if (state !== 'idle' || winners[i] === null) return;
+  voided.push(winners[i]);
+  winners[i] = null;
+  document.getElementById('card' + i).classList.remove('open');
+  thanksEl.hidden = true; introEl.hidden = false;
+  statusEl.textContent = ORD[i] + 'を引き直します';
+  refresh();
+}
+function reset() {
+  if (state !== 'idle') return;
+  winners = [null, null, null]; voided = []; pos = 0; landedOnce = false; shownSlot = 0; state = 'idle'; bits = [];
+  buildCards();
+  thanksEl.hidden = true; introEl.hidden = false;
+  statusEl.textContent = 'ボタンを押すと、抽選が始まります';
+  readSettings();
+  refresh();
+}
+function loop(now) {
+  if (state === 'spinning') stepSpin(now);
+  draw();
+  if (bits.length) drawBits();
+  else if (confettiCv.width) { cctx.clearRect(0, 0, confettiCv.width, confettiCv.height); }
+  requestAnimationFrame(loop);
+}
+
+drawBtn.addEventListener('click', startDraw);
+document.getElementById('reset').addEventListener('click', reset);
+redoEl.addEventListener('click', function (e) {
+  var i = e.target && e.target.getAttribute && e.target.getAttribute('data-redo');
+  if (i !== null && i !== undefined) redo(Number(i));
+});
+[minEl, maxEl, exEl].forEach(function (el) { el.addEventListener('input', function () { if (state === 'idle') { readSettings(); } }); });
+window.addEventListener('resize', resizeCanvas);
+
+buildCards();
+readSettings();
+refresh();
+resizeCanvas();
+
+// ---- 動作の確認（アドレスの最後に ?test を付けたときだけ動く） ----
+function selfTest() {
+  var r = {};
+  var nums = buildNumbers(2, 88);
+  r.range2to88Is87 = nums.length === 87 && nums[0] === 2 && nums[86] === 88;
+  r.parseExclude = JSON.stringify(parseExclude('13, 40、7\n x9')) === '[13,40,7,9]' && parseExclude('').length === 0;
+  var seen = {}, inRange = true;
+  for (var i = 0; i < 3000; i++) { var v = randInt(5); if (v < 0 || v > 4 || v !== Math.floor(v)) inRange = false; seen[v] = 1; }
+  r.randIntInRange = inRange && Object.keys(seen).length === 5;
+  var ok = true, hit = {};
+  for (var k = 0; k < 2000; k++) {
+    var win = [null, null, null], ex = [13, 40];
+    for (var j = 0; j < 3; j++) win[j] = pick(eligibleOf(nums, ex, win, [50]));
+    if (win[0] === win[1] || win[1] === win[2] || win[0] === win[2]) ok = false;
+    win.forEach(function (n) { if (n < 2 || n > 88 || n === 13 || n === 40 || n === 50) ok = false; hit[n] = 1; });
+  }
+  r.threeDistinctAndNeverExcluded = ok;
+  r.everyNumberCanWin = Object.keys(hit).length === 84;   // 87 − 除外2 − 無効1
+  var tv = true;
+  for (var f = 0; f < 87; f++) for (var g = 0; g < 87; g++) {
+    var st = travel(f, g, 87, 3);
+    if ((f + st) % 87 !== g || st < 261 || st >= 348) tv = false;
+  }
+  r.travelLandsOnTarget = tv;
+  var mono = true, prev = -1;
+  for (var m = 0; m <= 100; m++) { var e = ease(m / 100); if (e < prev) mono = false; prev = e; }
+  r.easeMonotoneAndSlows = mono && ease(0) === 0 && ease(1) === 1 && (ease(0.2) - ease(0)) > (ease(1) - ease(0.8));
+  r.pickedFirstStubbed = pick([7, 8, 9], function () { return 2; }) === 9;
+  r.pageHasThreeCards = document.querySelectorAll('.card').length === 3 && numbers.length === 87;
+  r.ok = Object.keys(r).every(function (key) { return r[key] === true; });
+  var pre = document.createElement('pre');
+  pre.id = 'test-result';
+  pre.textContent = JSON.stringify(r);
+  document.body.appendChild(pre);
+}
+if (TEST) {
+  try { selfTest(); }
+  catch (e) {
+    var pre = document.createElement('pre');
+    pre.id = 'test-result';
+    pre.textContent = 'ERROR ' + e.message;
+    document.body.appendChild(pre);
+  }
+}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
