@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <meta name="robots" content="noindex, nofollow">
-<title>棒人間</title>
+<title>棒人間バトル</title>
 <style>
   html, body { margin: 0; height: 100%; background: #fff; overflow: hidden; }
   body { font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif; -webkit-user-select: none; user-select: none; }
@@ -38,7 +38,7 @@
 <script>
 'use strict';
 /*
-  棒人間。左右から来る敵を、殴る・蹴る。全5波、最後に親玉。
+  棒人間バトル。左右から来る敵を、殴る・蹴る。全5波、最後に親玉。
   ?test        自己テスト
   ?seed=3      敵の出方を固定
   ?skip=20     自動操作で20秒進めたところから始める（確認用）
@@ -625,8 +625,9 @@ function render(ctx, world, view) {
       if (Math.floor(world.t * 2.2) % 2 === 0) { ctx.font = F(22); ctx.fillText(prompt, w / 2, mid + 40 * u + lines.length * 30 * u); }
     };
     if (world.phase === 'title') {
-      ctx.fillStyle = '#111'; ctx.font = F(104, true); ctx.fillText('棒人間', w / 2, top + view.bandH * .27);
-      ctx.fillRect(w / 2 - 170 * u, top + view.bandH * .27 + 16 * u, 340 * u, 6 * u);
+      const tpx = Math.min(104, w * .86 / u / 6.4); // 題は6文字。せまい画面でもはみ出さない大きさにする
+      ctx.fillStyle = '#111'; ctx.font = F(tpx, true); ctx.fillText('棒人間バトル', w / 2, top + view.bandH * .27);
+      ctx.fillRect(w / 2 - tpx * 3.2 * u, top + view.bandH * .27 + 16 * u, tpx * 6.4 * u, 6 * u);
       ctx.font = F(17);
       const ls = narrow ? ['← → 移動　↑ ジャンプ　↓ ガード', 'Z パンチ（3発つながる）　X キック'] : ['← → 移動　　↑ ジャンプ　　↓ ガード　　Z パンチ（3発つながる）　　X キック'];
       const y0 = top + view.bandH * .27 + 52 * u;
@@ -922,7 +923,7 @@ function runTests() {
     const pass = out.filter(o => o.ok).length, el = document.getElementById('test');
     el.textContent = `自己テスト ${pass}/${out.length}\n` + out.map(o => o.text).join('\n') + `\n（参考）ふつうの自動操作の結果: ${T.note()}`;
     el.hidden = false;
-    document.title = `棒人間 テスト ${pass}/${out.length}`;
+    document.title = `棒人間バトル テスト ${pass}/${out.length}`;
   }
 
   const skip = Math.min(900, parseFloat(Q.get('skip')) || 0);

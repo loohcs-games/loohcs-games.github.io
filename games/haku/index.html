@@ -19,6 +19,7 @@
     gap: 16px; padding: 24px 16px; box-sizing: border-box; text-align: center; background: rgba(18, 19, 28, .8);
   }
   .screen[hidden] { display: none; }
+  #howto { background: rgba(18, 19, 28, .93); overflow-y: auto; }
   h1 { font-size: clamp(72px, 18vw, 132px); margin: 0; font-weight: 800; line-height: 1; letter-spacing: .04em; }
   h1 i { font-style: normal; color: var(--pink); }
   p { margin: 0; line-height: 1.8; font-size: 15px; }
@@ -34,6 +35,30 @@
   #rank { font-size: clamp(88px, 22vw, 160px); font-weight: 800; line-height: 1; }
   #stats { font-variant-numeric: tabular-nums; font-size: 15px; line-height: 2; }
   #stats b { font-size: 26px; }
+  .h2 { font-size: 24px; font-weight: 800; letter-spacing: .1em; }
+  .how { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  .card {
+    width: 210px; padding: 14px 14px 16px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 14px;
+    background: rgba(255, 255, 255, .05); display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .card svg, .card .keys { height: 104px; flex: none; }
+  .card .keys { display: flex; align-items: center; gap: 8px; }
+  .card p { font-size: 13.5px; line-height: 1.7; }
+  .card b { font-size: 16px; }
+  kbd {
+    font: 800 20px ui-monospace, Menlo, monospace; width: 44px; height: 44px; display: grid; place-items: center;
+    border: 2px solid var(--ink); border-bottom-width: 5px; border-radius: 9px;
+  }
+  .ring { transform-origin: 60px 60px; animation: ring 1.4s linear infinite; }
+  @keyframes ring { 0% { transform: scale(2.1); opacity: 0; } 15% { opacity: 1; } 80%, 100% { transform: scale(1); opacity: 1; } }
+  .tap { animation: tap 1.4s linear infinite; }
+  @keyframes tap { 0%, 78% { opacity: 0; } 80%, 96% { opacity: 1; } 100% { opacity: 0; } }
+  @media (max-width: 720px) {
+    .how { flex-direction: column; gap: 10px; width: 100%; max-width: 420px; }
+    .card { width: auto; flex-direction: row; text-align: left; padding: 8px 14px; gap: 14px; }
+    .card svg { height: 76px; } .card .keys { height: 76px; gap: 5px; }
+    kbd { width: 34px; height: 34px; font-size: 16px; }
+  }
   #back { position: fixed; left: 14px; top: 12px; z-index: 5; color: var(--dim); text-decoration: none; font-size: 13px; }
   #back:hover { color: var(--ink); }
   #back[hidden] { display: none; }
@@ -56,8 +81,42 @@
     <button data-diff="normal">ふつう<small id="best-normal"></small></button>
     <button data-diff="hard">むずかしい<small id="best-hard"></small></button>
   </div>
-  <p class="dim">マウスかタッチで押す。Z・X キーでも押せる（カーソルの位置を押す）。Esc で一時停止。<br>
-    音あり、約1分。音と絵がずれるときは [ と ] で調整（いま <span id="offset">0</span> ms）</p>
+  <p class="dim">音あり、約1分。難しさを選ぶと、あそびかたの説明が出る</p>
+</div>
+
+<div id="howto" class="screen" hidden>
+  <p class="h2">あそびかた</p>
+  <div class="how">
+    <div class="card">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="ring" cx="60" cy="60" r="27" fill="none" stroke="#ff6b9d" stroke-width="3"/>
+        <circle cx="60" cy="60" r="25" fill="#ff6b9d" stroke="#fff" stroke-width="4"/>
+        <circle cx="60" cy="60" r="16" fill="rgba(18,19,28,.28)"/>
+        <text x="60" y="68" text-anchor="middle" font-size="22" font-weight="800" fill="#fff">1</text>
+        <circle class="tap" cx="60" cy="60" r="38" fill="none" stroke="#fff" stroke-width="4"/>
+      </svg>
+      <p><b>丸</b><br>輪がちぢんで丸に重なった瞬間に、丸を押す</p>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 200 120" aria-hidden="true">
+        <path d="M42 84 Q100 6 158 66" fill="none" stroke="#fff" stroke-width="54" stroke-linecap="round"/>
+        <path d="M42 84 Q100 6 158 66" fill="none" stroke="#24364a" stroke-width="46" stroke-linecap="round"/>
+        <circle r="17" fill="#fff"><animateMotion dur="1.8s" repeatCount="indefinite" path="M42 84 Q100 6 158 66"/></circle>
+        <circle r="10" fill="#4fc3f7"><animateMotion dur="1.8s" repeatCount="indefinite" path="M42 84 Q100 6 158 66"/></circle>
+      </svg>
+      <p><b>長い丸</b><br>頭を押したら、押したまま玉を追う</p>
+    </div>
+    <div class="card">
+      <div class="keys"><kbd>Z</kbd><kbd>X</kbd><kbd>W</kbd></div>
+      <p><b>押しかた</b><br>クリックかタッチ。キーなら Z・X・W（カーソルのある場所を押す）</p>
+    </div>
+  </div>
+  <p class="dim">早すぎ・遅すぎは点が下がる（300 → 100 → 50 → ミス）。Esc で一時停止。<br>
+    音と絵がずれるときは [ と ] で調整（いま <span id="offset">0</span> ms）</p>
+  <div class="row">
+    <button id="go">はじめる<small id="go-diff"></small></button>
+    <button id="backmenu">もどる</button>
+  </div>
 </div>
 
 <div id="pause" class="screen" hidden>
@@ -83,8 +142,10 @@
 'use strict';
 /*
   拍。輪が重なる瞬間に丸を押す音ゲー。曲も音も、この中で合成している。
+  押すのはクリック・タッチ・Z / X / W キー。難しさを選ぶと、始める前にあそびかたの説明が出る。
   ?test            自己テスト
   ?auto            自動演奏（見るだけ）
+  ?howto           あそびかたの画面を開いた状態で始める（確認用）
   ?shot=20&diff=hard  曲の20秒時点を、自動演奏した状態で1枚描く（確認用）
 */
 
@@ -705,7 +766,7 @@ async function renderSongOffline() {
   }
 
   function show(name) {
-    for (const id of ['menu', 'pause', 'result']) $(id).hidden = id !== name;
+    for (const id of ['menu', 'howto', 'pause', 'result']) $(id).hidden = id !== name;
     canvas.classList.toggle('playing', name === null && !auto);
     showBack(name === 'menu' || name === 'result');
   }
@@ -767,14 +828,21 @@ async function renderSongOffline() {
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   window.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
-    if ((k === 'z' || k === 'x') && !e.repeat) { keys.add(k); press(mouse, 1); }
+    if ((k === 'z' || k === 'x' || k === 'w') && !e.repeat) { keys.add(k); press(mouse, 1); }
     else if (k === 'escape') { if (state === 'play') pauseGame(); else if (state === 'pause') resumeGame(); }
     else if (k === '[' || k === ']') { offsetMs = clamp(offsetMs + (k === ']' ? 5 : -5), -300, 300); store.set('offset', offsetMs); showOffset(); }
   });
   window.addEventListener('keyup', e => { keys.delete(e.key.toLowerCase()); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
 
-  for (const b of document.querySelectorAll('button[data-diff]')) b.addEventListener('click', () => startGame(b.dataset.diff));
+  // 難しさを選ぶと、まず あそびかた を見せる。「はじめる」で曲が始まる
+  for (const b of document.querySelectorAll('button[data-diff]')) b.addEventListener('click', () => {
+    lastDiff = b.dataset.diff;
+    $('go-diff').textContent = DIFFS[lastDiff].label + (auto ? '（自動演奏）' : '');
+    state = 'howto'; show('howto'); $('go').focus();
+  });
+  $('go').addEventListener('click', () => startGame(lastDiff));
+  $('backmenu').addEventListener('click', () => { state = 'menu'; show('menu'); });
   $('resume').addEventListener('click', resumeGame);
   $('retry2').addEventListener('click', () => { if (clock.resume) clock.resume(); startGame(lastDiff); });
   $('quit').addEventListener('click', stopGame);
@@ -809,7 +877,7 @@ async function renderSongOffline() {
 
   if (Q.has('test')) {
     const { out, check } = runTests();
-    check('画面を押す・Z キーを押すと判定される（合成したイベントで確認）', () => {
+    check('画面を押す・Z キー・W キーを押すと判定される（合成したイベントで確認）', () => {
       const fake = { fake: true, t: 0, now() { return this.t; } };
       startGame('easy', { clock: fake });
       const a = g.objs[0], b = g.objs[1], at = o => ({ clientX: view.fx + o.x * view.fw, clientY: view.fy + o.y * view.fh });
@@ -820,9 +888,26 @@ async function renderSongOffline() {
       canvas.dispatchEvent(new PointerEvent('pointermove', { ...at(b), pointerId: 1, pointerType: 'mouse' }));
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
       window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      const c = g.objs[2];
+      fake.t = c.t;
+      canvas.dispatchEvent(new PointerEvent('pointermove', { ...at(c), pointerId: 1, pointerType: 'mouse' }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w' }));
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'w' }));
       const r = `${g.n300},${g.combo},${$('menu').hidden}`;
       stopGame();
-      return (r === '2,2,true' && !$('menu').hidden) || r;
+      return (r === '3,3,true' && !$('menu').hidden) || r;
+    });
+    check('難しさを選ぶと、始まる前に あそびかた が出る。「もどる」で題へ、「はじめる」で始まる', () => {
+      const hard = document.querySelector('button[data-diff=hard]');
+      hard.click();
+      const a = `${state},${$('howto').hidden},${$('menu').hidden},${g === null},${$('go-diff').textContent}`;
+      $('backmenu').click();
+      const b = `${state},${$('howto').hidden},${$('menu').hidden}`;
+      hard.click(); $('go').click();
+      const c = `${state},${$('howto').hidden},${g && g.diffKey}`;
+      stopGame();
+      const r = [a, b, c].join(' / ');
+      return r === 'howto,false,true,true,むずかしい / menu,true,false / play,true,hard' || r;
     });
     const report = pending => {
       const pass = out.filter(o => o.ok).length;
@@ -836,6 +921,8 @@ async function renderSongOffline() {
       report(false);
     });
   }
+
+  if (Q.has('howto')) document.querySelector('button[data-diff=normal]').click();
 
   if (Q.has('shot')) { // 確認用：自動演奏で指定の時刻まで進めた1枚を描く
     const T = parseFloat(Q.get('shot')) || 0, diff = DIFFS[Q.get('diff')] ? Q.get('diff') : 'normal';
