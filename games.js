@@ -17,4 +17,7 @@ window.GAMES = [
   // ---- masatotaniguchi ----
   { id: "masatotaniguchi", title: "乱世の領主", author: "MasatoTaniguchi", description: "応仁の乱から明応九年まで、山城の国衆として家臣を使い、名分を整えて領国を育てる戦国箱庭。スマホ向け" },
   
+  // ---- komasauna ----
+  // { id: "komasauna", title: "ゲームの名前", author: "komasauna", description: "ひとこと説明" },
+
 ];
