@@ -6,6 +6,7 @@ window.GAMES = [
   { id: "hakoniwa", title: "箱庭", author: "loohcskshirasaki", description: "歩く・掘る・置く。第2回で1プロンプトから出した箱庭" },
   { id: "bouka-roulette", title: "防火防災管理者ルーレット", author: "loohcskshirasaki", description: "じゃんけんではなく運命で決める。なるべく派手に。音あり" },
   { id: "toshocard-chusen", title: "図書カード抽選会", author: "loohcskshirasaki", description: "アンケートのお礼。2〜88 の番号から3人を抽選する。音あり" },
+  { id: "ike", title: "池", author: "loohcskshirasaki", description: "錦鯉の池を真上から眺める。水面にふれると餌が落ち、なぞると逃げる。時刻で光が変わり、ときどき雨が通る" },
   // ---- yuuuuuuuuuuhh ----
   { id: "yuuuuuuuuuuhh", title: "モチモチグランプリ", author: "yuuuuuuuuuuhh", description: "おもちのモチが食べものレーサーと走る3Dカートレース。1人・2人・オンライン対戦" },
   { id: "yuuuuuuuuuuhh-2", title: "てっぺん", author: "yuuuuuuuuuuhh", description: "街の上空に積み上がったガラクタを、ひたすら上へ。落ちたら、落ちたところから" },
