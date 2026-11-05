@@ -7,6 +7,8 @@ window.GAMES = [
   { id: "bouka-roulette", title: "防火防災管理者ルーレット", author: "loohcskshirasaki", description: "じゃんけんではなく運命で決める。なるべく派手に。音あり" },
   { id: "toshocard-chusen", title: "図書カード抽選会", author: "loohcskshirasaki", description: "アンケートのお礼。2〜88 の番号から3人を抽選する。音あり" },
   { id: "ike", title: "池", author: "loohcskshirasaki", description: "錦鯉の池を真上から眺める。水面にふれると餌が落ち、なぞると逃げる。時刻で光が変わり、ときどき雨が通る" },
+  { id: "haku", title: "拍", author: "loohcskshirasaki", description: "輪が丸に重なる瞬間に、丸を押す音ゲー。長い丸は押したまま玉を追う。約1分、難しさ3段階。音あり" },
+  { id: "bou", title: "棒人間", author: "loohcskshirasaki", description: "左右から来る棒人間を、殴る・蹴る。パンチは3発つながる。全5波、最後に親玉。音あり" },
   // ---- yuuuuuuuuuuhh ----
   { id: "yuuuuuuuuuuhh", title: "モチモチグランプリ", author: "yuuuuuuuuuuhh", description: "おもちのモチが食べものレーサーと走る3Dカートレース。1人・2人・オンライン対戦" },
   { id: "yuuuuuuuuuuhh-2", title: "てっぺん", author: "yuuuuuuuuuuhh", description: "街の上空に積み上がったガラクタを、ひたすら上へ。落ちたら、落ちたところから" },

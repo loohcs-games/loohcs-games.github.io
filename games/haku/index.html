@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>拍</title>
+<style>
+  :root { --bg: #12131c; --ink: #f2f3f8; --dim: #9a9eb8; --pink: #ff6b9d; --cyan: #4fc3f7; }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden;
+    font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; }
+  canvas.playing { cursor: none; }
+  .screen {
+    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; padding: 24px 16px; box-sizing: border-box; text-align: center; background: rgba(18, 19, 28, .8);
+  }
+  .screen[hidden] { display: none; }
+  h1 { font-size: clamp(72px, 18vw, 132px); margin: 0; font-weight: 800; line-height: 1; letter-spacing: .04em; }
+  h1 i { font-style: normal; color: var(--pink); }
+  p { margin: 0; line-height: 1.8; font-size: 15px; }
+  .dim { color: var(--dim); font-size: 13px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  button {
+    font: inherit; font-size: 17px; font-weight: 700; color: var(--ink); background: transparent;
+    border: 2px solid var(--ink); border-radius: 999px; padding: 12px 26px; min-width: 132px; cursor: pointer;
+  }
+  button:hover, button:focus-visible { background: var(--ink); color: var(--bg); outline: none; }
+  button small { display: block; font-size: 11px; font-weight: 400; opacity: .75; margin-top: 2px; }
+  button small:empty { display: none; }
+  #rank { font-size: clamp(88px, 22vw, 160px); font-weight: 800; line-height: 1; }
+  #stats { font-variant-numeric: tabular-nums; font-size: 15px; line-height: 2; }
+  #stats b { font-size: 26px; }
+  #back { position: fixed; left: 14px; top: 12px; z-index: 5; color: var(--dim); text-decoration: none; font-size: 13px; }
+  #back:hover { color: var(--ink); }
+  #back[hidden] { display: none; }
+  #test {
+    position: fixed; left: 16px; top: 44px; z-index: 9; margin: 0; padding: 12px 16px; text-align: left;
+    background: rgba(0, 0, 0, .85); color: #fff; font: 13px/1.7 ui-monospace, Menlo, monospace;
+    border-radius: 6px; white-space: pre-wrap; max-width: calc(100vw - 64px); max-height: calc(100vh - 80px); overflow: auto;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="back" href="../../" hidden>← ゲーム一覧にもどる</a>
+
+<div id="menu" class="screen">
+  <h1>拍<i>。</i></h1>
+  <p>輪が丸に重なる瞬間に、丸を押す。<br>長い丸は、押したまま玉を追う。</p>
+  <div class="row">
+    <button data-diff="easy">やさしい<small id="best-easy"></small></button>
+    <button data-diff="normal">ふつう<small id="best-normal"></small></button>
+    <button data-diff="hard">むずかしい<small id="best-hard"></small></button>
+  </div>
+  <p class="dim">マウスかタッチで押す。Z・X キーでも押せる（カーソルの位置を押す）。Esc で一時停止。<br>
+    音あり、約1分。音と絵がずれるときは [ と ] で調整（いま <span id="offset">0</span> ms）</p>
+</div>
+
+<div id="pause" class="screen" hidden>
+  <p style="font-size:28px;font-weight:800">一時停止</p>
+  <div class="row">
+    <button id="resume">つづける</button>
+    <button id="retry2">やり直す</button>
+    <button id="quit">やめる</button>
+  </div>
+</div>
+
+<div id="result" class="screen" hidden>
+  <div id="rank">A</div>
+  <div id="stats"></div>
+  <div class="row">
+    <button id="retry">もう一度</button>
+    <button id="tomenu">題にもどる</button>
+  </div>
+</div>
+<pre id="test" hidden></pre>
+
+<script>
+'use strict';
+/*
+  拍。輪が重なる瞬間に丸を押す音ゲー。曲も音も、この中で合成している。
+  ?test            自己テスト
+  ?auto            自動演奏（見るだけ）
+  ?shot=20&diff=hard  曲の20秒時点を、自動演奏した状態で1枚描く（確認用）
+*/
+
+// ---------- 道具 ----------
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+function rng32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ---------- 曲 ----------
+const BPM = 132, BEAT = 60 / BPM, S16 = BEAT / 4; // S16 は16分音符1つの長さ（秒）
+const NOTE = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+function midi(name) {
+  const m = /^([A-G]#?)(\d)$/.exec(name);
+  if (!m) throw new Error('音名が読めない: ' + name);
+  return 12 * (+m[2] + 1) + NOTE[m[1]];
+}
+const CHORD = {
+  Am: { bass: 45, pad: [57, 60, 64] }, F: { bass: 41, pad: [57, 60, 65] }, C: { bass: 48, pad: [55, 60, 64] },
+  G: { bass: 43, pad: [55, 59, 62] }, Em: { bass: 40, pad: [55, 59, 64] }, E: { bass: 40, pad: [56, 59, 64] },
+};
+// 1行が1小節。[場面, 和音, 旋律]。旋律は「音名:長さ（16分音符いくつぶん）」、- は休み。1小節は合計16
+const BARS = [
+  ['intro', 'Am', 'A4:4 C5:4 E5:4 C5:4'],
+  ['intro', 'F', 'F4:4 A4:4 C5:4 A4:4'],
+  ['intro', 'C', 'G4:4 C5:4 E5:4 C5:4'],
+  ['fill', 'G', 'G4:4 B4:4 D5:4 G5:4'],
+  ['A', 'Am', 'E5:2 A5:2 G5:2 E5:2 D5:2 E5:4 -:2'],
+  ['A', 'F', 'C5:2 F5:2 E5:2 C5:2 A4:4 C5:4'],
+  ['A', 'C', 'E5:2 G5:2 E5:2 D5:2 C5:2 D5:2 E5:4'],
+  ['A', 'G', 'D5:4 B4:2 D5:2 G5:6 -:2'],
+  ['A', 'Am', 'E5:2 A5:2 C6:2 A5:2 G5:2 E5:4 -:2'],
+  ['A', 'F', 'F5:2 A5:2 G5:2 F5:2 E5:4 C5:4'],
+  ['A', 'C', 'E5:2 G5:2 C6:4 B5:2 G5:2 E5:4'],
+  ['A', 'G', 'D5:2 E5:2 G5:2 B5:2 A5:8'],
+  ['B', 'F', 'A5:4 F5:2 A5:2 C6:4 A5:4'],
+  ['B', 'G', 'B5:4 G5:2 B5:2 D6:4 B5:4'],
+  ['B', 'Em', 'G5:2 E5:2 G5:2 B5:2 E6:4 D6:2 B5:2'],
+  ['B', 'Am', 'C6:6 A5:2 E5:8'],
+  ['B', 'F', 'A5:2 A5:2 F5:2 A5:2 C6:2 A5:2 F5:4'],
+  ['B', 'G', 'B5:2 B5:2 G5:2 B5:2 D6:2 B5:2 G5:4'],
+  ['B', 'C', 'E6:4 D6:2 C6:2 G5:4 C6:4'],
+  ['fill', 'E', 'B5:2 G#5:2 E5:2 G#5:2 B5:8'],
+  ['A2', 'Am', 'E5:2 A5:2 G5:1 A5:1 G5:2 E5:2 D5:2 E5:4'],
+  ['A2', 'F', 'C5:2 F5:2 E5:2 C5:2 A4:2 C5:2 F5:2 A5:2'],
+  ['A2', 'C', 'E5:2 G5:2 E5:1 G5:1 C6:2 B5:2 G5:2 E5:4'],
+  ['A2', 'G', 'D5:2 G5:2 B5:2 D6:2 G5:6 -:2'],
+  ['A2', 'Am', 'A5:1 C6:1 A5:2 E5:2 A5:2 C6:2 E6:4 -:2'],
+  ['A2', 'F', 'F5:2 A5:2 C6:2 A5:2 F5:1 G5:1 A5:2 C6:4'],
+  ['A2', 'C', 'E6:2 D6:2 C6:2 G5:2 E5:2 G5:2 C6:4'],
+  ['A2', 'G', 'D6:2 B5:2 G5:2 B5:2 D6:2 E6:2 G6:4'],
+  ['outro', 'Am', 'A5:4 E5:4 C6:4 A5:4'],
+  ['outro', 'F', 'A5:4 F5:4 C6:4 A5:4'],
+  ['outro', 'G', 'B5:4 G5:4 D6:4 B5:4'],
+  ['end', 'Am', 'A5:16'],
+];
+
+function buildSong() {
+  const events = [], melody = [], barSums = [];
+  BARS.forEach(([sec, ch, str], b) => {
+    const t0 = b * 4 * BEAT, C = CHORD[ch], at = p => t0 + p * S16;
+    let pos = 0;
+    for (const tok of str.trim().split(/\s+/)) {
+      const [name, l] = tok.split(':'), len = +l;
+      if (name !== '-') {
+        const m = midi(name);
+        melody.push({ t: at(pos), len16: len, pos16: pos, bar: b, midi: m });
+        events.push({ t: at(pos), kind: (sec === 'intro' || (sec === 'fill' && b < 4)) ? 'pluck' : 'lead', midi: m, dur: len * S16 });
+      }
+      pos += len;
+    }
+    barSums.push(pos);
+    for (const m of C.pad) events.push({ t: t0, kind: 'pad', midi: m, dur: 4 * BEAT });
+    const K = (p, g = 1) => events.push({ t: at(p), kind: 'kick', g });
+    const S = (p, g = 1) => events.push({ t: at(p), kind: 'snare', g });
+    const H = (p, g = 1) => events.push({ t: at(p), kind: 'hat', g });
+    const Bs = (p, len, oct = 0) => events.push({ t: at(p), kind: 'bass', midi: C.bass + oct * 12, dur: len * S16 });
+    if (sec === 'intro') { K(0, .8); K(8, .8); H(4, .7); H(12, .7); Bs(0, 16); }
+    else if (sec === 'fill') {
+      K(0); K(8); S(4); for (let p = 0; p < 12; p += 2) H(p, p % 4 ? 1 : .6);
+      for (let p = 12; p < 16; p++) S(p, .45 + .15 * (p - 12)); // 次の場面へのつなぎ
+      for (let p = 0; p < 16; p += 2) Bs(p, 2);
+    } else if (sec === 'A') {
+      K(0); K(6, .8); K(8); S(4); S(12);
+      for (let p = 0; p < 16; p += 2) { H(p, p % 4 ? 1 : .6); Bs(p, 2); }
+    } else if (sec === 'B') {
+      K(0); K(8); K(10, .8); S(4); S(12);
+      for (let p = 0; p < 16; p += 2) H(p, p % 4 ? 1 : .6);
+      Bs(0, 3); Bs(3, 3, 1); Bs(6, 2); Bs(8, 3); Bs(11, 3, 1); Bs(14, 2);
+    } else if (sec === 'A2') {
+      K(0); K(4); K(8); K(12); S(4); S(12);
+      for (let p = 0; p < 16; p++) H(p, p % 2 ? .5 : (p % 4 ? 1 : .7));
+      for (let p = 0; p < 16; p += 2) Bs(p, 2, (p / 2) % 2);
+    } else if (sec === 'outro') { K(0); K(8); S(12); for (let p = 0; p < 16; p += 4) H(p + 2, .8); Bs(0, 8); Bs(8, 8); }
+    else if (sec === 'end') { K(0); events.push({ t: t0, kind: 'crash' }); Bs(0, 16); }
+    if (b === 4 || b === 12 || b === 20) events.push({ t: t0, kind: 'crash' });
+  });
+  for (let i = 1; i <= 4; i++) events.push({ t: -i * BEAT, kind: 'click', g: i === 4 ? 1 : .7 }); // 数え始めの4拍
+  events.sort((a, b) => a.t - b.t);
+  return { events, melody, barSums, length: BARS.length * 4 * BEAT };
+}
+const SONG = buildSong();
+
+// ---------- 譜面 ----------
+// ar: 丸が出てから押すまでの秒数。r: 丸の半径。w: 判定の幅（秒）[300, 100, 50]
+const DIFFS = {
+  easy: { label: 'やさしい', ar: 1.15, r: 46, w: [.065, .125, .18], keep: n => n.pos16 % 4 === 0, sliderMin: 8 },
+  normal: { label: 'ふつう', ar: .95, r: 40, w: [.055, .11, .16], keep: n => n.pos16 % 2 === 0, sliderMin: 6 },
+  hard: { label: 'むずかしい', ar: .75, r: 34, w: [.045, .095, .145], keep: () => true, sliderMin: 6 },
+};
+const COLORS = ['#ff6b9d', '#4fc3f7', '#ffd54f', '#7be0a0'];
+const X0 = .08, X1 = .92, Y0 = .1, Y1 = .9; // 丸を置いてよい範囲（場の幅と高さを1として）
+
+function moveBounded(x, y, ang, step) {
+  for (let i = 0; i < 14; i++) {
+    const nx = x + Math.cos(ang) * step, ny = y + Math.sin(ang) * step;
+    if (nx >= X0 && nx <= X1 && ny >= Y0 && ny <= Y1) return [nx, ny, ang];
+    ang += .55;
+  }
+  return [clamp(x + Math.cos(ang) * step, X0, X1), clamp(y + Math.sin(ang) * step, Y0, Y1), ang];
+}
+function sliderPos(o, s) {
+  const u = 1 - s;
+  return [u * u * o.x + 2 * u * s * o.cx + s * s * o.x2, u * u * o.y + 2 * u * s * o.cy + s * s * o.y2];
+}
+
+function makeBeatmap(song, D, seed) {
+  const R = rng32(seed), objs = [];
+  let x = .5, y = .5, ang = R() * TAU, prevEnd = 0, num = 0, bar = -1;
+  for (const n of song.melody) {
+    if (!D.keep(n)) continue;
+    if (objs.length) { // 前の丸からの間が長いほど、遠くに置く
+      const gap = (n.t - prevEnd) / BEAT;
+      ang += (R() - .5) * 2.4;
+      [x, y, ang] = moveBounded(x, y, ang, clamp(gap * .2, .07, .42));
+    }
+    if (n.bar !== bar) { bar = n.bar; num = 0; }
+    num++;
+    const o = { t: n.t, x, y, bar: n.bar, num, color: COLORS[n.bar % COLORS.length], kind: 'circle', done: false, res: 0 };
+    if (n.len16 >= D.sliderMin) { // 長い音は、玉を追うスライダーにする
+      const dur = (n.len16 - 2) * S16, len = clamp(dur / BEAT * .17, .12, .5);
+      ang += (R() - .5) * 1.5;
+      const [ex, ey, a2] = moveBounded(x, y, ang, len);
+      const bend = len * .35 * (R() < .5 ? 1 : -1), dx = ex - x, dy = ey - y, d = Math.hypot(dx, dy) || 1;
+      Object.assign(o, {
+        kind: 'slider', t1: n.t + dur, x2: ex, y2: ey,
+        cx: clamp((x + ex) / 2 - dy / d * bend, .04, .96), cy: clamp((y + ey) / 2 + dx / d * bend, .05, .95),
+        headJudged: false, headHit: 0, track: 0,
+      });
+      x = ex; y = ey; ang = a2; prevEnd = o.t1;
+    } else prevEnd = n.t;
+    objs.push(o);
+  }
+  return objs;
+}
+
+// ---------- 判定 ----------
+function judge(dt, w) {
+  const a = Math.abs(dt);
+  return a <= w[0] ? 300 : a <= w[1] ? 100 : a <= w[2] ? 50 : 0;
+}
+function makeGame(diffKey, seed) {
+  const D = DIFFS[diffKey];
+  return {
+    diffKey, D, objs: makeBeatmap(SONG, D, seed == null ? 7 : seed), head: 0,
+    score: 0, combo: 0, maxCombo: 0, n300: 0, n100: 0, n50: 0, nMiss: 0,
+    fx: [], fieldW: 640, fieldH: 480, r: D.r, lastT: -99, ended: false,
+  };
+}
+const distPx = (g, ax, ay, bx, by) => Math.hypot((ax - bx) * g.fieldW, (ay - by) * g.fieldH);
+function award(g, o, res, t) {
+  o.done = true; o.res = res;
+  if (res) {
+    g.combo++; g.maxCombo = Math.max(g.maxCombo, g.combo);
+    g['n' + res]++;
+    g.score += Math.round(res * (1 + (g.combo - 1) / 25)); // つながるほど点が増える
+  } else { g.nMiss++; g.combo = 0; }
+  g.fx.push({ t, x: o.kind === 'slider' ? o.x2 : o.x, y: o.kind === 'slider' ? o.y2 : o.y, res, color: o.color });
+}
+// (x, y) を時刻 t に押した。当たったら 300/100/50、当たらなければ 0
+function gameHit(g, t, x, y, lenient) {
+  for (let i = g.head; i < g.objs.length; i++) {
+    const o = g.objs[i];
+    if (o.t - t > g.D.w[2]) break; // これより先は、まだ早すぎる
+    if (o.done || o.headJudged || Math.abs(t - o.t) > g.D.w[2]) continue;
+    if (distPx(g, o.x, o.y, x, y) > g.r * 1.08 * (lenient || 1)) continue;
+    const res = judge(t - o.t, g.D.w);
+    if (o.kind === 'circle') award(g, o, res, t);
+    else { o.headJudged = true; o.headHit = res; g.fx.push({ t, x: o.x, y: o.y, res: 'head', color: o.color }); }
+    return res;
+  }
+  return 0;
+}
+// 時刻を t まで進める。pointers は、いま押されている位置の並び
+function gameUpdate(g, t, pointers) {
+  const dt = clamp(t - g.lastT, 0, .1);
+  g.lastT = t;
+  for (let i = g.head; i < g.objs.length; i++) {
+    const o = g.objs[i];
+    if (o.t - t > .2) break;
+    if (o.done) continue;
+    if (o.kind === 'circle') { if (t > o.t + g.D.w[2]) award(g, o, 0, t); continue; }
+    if (!o.headJudged && t > o.t + g.D.w[2]) { o.headJudged = true; o.headHit = 0; g.combo = 0; }
+    if (t >= o.t && t <= o.t1) {
+      const [bx, by] = sliderPos(o, (t - o.t) / (o.t1 - o.t));
+      o.held = pointers.some(p => distPx(g, bx, by, p.x, p.y) <= g.r * 2.4);
+      if (o.held) o.track += dt;
+    }
+    if (t > o.t1) {
+      const ratio = o.track / (o.t1 - o.t);
+      award(g, o, o.headHit ? (ratio >= .7 ? 300 : ratio >= .35 ? 100 : 50) : (ratio >= .5 ? 50 : 0), t);
+    }
+  }
+  while (g.head < g.objs.length && g.objs[g.head].done) g.head++;
+  if (g.fx.length && t - g.fx[0].t > .6) g.fx = g.fx.filter(f => t - f.t <= .6);
+  if (g.head >= g.objs.length) g.ended = true;
+}
+function accuracy(g) {
+  const n = g.n300 + g.n100 + g.n50 + g.nMiss;
+  return n ? (300 * g.n300 + 100 * g.n100 + 50 * g.n50) / (300 * n) : 1;
+}
+function rankOf(g) {
+  const a = accuracy(g);
+  return a >= 1 ? 'SS' : (a > .95 && !g.nMiss) ? 'S' : a > .9 ? 'A' : a > .8 ? 'B' : a > .7 ? 'C' : 'D';
+}
+// 自動演奏。late 秒だけ遅らせて押すこともできる（テスト用）。押している位置の並びを返す
+function autoStep(g, t, late) {
+  late = late || 0;
+  for (let i = g.head; i < g.objs.length; i++) {
+    const o = g.objs[i];
+    if (o.t + late > t) break;
+    if (!o.done && !o.headJudged) gameHit(g, o.t + late, o.x, o.y);
+  }
+  const ptr = [];
+  for (let i = g.head; i < g.objs.length; i++) {
+    const o = g.objs[i];
+    if (o.t > t) break;
+    if (o.kind === 'slider' && !o.done && t <= o.t1) { const [x, y] = sliderPos(o, (t - o.t) / (o.t1 - o.t)); ptr.push({ x, y }); }
+  }
+  gameUpdate(g, t, ptr);
+  return ptr;
+}
+
+// ---------- 音 ----------
+function makeAudio(given) { // given を渡すと、その AudioContext に鳴らす（テストで曲を丸ごと合成するとき）
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!given && !AC) return null;
+  const ctx = given || new AC();
+  const master = ctx.createGain(); master.gain.value = .8;
+  const comp = ctx.createDynamicsCompressor();
+  master.connect(comp); comp.connect(ctx.destination);
+  const noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+  const nd = noise.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  let bus = master; // 1回の演奏ぶんの音をまとめる。やめるときにここで切る
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+  function osc(type, freq, t, dur, peak, o) {
+    o = o || {};
+    const a = o.a || .005, rel = Math.min(o.rel || .04, dur * .8);
+    const os = ctx.createOscillator(), g = ctx.createGain();
+    os.type = type; os.frequency.value = freq; if (o.detune) os.detune.value = o.detune;
+    g.gain.setValueAtTime(.0001, t);
+    g.gain.linearRampToValueAtTime(peak, t + a);
+    g.gain.setValueAtTime(peak, t + Math.max(a, dur - rel));
+    g.gain.linearRampToValueAtTime(.0001, t + dur);
+    let node = os;
+    if (o.lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp; os.connect(f); node = f; }
+    node.connect(g); g.connect(bus);
+    os.start(t); os.stop(t + dur + .03);
+  }
+  function nz(t, dur, peak, type, freq, q) {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noise; f.type = type; f.frequency.value = freq; f.Q.value = q || 1;
+    g.gain.setValueAtTime(peak, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    s.connect(f); f.connect(g); g.connect(bus);
+    s.start(t, Math.random() * .5); s.stop(t + dur + .03);
+  }
+  const play = {
+    lead(e, t) { osc('square', hz(e.midi), t, e.dur * .92, .07, { lp: 2600, rel: .05 }); osc('triangle', hz(e.midi), t, e.dur * .92, .09, { detune: 8, rel: .05 }); },
+    pluck(e, t) { osc('triangle', hz(e.midi), t, .34, .2, { rel: .3 }); osc('sine', hz(e.midi) * 2, t, .2, .05, { rel: .17 }); },
+    pad(e, t) { osc('sawtooth', hz(e.midi), t, e.dur, .026, { a: .08, rel: .25, lp: 1200 }); },
+    bass(e, t) { osc('sawtooth', hz(e.midi), t, e.dur * .9, .2, { lp: 420, rel: .03 }); osc('sine', hz(e.midi), t, e.dur * .9, .16, { rel: .03 }); },
+    kick(e, t) {
+      const os = ctx.createOscillator(), g = ctx.createGain();
+      os.frequency.setValueAtTime(150, t); os.frequency.exponentialRampToValueAtTime(42, t + .12);
+      g.gain.setValueAtTime(.9 * (e.g || 1), t); g.gain.exponentialRampToValueAtTime(.001, t + .24);
+      os.connect(g); g.connect(bus); os.start(t); os.stop(t + .26);
+    },
+    snare(e, t) { nz(t, .16, .36 * (e.g || 1), 'bandpass', 1900, .7); osc('triangle', 190, t, .09, .18 * (e.g || 1), { rel: .08 }); },
+    hat(e, t) { nz(t, .045, .11 * (e.g || 1), 'highpass', 7500); },
+    crash(e, t) { nz(t, 1.5, .22, 'highpass', 5200); },
+    click(e, t) { osc('square', e.g === 1 ? 1320 : 990, t, .05, .1, { rel: .04 }); },
+  };
+  return {
+    ctx, play,
+    latency() { return ctx.outputLatency || ctx.baseLatency || 0; },
+    hit() { const t = ctx.currentTime; nz(t, .05, .28, 'bandpass', 3200, 1.2); osc('sine', 1046, t, .06, .1, { rel: .05 }); },
+    newBus() { this.cut(); bus = ctx.createGain(); bus.connect(master); },
+    cut() {
+      if (bus === master) return;
+      const b = bus; bus = master;
+      b.gain.setTargetAtTime(0, ctx.currentTime, .02);
+      setTimeout(() => { try { b.disconnect(); } catch (_) {} }, 300);
+    },
+  };
+}
+
+// ---------- 描く ----------
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+function render(ctx, g, t, v) {
+  const { W, H } = v, PX = (x, y) => [v.fx + x * v.fw, v.fy + y * v.fh];
+  ctx.fillStyle = '#12131c'; ctx.fillRect(0, 0, W, H);
+  const ph = ((t / BEAT) % 1 + 1) % 1, pulse = Math.exp(-ph * 5); // 拍の頭で明るくなって、すぐ引く
+  const bg = ctx.createRadialGradient(W / 2, H * .55, 0, W / 2, H * .55, Math.max(W, H) * .75);
+  bg.addColorStop(0, `rgba(96, 84, 170, ${(.2 + .1 * pulse).toFixed(3)})`); bg.addColorStop(1, 'rgba(18, 19, 28, 0)');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  if (!g) return;
+  const r = g.r, ar = g.D.ar;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  const vis = [];
+  for (let i = g.head; i < g.objs.length; i++) { const o = g.objs[i]; if (o.t - ar > t) break; if (!o.done) vis.push(o); }
+  const alphaOf = o => clamp((t - (o.t - ar)) / .22, 0, 1);
+
+  // 次の丸へ向かう細い線
+  for (let k = 0; k + 1 < vis.length; k++) {
+    const a = vis[k], b = vis[k + 1];
+    if (a.bar !== b.bar) continue;
+    const [ax, ay] = a.kind === 'slider' ? PX(a.x2, a.y2) : PX(a.x, a.y), [bx, by] = PX(b.x, b.y);
+    const d = Math.hypot(bx - ax, by - ay);
+    if (d < r * 2.4) continue;
+    const ux = (bx - ax) / d, uy = (by - ay) / d;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${(.22 * alphaOf(b)).toFixed(3)})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ax + ux * r * 1.15, ay + uy * r * 1.15); ctx.lineTo(bx - ux * r * 1.15, by - uy * r * 1.15); ctx.stroke();
+  }
+
+  // あとの丸から先に描く（先に押す丸がいちばん上に来る）
+  for (let k = vis.length - 1; k >= 0; k--) {
+    const o = vis[k], a = alphaOf(o), [x, y] = PX(o.x, o.y);
+    ctx.globalAlpha = a;
+    if (o.kind === 'slider') {
+      const path = () => { ctx.beginPath(); ctx.moveTo(x, y); for (let s = 1; s <= 24; s++) { const [sx, sy] = sliderPos(o, s / 24); ctx.lineTo(...PX(sx, sy)); } };
+      path(); ctx.strokeStyle = 'rgba(255, 255, 255, .92)'; ctx.lineWidth = r * 2; ctx.stroke();
+      path(); ctx.strokeStyle = '#1b1c2a'; ctx.lineWidth = r * 2 - 7; ctx.stroke();
+      path(); ctx.strokeStyle = hexA(o.color, .32); ctx.lineWidth = r * 2 - 7; ctx.stroke();
+      const [ex, ey] = PX(o.x2, o.y2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, .5)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(ex, ey, r * .55, 0, TAU); ctx.stroke();
+    }
+    if (o.kind === 'circle' || !o.headJudged) {
+      ctx.fillStyle = hexA(o.color, .9);
+      ctx.beginPath(); ctx.arc(x, y, r - 3, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(18, 19, 28, .28)';
+      ctx.beginPath(); ctx.arc(x, y, r * .62, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(3, r * .1);
+      ctx.beginPath(); ctx.arc(x, y, r - 3, 0, TAU); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = `800 ${Math.round(r * .78)}px system-ui, sans-serif`;
+      ctx.fillText(String(o.num), x, y + r * .04);
+      const left = (o.t - t) / ar; // 縮んでくる輪
+      if (left > 0) {
+        ctx.strokeStyle = hexA(o.color, 1); ctx.lineWidth = Math.max(2.5, r * .08);
+        ctx.beginPath(); ctx.arc(x, y, (r - 3) * (1 + 2.3 * left), 0, TAU); ctx.stroke();
+      }
+    }
+    if (o.kind === 'slider' && t >= o.t && t <= o.t1) { // 追う玉
+      const [bx, by] = PX(...sliderPos(o, (t - o.t) / (o.t1 - o.t)));
+      ctx.globalAlpha = 1;
+      if (o.held) { ctx.strokeStyle = hexA(o.color, .7); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(bx, by, r * 1.9, 0, TAU); ctx.stroke(); }
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(bx, by, r * .8, 0, TAU); ctx.fill();
+      ctx.fillStyle = o.color; ctx.beginPath(); ctx.arc(bx, by, r * .5, 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 押した結果
+  for (const f of g.fx) {
+    const u = (t - f.t) / .6;
+    if (u < 0 || u > 1) continue;
+    const [x, y] = PX(f.x, f.y), a = (1 - u) * (1 - u);
+    if (f.res === 'head' || f.res) {
+      ctx.strokeStyle = hexA(f.color, a); ctx.lineWidth = 4 * (1 - u) + 1;
+      ctx.beginPath(); ctx.arc(x, y, r * (1 + .9 * Math.sqrt(u)), 0, TAU); ctx.stroke();
+    }
+    if (f.res !== 'head' && f.res !== 300) {
+      ctx.fillStyle = f.res ? `rgba(255, 255, 255, ${a.toFixed(3)})` : `rgba(255, 90, 90, ${a.toFixed(3)})`;
+      ctx.font = `800 ${Math.round(r * .7)}px system-ui, sans-serif`;
+      ctx.fillText(f.res ? String(f.res) : '×', x, y - r * .2 - 14 * u);
+    }
+  }
+
+  // カーソル
+  if (v.cursor) {
+    const [x, y] = PX(v.cursor.x, v.cursor.y);
+    ctx.strokeStyle = 'rgba(255, 255, 255, .9)'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(x, y, v.cursor.down ? 9 : 12, 0, TAU); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, 2.5, 0, TAU); ctx.fill();
+  }
+
+  // 得点など
+  ctx.fillStyle = 'rgba(255, 255, 255, .12)'; ctx.fillRect(0, 0, W, 4);
+  ctx.fillStyle = '#ff6b9d'; ctx.fillRect(0, 0, W * clamp(t / SONG.length, 0, 1), 4);
+  const small = W < 520;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.fillStyle = '#f2f3f8';
+  ctx.font = `800 ${small ? 24 : 30}px ui-monospace, Menlo, monospace`;
+  ctx.fillText(String(g.score).padStart(6, '0'), W - 16, 16);
+  ctx.font = `600 ${small ? 13 : 15}px ui-monospace, Menlo, monospace`; ctx.fillStyle = '#9a9eb8';
+  ctx.fillText((accuracy(g) * 100).toFixed(2) + '%', W - 16, small ? 46 : 54);
+  if (v.label) { ctx.textAlign = 'left'; ctx.fillText(v.label, 16, small ? 46 : 20); }
+  if (g.combo > 1) {
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillStyle = '#f2f3f8';
+    ctx.font = `800 ${small ? 34 : 44}px system-ui, sans-serif`;
+    ctx.fillText(g.combo + '×', 18, H - 14);
+  }
+  if (t < -.05) { // 数え始め
+    const n = Math.ceil(-t / BEAT);
+    if (n <= 4) {
+      const u = (-t / BEAT) % 1;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = `rgba(242, 243, 248, ${(.25 + .6 * u).toFixed(3)})`;
+      ctx.font = `800 ${Math.round(Math.min(W, H) * .22)}px system-ui, sans-serif`;
+      ctx.fillText(String(n), W / 2, H / 2);
+    }
+  }
+}
+
+// ---------- 自己テスト ----------
+function runTests() {
+  const out = [];
+  const check = (name, fn) => {
+    let ok = false, note = '';
+    try { const r = fn(); ok = r === true; if (!ok) note = '  ' + String(r); } catch (e) { note = '  ' + e.message; }
+    out.push({ ok, text: (ok ? 'OK  ' : 'NG  ') + name + note });
+  };
+  const playThrough = (diff, late, noInput) => {
+    const g = makeGame(diff);
+    for (let t = -1; t < SONG.length + 1; t += 1 / 120) { if (noInput) gameUpdate(g, t, []); else autoStep(g, t, late); }
+    return g;
+  };
+  const keys = Object.keys(DIFFS);
+
+  check('曲は32小節で、どの小節も16分音符16個ぶん', () =>
+    (SONG.barSums.length === 32 && SONG.barSums.every(s => s === 16)) || SONG.barSums.join(','));
+  check('音の出番は時刻順で、長さは約58秒', () => {
+    for (let i = 1; i < SONG.events.length; i++) if (SONG.events[i].t < SONG.events[i - 1].t) return i + ' 番目が逆';
+    return (SONG.length > 55 && SONG.length < 62) || SONG.length;
+  });
+  check('譜面は時刻順・範囲内で、むずかしいほど丸が多い', () => {
+    const n = keys.map(k => {
+      const objs = makeBeatmap(SONG, DIFFS[k], 7);
+      objs.forEach((o, i) => {
+        if (i && o.t <= objs[i - 1].t) throw new Error(k + ' の ' + i + ' 番目が時刻順でない');
+        for (const [x, y] of o.kind === 'slider' ? [[o.x, o.y], [o.x2, o.y2]] : [[o.x, o.y]])
+          if (x < X0 - 1e-9 || x > X1 + 1e-9 || y < Y0 - 1e-9 || y > Y1 + 1e-9) throw new Error(k + ' の ' + i + ' 番目が範囲の外');
+      });
+      return objs.length;
+    });
+    return (n[0] > 20 && n[0] < n[1] && n[1] <= n[2]) || n.join(' / ');
+  });
+  check('スライダーは次の丸より前に終わり、長さがある', () => {
+    for (const k of keys) {
+      const objs = makeBeatmap(SONG, DIFFS[k], 7);
+      if (!objs.some(o => o.kind === 'slider')) return k + ' にスライダーがない';
+      for (let i = 0; i < objs.length; i++) {
+        const o = objs[i];
+        if (o.kind !== 'slider') continue;
+        if (!(o.t1 > o.t + .1)) return k + ' の ' + i + ' 番目が短すぎる';
+        if (objs[i + 1] && o.t1 >= objs[i + 1].t) return k + ' の ' + i + ' 番目が次と重なる';
+      }
+    }
+    return true;
+  });
+  check('同じ種からは同じ譜面、違う種からは違う譜面', () => {
+    const a = makeBeatmap(SONG, DIFFS.hard, 3), b = makeBeatmap(SONG, DIFFS.hard, 3), c = makeBeatmap(SONG, DIFFS.hard, 4);
+    return (a.every((o, i) => o.x === b[i].x && o.y === b[i].y) && a.some((o, i) => o.x !== c[i].x)) || '一致しない';
+  });
+  check('判定の境目（ふつう：55 / 110 / 160 ミリ秒）', () => {
+    const w = DIFFS.normal.w, r = [0, .05, -.05, .08, -.1, .14, -.15, .2, -.3].map(d => judge(d, w)).join();
+    return r === '300,300,300,100,100,50,50,0,0' || r;
+  });
+  for (const k of keys) check(`自動演奏は全部300・精度100%・最後までつながる（${DIFFS[k].label}）`, () => {
+    const g = playThrough(k, 0);
+    return (g.ended && g.n300 === g.objs.length && accuracy(g) === 1 && g.maxCombo === g.objs.length && rankOf(g) === 'SS')
+      || `300:${g.n300} 100:${g.n100} 50:${g.n50} ×:${g.nMiss} / ${g.objs.length}`;
+  });
+  check('何もしないと全部ミスで0点、評価は D', () => {
+    const g = playThrough('normal', 0, true);
+    return (g.ended && g.nMiss === g.objs.length && g.score === 0 && g.maxCombo === 0 && rankOf(g) === 'D') || `×:${g.nMiss} 点:${g.score}`;
+  });
+  check('80ミリ秒遅れて押すと、丸は全部100になる（ミスはなし）', () => {
+    const g = playThrough('normal', .08), circles = g.objs.filter(o => o.kind === 'circle');
+    return (circles.every(o => o.res === 100) && g.nMiss === 0 && g.maxCombo === g.objs.length) || `100:${g.n100} ×:${g.nMiss}`;
+  });
+  check('丸の外を押しても当たらない。早すぎる押しも当たらない', () => {
+    const g = makeGame('normal'), o = g.objs[0];
+    const far = gameHit(g, o.t, o.x + .3, o.y), early = gameHit(g, o.t - .5, o.x, o.y), ok = gameHit(g, o.t, o.x, o.y);
+    return (far === 0 && early === 0 && ok === 300) || `外:${far} 早い:${early} 正しい:${ok}`;
+  });
+  check('重なった2つの丸は、先のものから当たる', () => {
+    const g = makeGame('hard'), a = g.objs[0], b = g.objs[1];
+    b.x = a.x; b.y = a.y; b.t = a.t + .1;
+    gameHit(g, a.t + .05, a.x, a.y);
+    return (a.done && !b.done) || '後の丸が先に消えた';
+  });
+  check('スライダーは、頭を押して追えば300、頭だけなら50、放っておけばミス', () => {
+    const res = mode => {
+      const g = makeGame('normal'), i = g.objs.findIndex(o => o.kind === 'slider'), o = g.objs[i];
+      g.objs.forEach((p, j) => { if (j < i) p.done = true; });
+      g.head = i;
+      for (let t = o.t - .5; t < o.t1 + .3; t += 1 / 120) {
+        if (mode !== 'none' && !o.headJudged && t >= o.t) gameHit(g, o.t, o.x, o.y);
+        const ptr = (mode === 'follow' && t >= o.t && t <= o.t1) ? [(([x, y]) => ({ x, y }))(sliderPos(o, (t - o.t) / (o.t1 - o.t)))] : [];
+        gameUpdate(g, t, ptr);
+      }
+      return o.res;
+    };
+    const r = [res('follow'), res('head'), res('none')].join();
+    return r === '300,50,0' || r;
+  });
+  check('つながるほど1つあたりの点が増える', () => {
+    const g = makeGame('easy');
+    gameHit(g, g.objs[0].t, g.objs[0].x, g.objs[0].y);
+    const first = g.score;
+    for (let i = 1; i < 30; i++) gameHit(g, g.objs[i].t, g.objs[i].x, g.objs[i].y);
+    const before = g.score;
+    gameHit(g, g.objs[30].t, g.objs[30].x, g.objs[30].y);
+    return (first === 300 && g.score - before > 300) || `1つ目 ${first} / 31個目 ${g.score - before}`;
+  });
+  return { out, check };
+}
+// 曲を最初から最後まで、音を出さずに合成してみる。壊れた値・音割れ・無音の区間がないかを見る
+async function renderSongOffline() {
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!OAC) return 'OfflineAudioContext がない';
+  const sr = 22050, lead = 4 * BEAT + .2, total = lead + SONG.length + 1.5;
+  const oc = new OAC(1, Math.ceil(sr * total), sr), a = makeAudio(oc);
+  for (const e of SONG.events) a.play[e.kind](e, lead + e.t);
+  const d = (await oc.startRendering()).getChannelData(0);
+  const sq = new Array(Math.ceil(total)).fill(0);
+  let peak = 0, bad = 0;
+  for (let i = 0; i < d.length; i++) {
+    const v = d[i];
+    if (!Number.isFinite(v)) { bad++; continue; }
+    if (Math.abs(v) > peak) peak = Math.abs(v);
+    sq[Math.floor(i / sr)] += v * v;
+  }
+  let quiet = Infinity;
+  for (let s = Math.ceil(lead); s < Math.floor(lead + SONG.length); s++) quiet = Math.min(quiet, Math.sqrt(sq[s] / sr));
+  return (bad === 0 && peak > .1 && peak <= 1 && quiet > .005)
+    || `壊れた値 ${bad} / 最大 ${peak.toFixed(3)} / いちばん静かな1秒の大きさ ${quiet.toFixed(4)}`;
+}
+
+// ---------- 動かす ----------
+(function main() {
+  const Q = new URLSearchParams(location.search);
+  const $ = id => document.getElementById(id);
+  const canvas = $('c'), ctx = canvas.getContext('2d');
+  const view = { W: 0, H: 0, fx: 0, fy: 0, fw: 1, fh: 1, cursor: null, label: '' };
+  let dpr = 1, g = null, state = 'menu', audio = null, clock = null, evIdx = 0, auto = Q.has('auto'), lastDiff = 'normal';
+  const ptrs = new Map(), keys = new Set();
+  let mouse = { x: .5, y: .5 }, mouseSeen = false;
+
+  // 公開ページ（/games/<id>/）にあるときだけ、一覧へ戻るリンクを出す
+  const onSite = /\/games\/[^/]+\/(index\.html)?$/.test(location.pathname);
+  const showBack = on => { $('back').hidden = !(on && onSite); };
+  showBack(true);
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('haku-' + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } },
+    set(k, v) { try { localStorage.setItem('haku-' + k, JSON.stringify(v)); } catch (_) {} },
+  };
+  let offsetMs = clamp(+store.get('offset', 0) || 0, -300, 300);
+  const showOffset = () => { $('offset').textContent = (offsetMs > 0 ? '+' : '') + offsetMs; };
+  const showBest = () => {
+    for (const k of Object.keys(DIFFS)) {
+      const b = store.get('best-' + k, null);
+      $('best-' + k).textContent = b ? `${b.rank}　${b.score}` : '';
+    }
+  };
+  showOffset(); showBest();
+
+  function resize() {
+    const W = window.innerWidth, H = window.innerHeight;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    Object.assign(view, { W, H, fx: W * .07, fw: W * .86, fy: 84, fh: Math.max(120, H - 84 - 64) });
+    if (g) fit(g);
+  }
+  function fit(game) {
+    game.fieldW = view.fw; game.fieldH = view.fh;
+    game.r = game.D.r * clamp(Math.min(view.fw, view.fh) / 480, .62, 1.3);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // 時計。音が出せるなら音の時刻で、出せなければ画面の時刻で進める
+  function makeClock(a) {
+    if (a) return {
+      s: 0, start(lead) { this.s = a.ctx.currentTime + lead; },
+      now() { return a.ctx.currentTime - this.s - a.latency() - offsetMs / 1000; },
+      pause() { a.ctx.suspend(); }, resume() { a.ctx.resume(); },
+    };
+    return {
+      s: 0, p: 0, start(lead) { this.s = performance.now() / 1000 + lead; this.p = 0; },
+      now() { return (this.p || performance.now() / 1000) - this.s - offsetMs / 1000; },
+      pause() { this.p = performance.now() / 1000; }, resume() { this.s += performance.now() / 1000 - this.p; this.p = 0; },
+    };
+  }
+
+  function show(name) {
+    for (const id of ['menu', 'pause', 'result']) $(id).hidden = id !== name;
+    canvas.classList.toggle('playing', name === null && !auto);
+    showBack(name === 'menu' || name === 'result');
+  }
+  function startGame(diff, opts) {
+    opts = opts || {};
+    lastDiff = diff;
+    g = makeGame(diff); fit(g);
+    if (opts.clock) { clock = opts.clock; }
+    else {
+      if (!audio) { try { audio = makeAudio(); } catch (_) { audio = null; } }
+      if (audio) { audio.ctx.resume(); audio.newBus(); }
+      clock = makeClock(audio);
+      clock.start(4 * BEAT + .5);
+    }
+    evIdx = 0;
+    view.label = DIFFS[diff].label + (auto ? '（自動演奏）' : '');
+    state = 'play'; show(null);
+  }
+  function stopGame() { if (audio) { audio.cut(); audio.ctx.resume(); } g = null; state = 'menu'; showBest(); show('menu'); }
+  function pauseGame() { if (state !== 'play') return; clock.pause && clock.pause(); state = 'pause'; show('pause'); }
+  function resumeGame() { if (state !== 'pause') return; clock.resume && clock.resume(); state = 'play'; show(null); }
+  function finish() {
+    state = 'result';
+    const acc = accuracy(g), rank = rankOf(g);
+    $('rank').textContent = rank;
+    $('rank').style.color = { SS: '#ffd54f', S: '#ffd54f', A: '#7be0a0', B: '#4fc3f7', C: '#ff6b9d', D: '#9a9eb8' }[rank];
+    $('stats').innerHTML = `${DIFFS[g.diffKey].label}${auto ? '（自動演奏）' : ''}<br><b>${g.score}</b> 点　精度 <b>${(acc * 100).toFixed(2)}</b>%<br>`
+      + `最大 ${g.maxCombo} 連続（全 ${g.objs.length}）<br>300 × ${g.n300}　100 × ${g.n100}　50 × ${g.n50}　ミス × ${g.nMiss}`;
+    if (!auto) {
+      const b = store.get('best-' + g.diffKey, null);
+      if (!b || g.score > b.score) store.set('best-' + g.diffKey, { score: g.score, rank });
+    }
+    show('result');
+  }
+
+  // 押す
+  const toField = e => ({ x: (e.clientX - view.fx) / view.fw, y: (e.clientY - view.fy) / view.fh });
+  function press(p, lenient) {
+    if (state !== 'play' || auto) return;
+    const res = gameHit(g, clock.now(), p.x, p.y, lenient);
+    if (res && audio && clock.s !== undefined) audio.hit();
+  }
+  canvas.addEventListener('pointerdown', e => {
+    const p = toField(e);
+    if (e.pointerType !== 'touch') { mouse = p; mouseSeen = true; }
+    ptrs.set(e.pointerId, p);
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    press(p, e.pointerType === 'touch' ? 1.3 : 1);
+    e.preventDefault();
+  });
+  canvas.addEventListener('pointermove', e => {
+    const p = toField(e);
+    if (e.pointerType !== 'touch') { mouse = p; mouseSeen = true; }
+    if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, p);
+  });
+  const up = e => { ptrs.delete(e.pointerId); };
+  canvas.addEventListener('pointerup', up);
+  canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  window.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if ((k === 'z' || k === 'x') && !e.repeat) { keys.add(k); press(mouse, 1); }
+    else if (k === 'escape') { if (state === 'play') pauseGame(); else if (state === 'pause') resumeGame(); }
+    else if (k === '[' || k === ']') { offsetMs = clamp(offsetMs + (k === ']' ? 5 : -5), -300, 300); store.set('offset', offsetMs); showOffset(); }
+  });
+  window.addEventListener('keyup', e => { keys.delete(e.key.toLowerCase()); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+
+  for (const b of document.querySelectorAll('button[data-diff]')) b.addEventListener('click', () => startGame(b.dataset.diff));
+  $('resume').addEventListener('click', resumeGame);
+  $('retry2').addEventListener('click', () => { if (clock.resume) clock.resume(); startGame(lastDiff); });
+  $('quit').addEventListener('click', stopGame);
+  $('retry').addEventListener('click', () => startGame(lastDiff));
+  $('tomenu').addEventListener('click', stopGame);
+
+  function frame() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (state === 'play') {
+      const t = clock.now();
+      if (audio && clock.s !== undefined && !clock.fake) { // すこし先の音までを予約する
+        const ev = SONG.events, now = audio.ctx.currentTime;
+        while (evIdx < ev.length && clock.s + ev[evIdx].t < now + .25) {
+          const e = ev[evIdx++], T = clock.s + e.t;
+          if (T > now - .05) audio.play[e.kind](e, Math.max(T, now));
+        }
+      }
+      let down;
+      if (auto) down = autoStep(g, t);
+      else { down = [...ptrs.values()]; if (keys.size) down.push(mouse); gameUpdate(g, t, down); }
+      view.cursor = auto ? (down[0] ? { ...down[0], down: true } : null) : (mouseSeen ? { ...mouse, down: down.length > 0 } : null);
+      render(ctx, g, t, view);
+      if (g.ended && t > SONG.length + .6) finish();
+    } else if (state === 'pause' || state === 'result') {
+      render(ctx, g, g.lastT, view);
+    } else {
+      view.cursor = null;
+      render(ctx, null, performance.now() / 1000, view);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  if (Q.has('test')) {
+    const { out, check } = runTests();
+    check('画面を押す・Z キーを押すと判定される（合成したイベントで確認）', () => {
+      const fake = { fake: true, t: 0, now() { return this.t; } };
+      startGame('easy', { clock: fake });
+      const a = g.objs[0], b = g.objs[1], at = o => ({ clientX: view.fx + o.x * view.fw, clientY: view.fy + o.y * view.fh });
+      fake.t = a.t;
+      canvas.dispatchEvent(new PointerEvent('pointerdown', { ...at(a), pointerId: 1, pointerType: 'mouse' }));
+      canvas.dispatchEvent(new PointerEvent('pointerup', { ...at(a), pointerId: 1, pointerType: 'mouse' }));
+      fake.t = b.t;
+      canvas.dispatchEvent(new PointerEvent('pointermove', { ...at(b), pointerId: 1, pointerType: 'mouse' }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      const r = `${g.n300},${g.combo},${$('menu').hidden}`;
+      stopGame();
+      return (r === '2,2,true' && !$('menu').hidden) || r;
+    });
+    const report = pending => {
+      const pass = out.filter(o => o.ok).length;
+      $('test').textContent = `自己テスト ${pass}/${out.length}${pending ? '（曲の合成を確認中…）' : ''}\n` + out.map(o => o.text).join('\n');
+      $('test').hidden = false;
+      document.title = `拍 テスト ${pass}/${out.length}${pending ? ' 確認中' : ''}`;
+    };
+    report(true);
+    renderSongOffline().catch(e => e.message).then(r => {
+      check('曲を最後まで合成できる（壊れた値なし・音割れなし・無音の1秒なし）', () => r);
+      report(false);
+    });
+  }
+
+  if (Q.has('shot')) { // 確認用：自動演奏で指定の時刻まで進めた1枚を描く
+    const T = parseFloat(Q.get('shot')) || 0, diff = DIFFS[Q.get('diff')] ? Q.get('diff') : 'normal';
+    g = makeGame(diff); fit(g);
+    let ptr = [];
+    for (let t = -2; t < T; t += 1 / 120) ptr = autoStep(g, t);
+    ptr = autoStep(g, T);
+    view.label = DIFFS[diff].label; view.cursor = ptr[0] ? { ...ptr[0], down: true } : null;
+    show(null);
+    const still = () => { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); render(ctx, g, T, view); requestAnimationFrame(still); };
+    still(); // 窓の大きさが変わると画面が消えるので、描き続ける
+    return;
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
