@@ -1,0 +1,1073 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>潜水艦バトル</title>
+<style>
+  :root { --ink: #f3f6fa; --dim: #a9b8c8; --bg: #07182a; }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden;
+    font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; }
+  .screen {
+    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    gap: 14px; padding: 20px 16px; box-sizing: border-box; text-align: center; background: rgba(7, 24, 42, .9); overflow-y: auto;
+  }
+  .screen > :first-child { margin-top: auto; } /* 中身が画面より長いときも、上が切れずにスクロールできる */
+  .screen > :last-child { margin-bottom: auto; }
+  .screen[hidden] { display: none; }
+  h1 { font-size: clamp(40px, 9vw, 80px); margin: 0; font-weight: 800; line-height: 1.1; letter-spacing: .04em; }
+  h1 i { font-style: normal; color: #ff5252; }
+  p { margin: 0; line-height: 1.8; font-size: 15px; }
+  .dim { color: var(--dim); font-size: 12.5px; }
+  .how { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 980px; }
+  .card {
+    width: 290px; padding: 12px 14px 14px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 12px;
+    background: rgba(255, 255, 255, .05); text-align: left; font-size: 13.5px; line-height: 1.9; box-sizing: border-box;
+  }
+  .card b.t { display: block; font-size: 15px; margin-bottom: 2px; text-align: center; }
+  kbd {
+    font: 800 13px ui-monospace, Menlo, monospace; min-width: 24px; height: 24px; padding: 0 4px; display: inline-grid; place-items: center;
+    border: 1.5px solid var(--ink); border-bottom-width: 3px; border-radius: 6px; margin: 0 1px; box-sizing: border-box; vertical-align: middle;
+  }
+  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  button.big {
+    font: inherit; font-size: 18px; font-weight: 800; color: var(--bg); background: var(--ink);
+    border: 0; border-radius: 999px; padding: 13px 34px; cursor: pointer;
+  }
+  button.big:hover, button.big:focus-visible { background: #ffd54f; outline: none; }
+  #verdict { font-size: clamp(34px, 8vw, 64px); font-weight: 800; letter-spacing: .1em; }
+  #stats { font-variant-numeric: tabular-nums; font-size: 15px; line-height: 2; }
+  #stats b { font-size: 28px; }
+  #pad { position: fixed; left: 0; right: 0; bottom: 10px; display: flex; justify-content: space-between; padding: 0 10px; pointer-events: none; z-index: 3; }
+  #pad[hidden] { display: none; }
+  #pad div { display: flex; gap: 8px; }
+  #pad button {
+    pointer-events: auto; width: 66px; height: 66px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .8);
+    background: rgba(7, 24, 42, .55); color: #fff; font: 800 15px system-ui, sans-serif; touch-action: none;
+  }
+  #pad button.on { background: rgba(255, 255, 255, .85); color: #07182a; }
+  #back { position: fixed; left: 14px; top: 12px; z-index: 5; color: var(--dim); text-decoration: none; font-size: 13px; }
+  #back:hover { color: var(--ink); }
+  #back[hidden] { display: none; }
+  #test {
+    position: fixed; left: 16px; top: 44px; z-index: 9; margin: 0; padding: 12px 16px; text-align: left;
+    background: rgba(0, 0, 0, .88); color: #fff; font: 13px/1.7 ui-monospace, Menlo, monospace;
+    border-radius: 6px; white-space: pre-wrap; max-width: calc(100vw - 64px); max-height: calc(100vh - 80px); overflow: auto;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="back" href="../../" hidden>← ゲーム一覧にもどる</a>
+
+<div id="title" class="screen">
+  <h1>潜水艦<i>バトル</i></h1>
+  <p>海の上の船から爆雷を落として、潜水艦を沈める。全4海域、最後に巨大潜水艦。</p>
+  <div class="how">
+    <div class="card">
+      <b class="t">そうさ</b>
+      <kbd>←</kbd><kbd>→</kbd> 船を動かす（<kbd>A</kbd><kbd>D</kbd> でも）<br>
+      <kbd>Z</kbd> 船の左から爆雷を落とす<br>
+      <kbd>X</kbd> 船の右から爆雷を落とす<br>
+      爆雷は、海にある数に上限がある（はじめは4発）<br>
+      <kbd>Esc</kbd> 一時停止　<kbd>M</kbd> 音を消す
+    </div>
+    <div class="card">
+      <b class="t">敵（下のレーダーに同じ色で映る）</b>
+      <span class="dot" style="background:#ff9f43"></span>機雷艦：機雷を浮かべてくる　50点<br>
+      <span class="dot" style="background:#ff5252"></span>ミサイル艦：ミサイルを撃つ　300点<br>
+      <span class="dot" style="background:#a3e635"></span>高速艇：速い。機雷をまく　200点<br>
+      <span class="dot" style="background:#b388ff"></span>海底戦車：ミサイルを4発　500点<br>
+      <span class="dot" style="background:#fff"></span>輸送艇：沈めるとアイテムが浮く　100点
+    </div>
+    <div class="card">
+      <b class="t">こつ</b>
+      機雷とミサイルは、海面で船に当たると1機失う<br>
+      爆発に巻きこむと、機雷やミサイルも消せる<br>
+      沈んだ敵の爆発は、近くの敵も巻きこむ（連鎖で点が2倍、3倍…）<br>
+      浮いてきたアイテムは、船で触れて取る<br>
+      レーダーから敵が消えたら、その海域は制圧
+    </div>
+  </div>
+  <button class="big" id="start">はじめる（Z キーでも）</button>
+  <p class="dim">キーボードだけで遊べる。音あり。<br>Bio_100% の「Super Depth」（1991年）の海の面を手本にした、別の作品です。絵・音・名前はすべて自作</p>
+</div>
+
+<div id="pause" class="screen" hidden>
+  <p style="font-size:28px;font-weight:800">一時停止</p>
+  <p>Esc でつづける</p>
+</div>
+
+<div id="result" class="screen" hidden>
+  <div id="verdict">作戦成功</div>
+  <div id="stats"></div>
+  <button class="big" id="retry">もう一度（Z キーでも）</button>
+</div>
+
+<div id="pad" hidden>
+  <div><button data-k="l">◀</button><button data-k="r">▶</button></div>
+  <div><button data-k="dl">左<br>投下</button><button data-k="dr">右<br>投下</button></div>
+</div>
+<pre id="test" hidden></pre>
+
+<script>
+'use strict';
+/*
+  潜水艦バトル。海の上の船から爆雷を落として、潜水艦を沈める。
+  手本は Bio_100% の「Super Depth」（1991年）の海の面と、それを取り出した「WinDepth」（1995年）。
+  ルールの骨組み（左右から落とす爆雷、色つきのレーダー、アイテムを運ぶ敵、沈めた敵の爆発が連鎖する）を借り、
+  絵・音・名前・数値・最後の巨大潜水艦は自作。元の作品の絵や音は使っていない。
+  ?test       自己テスト
+  ?seed=3     敵の並びを固定
+  ?skip=20    自動操作で20秒進めたところから始める（確認用）
+  ?stage=4    その海域から始める（確認用。4 は巨大潜水艦）
+  ?cheat      やられない（確認用）
+  ?touch      画面のボタンを出す
+*/
+
+// ---------- 道具 ----------
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+function rng32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ---------- 決まりごと ----------
+const VH = 600;    // 画面の高さ（中での単位）。幅は窓の形に合わせて変わる
+const FW = 2200;   // 海の幅。画面より広いので、左右に流れる
+const SEA = 140;   // 海面の高さ
+const BED = 520;   // 海底の高さ
+const TYPES = {
+  mine: { name: '機雷艦', color: '#ff9f43', pts: 50, w: 92, h: 26, sp: 45 },
+  missile: { name: 'ミサイル艦', color: '#ff5252', pts: 300, w: 104, h: 24, sp: 80 },
+  fast: { name: '高速艇', color: '#a3e635', pts: 200, w: 58, h: 18, sp: 185 },
+  crawler: { name: '海底戦車', color: '#b388ff', pts: 500, w: 84, h: 26, sp: 28 },
+  carrier: { name: '輸送艇', color: '#ffffff', pts: 100, w: 62, h: 22, sp: 70 },
+};
+const STAGES = [
+  { mine: 5, missile: 1, fast: 1, carrier: 1 },
+  { mine: 3, missile: 2, fast: 1, crawler: 1, carrier: 1 },
+  { mine: 1, missile: 2, fast: 2, crawler: 2, carrier: 2 },
+  { boss: true },
+];
+const ITEMS = {
+  speed: { c: '#4fc3f7', mark: 'S', label: '船が速くなった' },
+  max: { c: '#ff5252', mark: '+', label: '爆雷 +2' },
+  power: { c: '#a3e635', mark: 'P', label: '爆雷が速く沈む' },
+  wave: { c: '#b388ff', mark: '~', label: 'ゆれながら沈む爆雷' },
+  full: { c: '#5eead4', mark: 'F', label: 'フルパワー！' },
+  bomb: { c: '#ffd54f', mark: 'B', label: '一掃！' },
+  life: { c: '#ffffff', mark: '1', label: '1UP' },
+};
+const BOSS_HP = 20, BOSS_RAGE = 8;
+const TUBES = [-230, -140, -50, 130, 220]; // 巨大潜水艦のミサイルの筒（中心からの位置）。司令塔（+40）の真上だけ筒がない
+
+// ---------- 世界 ----------
+function makeWorld(seed, opts) {
+  opts = opts || {};
+  const w = {
+    R: rng32(seed), seed, t: 0, time: 0, phase: 'title', pt: 0, stage: 0, vw: opts.vw || 960, cheat: !!opts.cheat,
+    score: 0, lives: 3, lostLife: false, kills: 0, bestChain: 0,
+    ship: { x: FW / 2, vx: 0, cdL: 0, cdR: 0, inv: 0 },
+    pw: { speed: 0, max: 0, power: 0, wave: false },
+    charges: [], enemies: [], shots: [], blasts: [], items: [], texts: [], boss: null,
+    shake: 0, flash: 0, cam: 0, fired: 0, sfx: [], // sfx は、この1歩で鳴らす音の名前。描く側が読んで消す
+  };
+  w.cam = clamp(w.ship.x - w.vw / 2, 0, FW - w.vw);
+  return w;
+}
+const maxCharges = w => Math.min(16, 4 + 2 * w.pw.max);
+const powerLevel = w => w.pw.speed + w.pw.max + w.pw.power + (w.pw.wave ? 1 : 0);
+// 自分が強くなるほど、海域が進むほど、敵も速くなる
+const hardness = w => 1 + .04 * powerLevel(w) + .09 * w.stage;
+const sinkSpeed = w => 130 + 38 * w.pw.power;
+const shipSpeed = w => 220 + 45 * w.pw.speed;
+const alive = w => w.enemies.filter(e => e.alive);
+
+function spawnEnemy(w, type, x) {
+  const R = w.R, T = TYPES[type], dir = R() < .5 ? -1 : 1;
+  const e = { type, alive: true, w: T.w, h: T.h, dir, x: 0, y: 0, vx: 0, ft: 2 + R() * 4, ph: R() * TAU, wait: 0 };
+  const given = x != null;
+  if (!given) { // 船の真下は避けて置く
+    x = 80 + R() * (FW - 160);
+    if (Math.abs(x - w.ship.x) < 320) x += x < w.ship.x ? -320 : 320;
+    x = clamp(x, 80, FW - 80);
+  }
+  e.x = x;
+  if (type === 'mine') e.y = 230 + R() * 230;
+  else if (type === 'missile') e.y = 260 + R() * 210;
+  else if (type === 'fast') { e.y = 200 + R() * 210; e.dir = 1; if (!given) e.x = -80 - R() * 300; }
+  else if (type === 'crawler') e.y = BED - 14;
+  else if (type === 'carrier') { e.yc = 330; e.y = 330; }
+  w.enemies.push(e);
+  return e;
+}
+function startStage(w, n) {
+  w.stage = n;
+  w.charges.length = 0; w.enemies.length = 0; w.shots.length = 0; w.blasts.length = 0; w.items.length = 0; w.boss = null;
+  w.ship.x = FW / 2; w.ship.vx = 0; w.ship.cdL = w.ship.cdR = 0;
+  const S = STAGES[n];
+  if (S.boss) {
+    w.boss = { x: FW / 2 - 40, y: 800, vx: 0, hp: BOSS_HP, open: 0, cyc: 0, salvoT: 3, aimT: 2, mineT: 2, queue: [], hitT: 9, carT: 8, dying: 0 };
+    w.phase = 'warning'; w.pt = 3.4; w.sfx.push('alarm');
+  } else {
+    for (const type of Object.keys(TYPES)) for (let i = 0; i < (S[type] || 0); i++) spawnEnemy(w, type);
+    w.phase = 'intro'; w.pt = 1.8;
+  }
+}
+function startGame(w, stage) {
+  w.score = 0; w.lives = 3; w.lostLife = false; w.kills = 0; w.bestChain = 0; w.time = 0;
+  w.pw = { speed: 0, max: 0, power: 0, wave: false };
+  w.ship.inv = 0;
+  startStage(w, stage || 0);
+}
+const say = (w, x, y, str, color) => w.texts.push({ x, y, str, color: color || '#fff', t: 0 });
+
+// ---------- 爆発 ----------
+function blast(w, x, y, R, kind, chain) {
+  const b = { x, y, R, kind, chain: chain || 0, t: 0, life: kind === 'sub' ? .6 : .42, done: kind !== 'sub' };
+  w.blasts.push(b);
+  return b;
+}
+function popShots(w, x, y, R) { // 爆発に巻きこまれた機雷・ミサイルを消す
+  for (const s of w.shots) if (!s.dead && Math.hypot(s.x - x, s.y - y) < R + 8) { s.dead = true; w.score += 10; blast(w, s.x, s.y, 16, 'pop'); }
+}
+function kill(w, e, chain) {
+  if (!e.alive) return;
+  e.alive = false; w.kills++;
+  const pts = TYPES[e.type].pts * chain;
+  w.score += pts; w.bestChain = Math.max(w.bestChain, chain);
+  say(w, e.x, e.y - 18, chain > 1 ? `${pts}  ${chain}連鎖！` : String(pts), chain > 1 ? '#ffd54f' : '#fff');
+  blast(w, e.x, e.y, 104, 'sub', chain); // すこし遅れて広がり、近くの敵を巻きこむ
+  w.sfx.push(chain > 1 ? 'chain' : 'boom');
+  w.shake = Math.max(w.shake, .25);
+  if (e.type === 'carrier') spawnItem(w, e.x, e.y);
+}
+function blastDamage(w, b, chain) {
+  for (const e of w.enemies) {
+    if (!e.alive) continue;
+    if (Math.abs(e.x - b.x) < e.w / 2 + b.R * .7 && Math.abs(e.y - b.y) < e.h / 2 + b.R * .7) kill(w, e, chain);
+  }
+  popShots(w, b.x, b.y, b.R);
+}
+function explodeCharge(w, c) {
+  c.dead = true;
+  const b = blast(w, c.x, c.y, 38, 'charge');
+  blastDamage(w, b, 1);
+  w.sfx.push('thud');
+}
+
+// ---------- アイテム ----------
+function spawnItem(w, x, y) {
+  const p = w.pw, pool = [];
+  const add = (k, n) => { for (let i = 0; i < n; i++) pool.push(k); };
+  if (p.speed < 3) add('speed', 3);
+  if (p.max < 6) add('max', 4);
+  if (p.power < 3) add('power', 3);
+  if (!p.wave) add('wave', 2);
+  add('bomb', 2); add('full', 1);
+  if (w.lostLife && w.lives < 3) add('life', 4); // 1機も失っていないときは出ない
+  w.items.push({ kind: pool[Math.floor(w.R() * pool.length)], x, y, float: 0 });
+}
+function applyItem(w, kind) {
+  const p = w.pw;
+  if (kind === 'speed') p.speed = Math.min(3, p.speed + 1);
+  else if (kind === 'max') p.max = Math.min(6, p.max + 1);
+  else if (kind === 'power') p.power = Math.min(3, p.power + 1);
+  else if (kind === 'wave') p.wave = true;
+  else if (kind === 'full') { p.speed = 3; p.max = 6; p.power = 3; p.wave = true; }
+  else if (kind === 'life') w.lives = Math.min(5, w.lives + 1);
+  else if (kind === 'bomb') { // 画面の中の敵と弾を一掃する
+    for (const s of w.shots) if (!s.dead) { s.dead = true; blast(w, s.x, s.y, 16, 'pop'); }
+    for (const e of w.enemies) if (e.alive && e.x > w.cam - 40 && e.x < w.cam + w.vw + 40) kill(w, e, 1);
+    if (w.boss && w.boss.open > .6 && w.phase === 'play') hitBoss(w, 2);
+    w.flash = 1;
+  }
+  w.score += 100;
+  say(w, w.ship.x, SEA - 46, ITEMS[kind].label, ITEMS[kind].c);
+  w.sfx.push('item');
+}
+
+// ---------- 自分の船 ----------
+function drop(w, side) { // side: -1 が左、+1 が右。落とせたら true
+  if (w.charges.length >= maxCharges(w)) return false;
+  const x = w.ship.x + side * 46;
+  w.charges.push({ x, x0: x, y: SEA + 10, ph: 0, wave: w.pw.wave });
+  w.sfx.push('drop');
+  return true;
+}
+function shipHit(w, x) {
+  if (w.phase !== 'play' || w.ship.inv > 0 || w.cheat) return;
+  w.phase = 'dead'; w.pt = 1.9; w.lives--;
+  blast(w, w.ship.x, SEA, 70, 'surface'); blast(w, x, SEA, 40, 'surface');
+  w.shake = .7; w.sfx.push('dead');
+}
+function shootUp(w, kind, x, y, vx) {
+  const k = hardness(w);
+  w.fired++;
+  w.shots.push({ kind, x, y, vx: vx || 0, vy: -(kind === 'mine' ? 38 : kind === 'aimed' ? 92 : 170) * (kind === 'mine' ? k : Math.min(k, 1.35)), float: 0 });
+}
+
+// ---------- 巨大潜水艦 ----------
+const bossCoreX = b => b.x + 40;
+function hitBoss(w, n) {
+  const b = w.boss;
+  if (!b || b.hp <= 0) return;
+  b.hp = Math.max(0, b.hp - n); b.hitT = 0;
+  w.score += 100 * n;
+  say(w, bossCoreX(b), b.y - 120, `命中！ のこり ${b.hp}`, '#ffd54f');
+  w.shake = Math.max(w.shake, .3); w.sfx.push('bosshit');
+  if (b.hp <= 0) { // 沈む。弾は全部消える
+    w.phase = 'bossdie'; w.pt = 3.4;
+    for (const s of w.shots) if (!s.dead) { s.dead = true; blast(w, s.x, s.y, 16, 'pop'); }
+    for (const e of w.enemies) e.alive = false;
+    w.sfx.push('bossdie');
+  }
+}
+function stepBoss(w, dt) {
+  const b = w.boss, rage = b.hp <= BOSS_RAGE, k = rage ? 1.5 : 1;
+  b.hitT += dt;
+  // 船をゆっくり追う。追いつめられると速くなる
+  const want = clamp(w.ship.x - 40 + Math.sin(w.t * .35) * 220, 340, FW - 340);
+  b.vx += (clamp((want - b.x) * .6, -52 * k, 52 * k) - b.vx) * Math.min(1, dt * 1.2);
+  b.x += b.vx * dt;
+  b.y = 372 + Math.sin(w.t * .5) * 38;
+  // 司令塔のふたが、開いたり閉じたりする。開いている間だけ、中の赤い核に爆雷が効く
+  b.cyc += dt;
+  const period = rage ? 5.4 : 7, openFor = rage ? 3.6 : 3.1;
+  const opening = b.cyc % period < openFor;
+  b.open = clamp(b.open + (opening ? 1 : -1) * dt * 3.5, 0, 1);
+  // 筒からの一斉発射
+  b.salvoT -= dt;
+  if (b.salvoT <= 0) { b.salvoT = rage ? 3.3 : 4.8; TUBES.forEach((ox, i) => b.queue.push({ t: i * .2, ox })); w.sfx.push('salvo'); }
+  for (const q of b.queue) { q.t -= dt; if (q.t <= 0) { shootUp(w, 'missile', b.x + q.ox, b.y - 50, 0); q.done = true; } }
+  b.queue = b.queue.filter(q => !q.done);
+  // 開いているあいだ、核から船をねらう弾。ゆっくりで、爆発に巻きこめば消せる
+  if (b.open > .8) {
+    b.aimT -= dt;
+    if (b.aimT <= 0) { b.aimT = rage ? 1.5 : 2.5; shootUp(w, 'aimed', bossCoreX(b), b.y - 104, clamp((w.ship.x - bossCoreX(b)) * .4, -70, 70)); }
+  }
+  if (rage) { b.mineT -= dt; if (b.mineT <= 0) { b.mineT = 2.1; shootUp(w, 'mine', b.x - 280 + w.R() * 60, b.y - 20); } }
+  // ときどき輸送艇が通る
+  b.carT -= dt;
+  if (b.carT <= 0) { b.carT = 15; if (!alive(w).length) spawnEnemy(w, 'carrier', w.R() < .5 ? 100 : FW - 100); }
+}
+// 爆雷が巨大潜水艦に当たったか。核に効いたら 'core'、はじかれたら 'hull'、当たっていなければ null
+function chargeVsBoss(w, c) {
+  const b = w.boss;
+  if (!b || b.hp <= 0) return null;
+  const dx = c.x - bossCoreX(b);
+  if (Math.abs(dx) < 46 && c.y >= b.y - 104 && c.y < b.y) return (b.open > .6 && Math.abs(dx) < 34) ? 'core' : 'hull';
+  const ex = (c.x - b.x) / 312, ey = (c.y - (b.y + 6)) / 54;
+  return ex * ex + ey * ey < 1 ? 'hull' : null;
+}
+
+// ---------- 1歩進める ----------
+// inp: { l, r, dl, dr }（左、右、左から落とす、右から落とす）
+function step(w, dt, inp) {
+  inp = inp || {};
+  w.t += dt;
+  w.shake = Math.max(0, w.shake - dt * 1.6); w.flash = Math.max(0, w.flash - dt * 1.8);
+  for (const tx of w.texts) { tx.t += dt; tx.y -= 26 * dt; }
+  if (w.texts.length && w.texts[0].t > 1.3) w.texts = w.texts.filter(tx => tx.t <= 1.3);
+  const ph = w.phase;
+  if (ph === 'title' || ph === 'over' || ph === 'clear') return;
+  w.time += dt;
+  const s = w.ship, sim = ph !== 'dead';
+
+  // 船
+  if (sim) {
+    const want = ((inp.r ? 1 : 0) - (inp.l ? 1 : 0)) * shipSpeed(w);
+    s.vx += (want - s.vx) * Math.min(1, dt * 10);
+    s.x = clamp(s.x + s.vx * dt, 70, FW - 70);
+    s.cdL -= dt; s.cdR -= dt; s.inv = Math.max(0, s.inv - dt);
+    if (ph === 'play' || ph === 'intro') {
+      if (inp.dl && s.cdL <= 0 && drop(w, -1)) s.cdL = .24;
+      if (inp.dr && s.cdR <= 0 && drop(w, 1)) s.cdR = .24;
+    }
+  }
+  w.cam += (clamp(s.x - w.vw / 2, 0, FW - w.vw) - w.cam) * Math.min(1, dt * 8);
+
+  // 爆雷
+  const vy = sinkSpeed(w);
+  for (const c of w.charges) {
+    c.y += vy * dt;
+    if (c.wave) { c.ph += dt * 5.5; c.x = c.x0 + Math.sin(c.ph) * 42; }
+    const hit = chargeVsBoss(w, c);
+    if (hit === 'core') { c.dead = true; blast(w, c.x, c.y, 44, 'charge'); hitBoss(w, 1); continue; }
+    if (hit === 'hull') { c.dead = true; blast(w, c.x, c.y, 22, 'pop'); popShots(w, c.x, c.y, 30); say(w, c.x, c.y - 10, 'カン', '#9fb4c8'); w.sfx.push('clang'); continue; }
+    for (const e of w.enemies) {
+      if (e.alive && Math.abs(c.x - e.x) < e.w / 2 + 4 && Math.abs(c.y - e.y) < e.h / 2 + 6) { explodeCharge(w, c); break; }
+    }
+    if (!c.dead) for (const m of w.shots) {
+      if (!m.dead && Math.abs(c.x - m.x) < 13 && Math.abs(c.y - m.y) < 15) { explodeCharge(w, c); break; }
+    }
+    if (!c.dead && c.y >= BED - 4) { c.y = BED - 4; explodeCharge(w, c); }
+  }
+  w.charges = w.charges.filter(c => !c.dead);
+
+  // 爆発。沈んだ敵の爆発は、すこし遅れて近くの敵を巻きこむ
+  for (const b of w.blasts) {
+    b.t += dt;
+    if (!b.done && b.t >= .13) { b.done = true; blastDamage(w, b, b.chain + 1); }
+  }
+  w.blasts = w.blasts.filter(b => b.t < b.life);
+
+  // 敵
+  const k = hardness(w), fight = ph === 'play';
+  for (const e of w.enemies) {
+    if (!e.alive) continue;
+    const T = TYPES[e.type];
+    if (e.wait > 0) { e.wait -= dt; continue; }
+    e.vx = e.dir * T.sp * k;
+    e.x += e.vx * dt;
+    if (e.type === 'fast') {
+      if (e.x > FW + 90) { e.x = -90; e.y = 200 + w.R() * 210; e.wait = 1.5 + w.R() * 2; } // 右へ抜けたら、また左から来る
+    } else if (e.x < 60) { e.x = 60; e.dir = 1; } else if (e.x > FW - 60) { e.x = FW - 60; e.dir = -1; }
+    if (e.type === 'carrier') { e.ph += dt * 1.1; e.y = e.yc + Math.sin(e.ph) * 95; }
+    if (!fight || e.type === 'carrier') continue;
+    e.ft -= dt * k;
+    if (e.ft > 0) continue;
+    const dx = s.x - e.x, near = Math.abs(dx) < 520;
+    if (e.type === 'mine') { e.ft = 3.4 + w.R() * 2.6; if (near) shootUp(w, 'mine', e.x, e.y - 12); }
+    else if (e.type === 'fast') { e.ft = 1.5 + w.R() * .8; if (near) shootUp(w, 'mine', e.x, e.y - 8); }
+    else if (e.type === 'missile') { e.ft = 3 + w.R() * 2.2; if (Math.abs(dx) < 460) { shootUp(w, 'missile', e.x, e.y - 12, clamp(dx * .35, -60, 60)); w.sfx.push('launch'); } }
+    else if (e.type === 'crawler') { e.ft = 5 + w.R() * 2; if (near) { for (const v of [-66, -22, 22, 66]) shootUp(w, 'missile', e.x, e.y - 14, v + clamp(dx * .1, -30, 30)); w.sfx.push('salvo'); } }
+  }
+  if (w.boss && fight) stepBoss(w, dt);
+  if (w.boss && ph === 'warning') w.boss.y = lerp(372, 800, clamp(w.pt / 3, 0, 1)); // 深いところから上がってくる
+
+  // 機雷とミサイル
+  for (const m of w.shots) {
+    if (m.dead) continue;
+    if (m.kind === 'aimed') m.vx += clamp(s.x - m.x, -1, 1) * 34 * dt;
+    m.x += m.vx * dt; m.y += m.vy * dt;
+    if (m.y <= SEA + 5) {
+      m.y = SEA + 5; m.vx = 0;
+      if (m.kind === 'mine') { // 機雷は海面でしばらく浮いてから爆発する。船が触れても爆発する
+        m.float += dt;
+        if (Math.abs(m.x - s.x) < 58 && sim) { m.dead = true; blast(w, m.x, SEA, 46, 'surface'); shipHit(w, m.x); }
+        else if (m.float > 2.2) { m.dead = true; blast(w, m.x, SEA, 46, 'surface'); w.sfx.push('thud'); if (Math.abs(m.x - s.x) < 70) shipHit(w, m.x); }
+      } else {
+        m.dead = true; blast(w, m.x, SEA, 40, 'surface'); w.sfx.push('thud');
+        if (Math.abs(m.x - s.x) < 60) shipHit(w, m.x);
+      }
+    }
+  }
+  w.shots = w.shots.filter(m => !m.dead);
+
+  // アイテム：浮いてきて、海面でしばらく待つ
+  for (const it of w.items) {
+    if (it.y > SEA + 4) it.y = Math.max(SEA + 4, it.y - 52 * dt);
+    else { it.float += dt; if (it.float > 10) it.dead = true; }
+    if (!it.dead && sim && it.y < SEA + 40 && Math.abs(it.x - s.x) < 62) { it.dead = true; applyItem(w, it.kind); }
+  }
+  w.items = w.items.filter(it => !it.dead);
+
+  // 場面の進み
+  if (ph === 'intro') { w.pt -= dt; if (w.pt <= 0) w.phase = 'play'; }
+  else if (ph === 'warning') { w.pt -= dt; if (w.pt <= 0) w.phase = 'play'; }
+  else if (ph === 'play') {
+    if (!w.boss && !alive(w).length) { // レーダーから敵が消えたら制圧
+      w.phase = 'stageclear'; w.pt = 2.6; w.score += 500 * (w.stage + 1);
+      for (const m of w.shots) blast(w, m.x, m.y, 16, 'pop');
+      w.shots.length = 0; w.sfx.push('clear');
+    }
+  } else if (ph === 'stageclear') { w.pt -= dt; if (w.pt <= 0) startStage(w, w.stage + 1); }
+  else if (ph === 'dead') {
+    w.pt -= dt;
+    if (w.pt <= 0) {
+      if (w.lives < 0) { w.lives = 0; w.phase = 'over'; }
+      else { // アイテムを全部失って、その海域をやり直す
+        w.pw = { speed: 0, max: 0, power: 0, wave: false }; w.lostLife = true;
+        startStage(w, w.stage); s.inv = 2.6;
+      }
+    }
+  } else if (ph === 'bossdie') {
+    const b = w.boss;
+    w.pt -= dt; b.dying += dt; b.y += 14 * dt;
+    if (Math.floor(b.dying / .09) !== Math.floor((b.dying - dt) / .09)) { // 艦のあちこちで爆発
+      blast(w, b.x + (w.R() - .5) * 600, b.y + (w.R() - .5) * 110, 30 + w.R() * 40, 'charge'); w.shake = .5;
+      if (w.R() < .4) w.sfx.push('boom');
+    }
+    if (w.pt <= 0) { w.score += 5000 + 1000 * w.lives; w.flash = 1; w.phase = 'clear'; }
+  }
+}
+
+// 自動操作（テストと確認用）。いちばん近い敵の「爆雷が届くころの位置」の真上へ行って落とす
+function autopilot(w) {
+  const s = w.ship, inp = { l: false, r: false, dl: false, dr: false }, vy = sinkSpeed(w);
+  let tx = null, best = Infinity;
+  const consider = (x, y, vx, ok) => {
+    const px = x + vx * Math.max(0, (y - SEA - 10) / vy), d = Math.abs(px - s.x);
+    if (d < best) { best = d; tx = { x: px, ok }; }
+  };
+  for (const e of w.enemies) if (e.alive && e.wait <= 0) consider(e.x, e.y, e.vx, true);
+  if (w.boss && w.boss.hp > 0) { best = Infinity; const b = w.boss; consider(bossCoreX(b), b.y - 100, b.vx, b.open > .6); }
+  for (const m of w.shots) { // 上がってくる弾からは離れる
+    if (m.y < SEA + 150 && Math.abs(m.x - s.x) < 84) { if (m.x >= s.x) inp.l = true; else inp.r = true; return inp; }
+  }
+  if (!tx) return inp;
+  const side = tx.x < s.x ? -1 : 1, off = tx.x - (s.x + side * 46);
+  if (off > 8) inp.r = true; else if (off < -8) inp.l = true;
+  if (tx.ok && Math.abs(off) < 16) { if (side < 0) inp.dl = true; else inp.dr = true; }
+  return inp;
+}
+
+// ---------- 描く ----------
+function drawSub(ctx, e, t) {
+  const T = TYPES[e.type], d = e.dir, hw = e.w / 2, hh = e.h / 2;
+  ctx.save(); ctx.translate(e.x, e.y); ctx.scale(d, 1);
+  if (e.type === 'crawler') { // 海底を這う戦車
+    ctx.fillStyle = '#1b1430'; ctx.beginPath(); ctx.roundRect(-hw, 2, e.w, 12, 6); ctx.fill();
+    ctx.fillStyle = T.color; ctx.beginPath(); ctx.roundRect(-hw + 8, -hh, e.w - 16, hh + 4, 6); ctx.fill();
+    ctx.fillStyle = '#2a1f4a'; for (let i = 0; i < 4; i++) ctx.fillRect(-24 + i * 13, -hh - 9, 7, 10);
+    ctx.fillStyle = '#b388ff'; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(-hw + 9 + i * 13.5, 8, 3.2, 0, TAU); ctx.fill(); }
+  } else {
+    ctx.fillStyle = 'rgba(0, 0, 0, .25)'; ctx.fillRect(-hw - 12, -3, 6, 6); // プロペラ
+    ctx.fillStyle = T.color;
+    ctx.beginPath(); ctx.ellipse(0, 0, hw, hh, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-hw + 4, -4); ctx.lineTo(-hw - 9, -hh); ctx.lineTo(-hw - 9, hh); ctx.lineTo(-hw + 4, 4); ctx.fill();
+    ctx.fillStyle = 'rgba(8, 24, 44, .55)';
+    if (e.type === 'carrier') { ctx.fillRect(-12, -6, 24, 12); ctx.fillStyle = Math.floor(t * 5) % 2 ? '#ffd54f' : '#fff'; ctx.beginPath(); ctx.arc(hw * .55, -1, 4, 0, TAU); ctx.fill(); }
+    else {
+      ctx.beginPath(); ctx.roundRect(-hw * .18, -hh - hh * .75, hw * .46, hh * .95, 3); ctx.fill();
+      ctx.fillRect(-hw * .5, -1.5, hw * 1.1, 3);
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hw * .62, -hh * .15, 2.6, 0, TAU); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+function drawBoss(ctx, b, t) {
+  const hit = b.hitT < .12, rage = b.hp <= BOSS_RAGE && b.hp > 0;
+  ctx.save(); ctx.translate(b.x, b.y);
+  if (b.dying) ctx.rotate(Math.min(.25, b.dying * .05));
+  const hull = hit ? '#e8eef5' : '#1c2536';
+  // 尾とプロペラ
+  ctx.fillStyle = hull;
+  ctx.beginPath(); ctx.moveTo(-290, -6); ctx.lineTo(-350, -44); ctx.lineTo(-338, 6); ctx.lineTo(-350, 52); ctx.lineTo(-290, 18); ctx.fill();
+  // 胴
+  ctx.beginPath(); ctx.ellipse(0, 6, 312, 54, 0, 0, TAU); ctx.fill();
+  // 司令塔
+  ctx.beginPath(); ctx.roundRect(-6, -98, 92, 70, 10); ctx.fill();
+  ctx.fillStyle = hit ? '#fff' : '#2c3a52';
+  ctx.beginPath(); ctx.ellipse(0, -8, 300, 30, 0, Math.PI, TAU); ctx.fill();
+  ctx.fillStyle = '#c62828'; ctx.fillRect(-260, 12, 520, 7); // 赤い帯
+  ctx.fillStyle = '#0d1420'; for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.arc(-200 + i * 50, 34, 5, 0, TAU); ctx.fill(); }
+  // ミサイルの筒
+  for (const ox of TUBES) { ctx.fillStyle = '#0d1420'; ctx.fillRect(ox - 9, -52, 18, 12); ctx.fillStyle = '#ff5252'; ctx.fillRect(ox - 6, -52, 12, 3); }
+  // 目のような窓
+  ctx.fillStyle = rage ? '#ff5252' : '#ffd54f';
+  ctx.beginPath(); ctx.ellipse(250, -4, 16, 9, -.2, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#0d1420'; ctx.beginPath(); ctx.arc(254, -3, 5, 0, TAU); ctx.fill();
+  // 司令塔の上のふたと、赤い核
+  const o = b.open;
+  if (o > .02) {
+    const g = ctx.createRadialGradient(40, -100, 2, 40, -100, 46);
+    g.addColorStop(0, `rgba(255, 120, 100, ${.9 * o})`); g.addColorStop(1, 'rgba(255, 60, 60, 0)');
+    ctx.fillStyle = g; ctx.fillRect(-10, -150, 100, 100);
+    ctx.fillStyle = '#ff3b3b'; ctx.beginPath(); ctx.arc(40, -98, 15 * o + 4 * Math.sin(t * 12) * o, Math.PI, TAU); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(40, -99, 6 * o, Math.PI, TAU); ctx.fill();
+  }
+  ctx.fillStyle = '#3d4d68';
+  ctx.save(); ctx.translate(6, -98); ctx.rotate(-o * 1.9); ctx.fillRect(0, -5, 34, 6); ctx.restore();
+  ctx.save(); ctx.translate(74, -98); ctx.rotate(o * 1.9); ctx.fillRect(-34, -5, 34, 6); ctx.restore();
+  ctx.restore();
+}
+function drawShip(ctx, s, t, w) {
+  if (s.inv > 0 && Math.floor(t * 12) % 2) return;
+  const y = SEA + Math.sin(t * 2.1) * 1.6;
+  ctx.save(); ctx.translate(s.x, y); ctx.rotate(Math.sin(t * 1.7) * .012 + s.vx * .00012);
+  ctx.fillStyle = '#39424f';
+  ctx.beginPath(); ctx.moveTo(-60, -8); ctx.lineTo(66, -8); ctx.lineTo(50, 13); ctx.lineTo(-52, 13); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#a8322d'; ctx.fillRect(-52, 7, 102, 6);
+  ctx.fillStyle = '#5b6878'; ctx.fillRect(-16, -30, 34, 22); ctx.fillRect(-34, -18, 18, 10); ctx.fillRect(22, -17, 14, 9);
+  ctx.fillStyle = '#39424f'; ctx.fillRect(-2, -44, 9, 14); ctx.fillRect(3, -58, 2, 14); ctx.fillRect(36, -13, 16, 3);
+  ctx.fillStyle = '#cfe3f2'; ctx.fillRect(-11, -26, 6, 5); ctx.fillRect(-2, -26, 6, 5); ctx.fillRect(7, -26, 6, 5);
+  // 両はしの爆雷の台。落とせる数が残っていれば黒く見える
+  const left = maxCharges(w) - w.charges.length;
+  ctx.fillStyle = left > 0 ? '#11161d' : '#7c8794';
+  ctx.beginPath(); ctx.arc(-46, -12, 5, 0, TAU); ctx.arc(46, -12, 5, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function render(ctx, w, vw) {
+  const t = w.t, cam = w.cam;
+  const sx = w.shake > 0 ? (Math.sin(t * 91) * 6) * w.shake : 0, sy = w.shake > 0 ? (Math.cos(t * 77) * 5) * w.shake : 0;
+  ctx.save(); ctx.translate(sx, sy);
+  // 空
+  let g = ctx.createLinearGradient(0, 0, 0, SEA);
+  g.addColorStop(0, '#9fd3ee'); g.addColorStop(1, '#e6f5fb');
+  ctx.fillStyle = g; ctx.fillRect(-20, -20, vw + 40, SEA + 20);
+  ctx.fillStyle = 'rgba(255, 255, 255, .85)';
+  for (let i = 0; i < 7; i++) { const x = ((i * 397 - cam * .2) % (vw + 300) + vw + 300) % (vw + 300) - 150, y = 34 + (i * 29) % 56; ctx.beginPath(); ctx.ellipse(x, y, 54, 12, 0, 0, TAU); ctx.ellipse(x + 30, y - 8, 30, 10, 0, 0, TAU); ctx.fill(); }
+  // 海
+  g = ctx.createLinearGradient(0, SEA, 0, VH);
+  g.addColorStop(0, '#2f8fc7'); g.addColorStop(.5, '#17558a'); g.addColorStop(1, '#0a2744');
+  ctx.fillStyle = g; ctx.fillRect(-20, SEA, vw + 40, VH - SEA + 20);
+  ctx.fillStyle = 'rgba(255, 255, 255, .05)';
+  for (let i = 0; i < 6; i++) { const x = ((i * 310 - cam * .5) % (vw + 400) + vw + 400) % (vw + 400) - 200; ctx.beginPath(); ctx.moveTo(x, SEA); ctx.lineTo(x + 70, SEA); ctx.lineTo(x - 60, BED); ctx.lineTo(x - 170, BED); ctx.fill(); }
+
+  ctx.save(); ctx.translate(-cam, 0);
+  // 泡
+  ctx.fillStyle = 'rgba(255, 255, 255, .18)';
+  for (let i = 0; i < 46; i++) { const x = (i * 173.3) % FW; if (x < cam - 10 || x > cam + vw + 10) continue; const y = BED - ((t * (22 + i % 7 * 5) + i * 57) % (BED - SEA - 8)); ctx.beginPath(); ctx.arc(x + Math.sin(t + i) * 4, y, 1.5 + i % 3, 0, TAU); ctx.fill(); }
+  // 海底
+  ctx.fillStyle = '#081a2e';
+  ctx.beginPath(); ctx.moveTo(cam - 30, VH + 30);
+  for (let x = Math.floor((cam - 30) / 20) * 20; x <= cam + vw + 40; x += 20) ctx.lineTo(x, BED + 7 * Math.sin(x * .013) + 4 * Math.sin(x * .041));
+  ctx.lineTo(cam + vw + 40, VH + 30); ctx.fill();
+  ctx.fillStyle = '#0d2a45';
+  for (let i = 0; i < 40; i++) { const x = (i * 211.7) % FW; if (x < cam - 60 || x > cam + vw + 60) continue; ctx.beginPath(); ctx.ellipse(x, BED + 10, 16 + i % 5 * 6, 7 + i % 3 * 3, 0, Math.PI, TAU); ctx.fill(); }
+
+  if (w.boss) drawBoss(ctx, w.boss, t);
+  for (const e of w.enemies) if (e.alive && e.wait <= 0 && e.x > cam - 80 && e.x < cam + vw + 80) drawSub(ctx, e, t);
+  // 弾
+  for (const m of w.shots) {
+    if (m.kind === 'mine') {
+      ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = 2;
+      for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + t; ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x + Math.cos(a) * 11, m.y + Math.sin(a) * 11); ctx.stroke(); }
+      ctx.fillStyle = m.float > 1.4 && Math.floor(t * 10) % 2 ? '#fff' : '#ff9f43'; ctx.beginPath(); ctx.arc(m.x, m.y, 7, 0, TAU); ctx.fill();
+    } else {
+      const aimed = m.kind === 'aimed';
+      ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(Math.atan2(m.vx, -m.vy));
+      ctx.fillStyle = aimed ? '#ff3b3b' : '#f3f6fa'; ctx.beginPath(); ctx.moveTo(0, -11); ctx.lineTo(4.5, -4); ctx.lineTo(4.5, 8); ctx.lineTo(-4.5, 8); ctx.lineTo(-4.5, -4); ctx.fill();
+      ctx.fillStyle = aimed ? '#ffd54f' : '#ff5252'; ctx.fillRect(-4.5, 4, 9, 4);
+      ctx.fillStyle = 'rgba(255, 255, 255, .5)'; ctx.beginPath(); ctx.arc(0, 15 + Math.sin(t * 30) * 2, 3, 0, TAU); ctx.arc(2, 24, 2, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+  }
+  // 爆雷
+  for (const c of w.charges) {
+    ctx.fillStyle = '#11161d'; ctx.beginPath(); ctx.roundRect(c.x - 5, c.y - 7, 10, 14, 3); ctx.fill();
+    ctx.fillStyle = '#ffd54f'; ctx.fillRect(c.x - 5, c.y - 2, 10, 3);
+    ctx.fillStyle = 'rgba(255, 255, 255, .35)'; ctx.beginPath(); ctx.arc(c.x + 3, c.y - 14, 2, 0, TAU); ctx.arc(c.x - 2, c.y - 24, 1.5, 0, TAU); ctx.fill();
+  }
+  // アイテム
+  for (const it of w.items) {
+    if (it.float > 7.5 && Math.floor(t * 8) % 2) continue;
+    const I = ITEMS[it.kind], y = it.y + Math.sin(t * 3 + it.x) * 2 - 4;
+    ctx.fillStyle = '#07182a'; ctx.beginPath(); ctx.arc(it.x, y, 15, 0, TAU); ctx.fill();
+    ctx.fillStyle = I.c; ctx.beginPath(); ctx.arc(it.x, y, 12.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#07182a'; ctx.font = '800 15px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(I.mark, it.x, y + 1);
+  }
+  // 自分の船
+  if (w.phase !== 'dead' && w.phase !== 'over') drawShip(ctx, w.ship, t, w);
+  // 波
+  ctx.strokeStyle = 'rgba(255, 255, 255, .8)'; ctx.lineWidth = 2; ctx.beginPath();
+  for (let x = cam - 10; x <= cam + vw + 10; x += 12) { const y = SEA + Math.sin(x * .03 + t * 2.4) * 2.5; if (x === cam - 10) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+  ctx.stroke();
+  // 爆発
+  for (const b of w.blasts) {
+    const u = b.t / b.life, r = b.R * (0.35 + .65 * Math.sqrt(u)), a = 1 - u;
+    if (b.kind === 'surface') { // 水柱
+      ctx.fillStyle = `rgba(255, 255, 255, ${a.toFixed(3)})`;
+      ctx.beginPath(); ctx.moveTo(b.x - r * .5, SEA); ctx.quadraticCurveTo(b.x - r * .3, SEA - r * 2.2 * Math.sin(u * Math.PI), b.x, SEA - r * 2.6 * Math.sin(u * Math.PI)); ctx.quadraticCurveTo(b.x + r * .3, SEA - r * 2.2 * Math.sin(u * Math.PI), b.x + r * .5, SEA); ctx.fill();
+      ctx.fillStyle = `rgba(255, 180, 60, ${(a * .8).toFixed(3)})`; ctx.beginPath(); ctx.arc(b.x, SEA - 4, r * .7, Math.PI, TAU); ctx.fill();
+    } else {
+      ctx.fillStyle = `rgba(255, ${b.kind === 'sub' ? 170 : 235}, ${b.kind === 'sub' ? 60 : 200}, ${(a * .85).toFixed(3)})`; ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, TAU); ctx.fill();
+      ctx.fillStyle = `rgba(255, 255, 255, ${a.toFixed(3)})`; ctx.beginPath(); ctx.arc(b.x, b.y, r * .5 * a, 0, TAU); ctx.fill();
+      ctx.strokeStyle = `rgba(255, 255, 255, ${(a * .7).toFixed(3)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(b.x, b.y, r * 1.25, 0, TAU); ctx.stroke();
+    }
+  }
+  // 点数などの文字
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '800 16px system-ui, sans-serif';
+  for (const tx of w.texts) { ctx.globalAlpha = clamp(1.3 - tx.t, 0, 1); ctx.strokeStyle = 'rgba(7, 24, 42, .8)'; ctx.lineWidth = 4; ctx.strokeText(tx.str, tx.x, tx.y); ctx.fillStyle = tx.color; ctx.fillText(tx.str, tx.x, tx.y); }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  ctx.restore();
+
+  // 上の表示
+  const small = vw < 700;
+  ctx.textBaseline = 'top'; ctx.fillStyle = '#0d2a45';
+  ctx.textAlign = 'left'; ctx.font = `800 ${small ? 18 : 22}px ui-monospace, Menlo, monospace`; ctx.fillText(String(w.score).padStart(6, '0'), 14, 10);
+  ctx.font = '700 12px system-ui, sans-serif';
+  const mx = maxCharges(w), left = mx - w.charges.length;
+  ctx.fillText('爆雷', 14, small ? 34 : 40);
+  for (let i = 0; i < mx; i++) { ctx.fillStyle = i < left ? '#11161d' : 'rgba(13, 42, 69, .22)'; ctx.fillRect(46 + i * 9, (small ? 34 : 40) + 1, 6, 11); }
+  ctx.fillStyle = '#0d2a45'; ctx.textAlign = 'center'; ctx.font = `800 ${small ? 14 : 16}px system-ui, sans-serif`;
+  ctx.fillText(w.boss ? '最後の海域' : `第${w.stage + 1}海域 / 4`, vw / 2, 12);
+  ctx.textAlign = 'right'; ctx.font = '700 13px system-ui, sans-serif'; ctx.fillText('のこり ' + '▲'.repeat(Math.max(0, w.lives)), vw - 14, 12);
+  const p = w.pw, marks = [];
+  if (p.speed) marks.push('速' + p.speed); if (p.power) marks.push('沈' + p.power); if (p.wave) marks.push('ゆれ');
+  ctx.font = '700 12px system-ui, sans-serif'; ctx.fillText(marks.join(' '), vw - 14, 32);
+  if (w.boss && w.boss.hp > 0 && w.phase === 'play') { // 巨大潜水艦の体力
+    const bw = Math.min(360, vw * .5), bx = vw / 2 - bw / 2;
+    ctx.fillStyle = 'rgba(13, 42, 69, .25)'; ctx.fillRect(bx, 36, bw, 9);
+    ctx.fillStyle = w.boss.hp <= BOSS_RAGE ? '#ff3b3b' : '#c62828'; ctx.fillRect(bx, 36, bw * w.boss.hp / BOSS_HP, 9);
+  }
+
+  // レーダー
+  const rx = 12, rw = vw - 24, ry = 546, rh = 44;
+  ctx.fillStyle = 'rgba(2, 10, 20, .78)'; ctx.fillRect(rx, ry, rw, rh);
+  ctx.strokeStyle = 'rgba(120, 220, 160, .6)'; ctx.lineWidth = 1; ctx.strokeRect(rx + .5, ry + .5, rw - 1, rh - 1);
+  const RX = x => rx + clamp(x / FW, 0, 1) * rw, RY = y => ry + 5 + clamp((y - SEA) / (BED - SEA), 0, 1) * (rh - 10);
+  ctx.fillStyle = 'rgba(120, 220, 160, .14)'; ctx.fillRect(RX(cam), ry + 1, rw * vw / FW, rh - 2); // いま画面に映っている範囲
+  if (w.boss && w.boss.hp > 0) { ctx.fillStyle = Math.floor(t * 4) % 2 ? '#ff3b3b' : '#a51d1d'; ctx.fillRect(RX(w.boss.x - 310), RY(w.boss.y) - 4, rw * 620 / FW, 8); }
+  for (const e of w.enemies) {
+    if (!e.alive) continue;
+    if (e.type === 'carrier' && Math.floor(t * 5) % 2) continue;
+    ctx.fillStyle = TYPES[e.type].color; ctx.fillRect(RX(clamp(e.x, 0, FW)) - 3, RY(e.y) - 2, 6, 4);
+  }
+  ctx.fillStyle = '#fff'; for (const m of w.shots) ctx.fillRect(RX(m.x) - 1, RY(m.y) - 1, 2, 2);
+  ctx.fillStyle = '#7ee0a6'; ctx.beginPath(); ctx.moveTo(RX(w.ship.x), ry + 8); ctx.lineTo(RX(w.ship.x) - 5, ry + 1); ctx.lineTo(RX(w.ship.x) + 5, ry + 1); ctx.fill();
+
+  // 場面の文字
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const big = (str, y, size, color) => { ctx.font = `800 ${size}px system-ui, sans-serif`; ctx.strokeStyle = 'rgba(7, 24, 42, .85)'; ctx.lineWidth = 6; ctx.strokeText(str, vw / 2, y); ctx.fillStyle = color; ctx.fillText(str, vw / 2, y); };
+  const S = Math.min(1, vw / 760);
+  if (w.phase === 'intro') { big(`第${w.stage + 1}海域`, 280, 54 * S, '#fff'); big(`敵 ${alive(w).length} 隻`, 330, 20 * S, '#cfe3f2'); }
+  else if (w.phase === 'stageclear') { big('制圧！', 280, 60 * S, '#ffd54f'); big(`+${500 * (w.stage + 1)}`, 334, 22 * S, '#fff'); }
+  else if (w.phase === 'warning') {
+    if (Math.floor(t * 4) % 2) { ctx.fillStyle = 'rgba(255, 40, 40, .16)'; ctx.fillRect(0, 0, vw, VH); }
+    big('WARNING', 250, 70 * S, Math.floor(t * 4) % 2 ? '#ff3b3b' : '#fff'); big('巨大潜水艦、浮上', 316, 26 * S, '#fff');
+    big('ふたが開いたときだけ、司令塔の赤い核に爆雷が効く', 356, 15 * S, '#ffd54f');
+  } else if (w.phase === 'dead') big(w.lives < 0 ? '' : 'やられた…　アイテムを失って、やり直し', 290, 22 * S, '#fff');
+  if (w.flash > 0) { ctx.fillStyle = `rgba(255, 255, 255, ${(w.flash * .9).toFixed(3)})`; ctx.fillRect(0, 0, vw, VH); }
+}
+
+// ---------- 自己テスト ----------
+function runTests() {
+  const out = [];
+  const check = (name, fn) => {
+    let ok = false, note = '';
+    try { const r = fn(); ok = r === true; if (!ok) note = '  ' + String(r); } catch (e) { note = '  ' + e.message; }
+    out.push({ ok, text: (ok ? 'OK  ' : 'NG  ') + name + note });
+  };
+  const DT = 1 / 60;
+  const run = (w, sec, inp) => { for (let i = 0; i < sec * 60; i++) step(w, DT, typeof inp === 'function' ? inp(w) : inp); };
+  const fresh = (seed, opts) => { const w = makeWorld(seed, opts); startGame(w, 0); w.phase = 'play'; return w; };
+  const empty = (seed, opts) => { const w = fresh(seed, opts); w.enemies.length = 0; return w; }; // 敵のいない海
+  const put = (w, type, x, y) => { const e = spawnEnemy(w, type, x); e.y = y; if (e.yc != null) e.yc = y; e.dir = 1; e.ft = 99; return e; };
+
+  check('同じ種からは同じ展開になる', () => {
+    const a = fresh(5), b = fresh(5);
+    run(a, 25, autopilot); run(b, 25, autopilot);
+    return (a.score === b.score && a.ship.x === b.ship.x && a.kills === b.kills) || `${a.score}/${b.score}`;
+  });
+  check('Z は船の左、X は船の右から落ちる。爆雷は沈んで、海底で爆発して消える', () => {
+    const w = empty(1); w.enemies.push({ type: 'mine', alive: true, x: 50, y: 300, w: 10, h: 10, dir: 1, vx: 0, ft: 99, wait: 99 });
+    step(w, DT, { dl: true }); step(w, DT, { dr: true });
+    const xs = w.charges.map(c => Math.round(c.x - w.ship.x)).join();
+    run(w, 4);
+    return (xs === '-46,46' && w.charges.length === 0) || `位置 ${xs} / 残り ${w.charges.length}`;
+  });
+  check('海にある爆雷は4発まで。アイテムで2発ずつ増え、16発で止まる', () => {
+    const w = empty(1); w.enemies.push({ type: 'mine', alive: true, x: 50, y: 300, w: 10, h: 10, dir: 1, vx: 0, ft: 99, wait: 99 });
+    for (let i = 0; i < 10; i++) drop(w, 1);
+    const a = w.charges.length;
+    for (let i = 0; i < 9; i++) applyItem(w, 'max');
+    for (let i = 0; i < 30; i++) drop(w, -1);
+    return (a === 4 && w.charges.length === 16 && maxCharges(w) === 16) || `${a} → ${w.charges.length}`;
+  });
+  check('爆雷が当たると潜水艦は沈み、種類ごとの点が入る', () => {
+    const res = [];
+    for (const type of Object.keys(TYPES)) {
+      const w = empty(2), e = put(w, type, w.ship.x + 46, type === 'crawler' ? BED - 14 : 300);
+      e.dir = 1; const T = TYPES[type]; TYPES[type] = { ...T, sp: 0 }; // その場に止めておく
+      const before = w.score; drop(w, 1); run(w, 3.5);
+      TYPES[type] = T;
+      res.push(!e.alive && w.score - before >= T.pts ? 'o' : `${type}:${e.alive}`);
+    }
+    return res.every(r => r === 'o') || res.join(' ');
+  });
+  check('沈んだ敵の爆発が近くの敵を巻きこみ、連鎖で点が2倍、3倍になる', () => {
+    const w = empty(3), T = TYPES.mine; TYPES.mine = { ...T, sp: 0 };
+    const x = w.ship.x + 46, a = put(w, 'mine', x, 300), b = put(w, 'mine', x + 110, 300), c = put(w, 'mine', x + 220, 300), far = put(w, 'mine', x + 700, 300);
+    drop(w, 1); run(w, 3);
+    TYPES.mine = T;
+    return (!a.alive && !b.alive && !c.alive && far.alive && w.score === 50 + 100 + 150 && w.bestChain === 3) || `点 ${w.score} 連鎖 ${w.bestChain} 遠くの敵 ${far.alive}`;
+  });
+  check('機雷が船の下で海面に届くと1機失い、アイテムを失ってその海域をやり直す', () => {
+    const w = fresh(4); applyItem(w, 'full');
+    const n = alive(w).length;
+    w.enemies.forEach(e => { e.ft = 999; });
+    shootUp(w, 'mine', w.ship.x, SEA + 30);
+    run(w, 1.2);
+    const a = `${w.phase},${w.lives}`;
+    run(w, 2.2);
+    const b = `${w.phase},${w.stage},${alive(w).length === n},${powerLevel(w)},${w.ship.inv > 0}`;
+    return (a === 'dead,2' && b === 'intro,0,true,0,true') || a + ' / ' + b;
+  });
+  check('ミサイルは海面で爆発する。離れていれば無事で、爆発に巻きこめば消せる', () => {
+    const w = empty(5); put(w, 'mine', 50, 400).wait = 999;
+    shootUp(w, 'missile', w.ship.x + 200, 300); run(w, 2);
+    const a = `${w.phase},${w.lives},${w.shots.length}`;
+    shootUp(w, 'missile', w.ship.x + 46, 420); drop(w, 1); run(w, 1.2);
+    return (a === 'play,3,0' && w.shots.length === 0 && w.phase === 'play' && w.score === 10) || `${a} / 残り ${w.shots.length} 点 ${w.score}`;
+  });
+  check('3機とも失うとゲームオーバー', () => {
+    const w = fresh(6);
+    for (let i = 0; i < 4 && w.phase !== 'over'; i++) { w.phase = 'play'; w.ship.inv = 0; shootUp(w, 'missile', w.ship.x, SEA + 20); run(w, 2.5); }
+    return (w.phase === 'over' && w.lives === 0) || `${w.phase},${w.lives}`;
+  });
+  check('アイテム：速さ・沈む速さは3段階まで、ゆれる爆雷、フルパワー、1UP、取ると100点', () => {
+    const w = empty(7), s0 = shipSpeed(w), v0 = sinkSpeed(w);
+    for (let i = 0; i < 5; i++) { applyItem(w, 'speed'); applyItem(w, 'power'); }
+    const a = shipSpeed(w) > s0 && sinkSpeed(w) > v0 && w.pw.speed === 3 && w.pw.power === 3;
+    applyItem(w, 'wave'); drop(w, 1); const c0 = w.charges[0]; run(w, .5);
+    const wav = Math.abs(c0.x - c0.x0) > 5;
+    const w2 = empty(7); applyItem(w2, 'full'); w2.lives = 1; applyItem(w2, 'life');
+    return (a && wav && powerLevel(w2) === 13 && w2.lives === 2 && w2.score === 200) || `${a} ${wav} ${powerLevel(w2)} ${w2.lives} ${w2.score}`;
+  });
+  check('輸送艇を沈めるとアイテムが浮いてきて、船で触れると取れる。1UP は1機失うまで出ない', () => {
+    const w = empty(8), T = TYPES.carrier; TYPES.carrier = { ...T, sp: 0 };
+    put(w, 'mine', 50, 400).wait = 999; // 海域が終わらないように、遠くに1隻残す
+    const e = put(w, 'carrier', w.ship.x + 46, 300); e.ph = 0; e.yc = 300;
+    drop(w, 1); run(w, 2);
+    const made = w.items.length; w.items[0].x = w.ship.x; run(w, 5);
+    TYPES.carrier = T;
+    let life = 0; const w3 = empty(9); for (let i = 0; i < 200; i++) spawnItem(w3, 0, 300); life = w3.items.filter(i => i.kind === 'life').length;
+    return (made === 1 && w.items.length === 0 && w.score === 200 && life === 0) || `できた ${made} 残り ${w.items.length} 点 ${w.score} 1UP ${life}`;
+  });
+  check('一掃のアイテムは、画面の中の敵と弾を消す。画面の外の敵は残る', () => {
+    const w = empty(10), inView = put(w, 'mine', w.ship.x + 100, 300), outside = put(w, 'mine', w.ship.x + 900, 300);
+    shootUp(w, 'mine', w.ship.x + 300, 400);
+    applyItem(w, 'bomb');
+    return (!inView.alive && outside.alive && w.shots.every(s => s.dead)) || `中 ${inView.alive} 外 ${outside.alive}`;
+  });
+  check('敵が全部いなくなると制圧して次の海域へ。第3海域のあとは巨大潜水艦', () => {
+    const w = fresh(11, { cheat: true }), seen = [];
+    for (let n = 0; n < 3; n++) { run(w, 2); w.enemies.forEach(e => { e.alive = false; }); step(w, DT); seen.push(w.phase); run(w, 3); seen.push(w.stage); }
+    return (seen.join() === 'stageclear,1,stageclear,2,stageclear,3' && w.phase === 'warning' && !!w.boss) || seen.join() + ' / ' + w.phase;
+  });
+  check('強くなるほど・海域が進むほど、敵が速くなる', () => {
+    const w = empty(12), a = hardness(w); applyItem(w, 'full'); const b = hardness(w); w.stage = 2; const c = hardness(w);
+    return (a === 1 && b > a && c > b) || `${a} ${b} ${c}`;
+  });
+  const bossWorld = seed => { const w = makeWorld(seed); startGame(w, 3); run(w, 3.6); return w; };
+  check('巨大潜水艦：ふたが閉じていると爆雷ははじかれ、開いているときだけ核に効く。胴に当ててもはじかれる', () => {
+    const w = bossWorld(13), b = w.boss, at = (x, y) => ({ x, x0: x, y, ph: 0 });
+    if (w.phase !== 'play') return w.phase;
+    b.open = 0; const a = chargeVsBoss(w, at(bossCoreX(b), b.y - 90));
+    b.open = 1; const c = chargeVsBoss(w, at(bossCoreX(b), b.y - 90)), d = chargeVsBoss(w, at(b.x - 200, b.y)), e = chargeVsBoss(w, at(b.x, b.y - 200));
+    w.charges.push(at(bossCoreX(b), b.y - 110)); b.cyc = 0; step(w, DT); step(w, DT); step(w, DT);
+    return (a === 'hull' && c === 'core' && d === 'hull' && e === null && b.hp === BOSS_HP - 1) || `${a} ${c} ${d} ${e} hp ${b.hp}`;
+  });
+  check('巨大潜水艦：一斉発射は筒5本ぶん。追いつめると動きが変わり、20発で沈んで作戦成功', () => {
+    const w = bossWorld(14), b = w.boss; w.cheat = true;
+    const f0 = w.fired; b.salvoT = 0; b.aimT = 99; run(w, 1.2);
+    const salvo = w.fired - f0;
+    for (let i = 0; i < BOSS_HP - BOSS_RAGE; i++) hitBoss(w, 1);
+    const rage = b.hp === BOSS_RAGE; const score = w.score;
+    for (let i = 0; i < BOSS_RAGE; i++) hitBoss(w, 1);
+    const dying = w.phase; run(w, 4);
+    return (salvo === 5 && rage && dying === 'bossdie' && w.phase === 'clear' && w.score >= score + 5000) || `筒 ${salvo} ${rage} ${dying} → ${w.phase}`;
+  });
+  check('やられない設定の自動操作で、最初から巨大潜水艦を沈めるところまで通せる', () => {
+    const w = makeWorld(21, { cheat: true }); startGame(w, 0);
+    let i = 0; for (; i < 60 * 60 * 20 && w.phase !== 'clear'; i++) step(w, DT, autopilot(w));
+    return (w.phase === 'clear' && w.kills >= 24) || `${w.phase} 第${w.stage + 1}海域 ${Math.round(i / 60)}秒 沈めた数 ${w.kills}`;
+  });
+  check('ふつうの自動操作3本：数値が壊れず、決めた場面のどれかにいる', () => {
+    const phases = ['intro', 'play', 'dead', 'stageclear', 'warning', 'bossdie', 'over', 'clear'], res = [];
+    for (const seed of [31, 32, 33]) {
+      const w = makeWorld(seed); startGame(w, 0);
+      for (let i = 0; i < 60 * 240 && w.phase !== 'over' && w.phase !== 'clear'; i++) step(w, DT, autopilot(w));
+      const nums = [w.score, w.ship.x, w.cam, ...w.enemies.map(e => e.x + e.y), ...w.shots.map(s => s.x + s.y), ...w.charges.map(c => c.x + c.y)];
+      if (!nums.every(Number.isFinite) || !phases.includes(w.phase) || w.ship.x < 70 || w.ship.x > FW - 70) return `種 ${seed} で壊れた（${w.phase}）`;
+      res.push(`${w.phase}/第${w.stage + 1}海域/${w.score}`);
+    }
+    return true;
+  });
+  return { out, check };
+}
+
+// ---------- 音（矩形波のビープ音が中心） ----------
+function makeAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  const ctx = new AC(), master = ctx.createGain();
+  master.gain.value = .5; master.connect(ctx.destination);
+  const noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), nd = noise.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  const beep = (f, t, dur, vol, f2, type) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'square'; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.setValueAtTime(vol, t + dur * .7); g.gain.linearRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + .02);
+  };
+  const boom = (t, dur, vol, freq) => {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noise; f.type = 'lowpass'; f.frequency.setValueAtTime(freq, t); f.frequency.exponentialRampToValueAtTime(80, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * .4); s.stop(t + dur + .02);
+  };
+  const SFX = {
+    drop: t => beep(520, t, .07, .05, 260),
+    thud: t => boom(t, .28, .35, 700),
+    boom: t => { boom(t, .5, .6, 1400); beep(110, t, .22, .12, 45); },
+    chain: t => { boom(t, .55, .65, 1800); [660, 880, 1320].forEach((f, i) => beep(f, t + i * .06, .07, .07)); },
+    clang: t => { beep(1700, t, .05, .05); beep(2300, t + .03, .06, .04); },
+    launch: t => beep(240, t, .16, .05, 620),
+    salvo: t => [0, .08, .16, .24].forEach(d => beep(300, t + d, .1, .05, 760)),
+    item: t => [784, 988, 1175, 1568].forEach((f, i) => beep(f, t + i * .06, .09, .07)),
+    dead: t => { boom(t, .9, .7, 1600); beep(440, t, .7, .09, 55); },
+    clear: t => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => beep(f, t + i * .11, .13, .08)),
+    alarm: t => { for (let i = 0; i < 6; i++) beep(i % 2 ? 620 : 880, t + i * .5, .42, .08); },
+    bosshit: t => { boom(t, .3, .5, 2200); beep(990, t, .12, .09, 330); },
+    bossdie: t => { for (let i = 0; i < 9; i++) boom(t + i * .34, .6, .6, 900 + i * 150); beep(220, t, 3, .07, 40); },
+  };
+  // 伴奏。和音は、1つの音を速く切りかえて鳴らす（昔のビープ音のやりかた）
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+  const MEL = [[69, 3], [72, 3], [76, 2], [81, 4], [79, 2], [76, 2], [77, 3], [76, 3], [72, 2], [69, 4], [72, 2], [77, 2], [79, 3], [74, 3], [71, 2], [74, 4], [79, 2], [83, 2], [76, 3], [79, 3], [83, 2], [76, 4], [74, 2], [71, 2]];
+  const CH = [[57, 60, 64], [53, 57, 60], [55, 59, 62], [52, 55, 59]], melAt = [];
+  { let p = 0; for (const [m, l] of MEL) { melAt[p] = [m, l]; p += l; } }
+  let next = 0, pos = 0, on = false;
+  return {
+    ctx, muted: false,
+    play(name) { if (!this.muted && SFX[name]) SFX[name](ctx.currentTime); },
+    setMute(m) { this.muted = m; master.gain.value = m ? 0 : .5; },
+    music(run, fast) { // 毎フレーム呼ぶ。すこし先までの音を予約する
+      if (!run) { on = false; return; }
+      if (!on) { on = true; next = ctx.currentTime + .05; }
+      const st = (fast ? .096 : .118), tr = fast ? 3 : 0;
+      while (next < ctx.currentTime + .2) {
+        const bar = Math.floor(pos / 16) % 4, i = pos % 16, ch = CH[bar];
+        if (melAt[pos % 64]) beep(hz(melAt[pos % 64][0] + tr), next, melAt[pos % 64][1] * st * .9, .035);
+        for (let k = 0; k < 3; k++) beep(hz(ch[(k + i) % 3] + 12 + tr), next + k * st / 3, st / 3, .016);
+        if (i % 4 === 0 || i === 6 || i === 14) beep(hz(ch[0] - 12 + tr), next, st * 1.6, .05, 0, 'triangle');
+        if (i % 4 === 2) boom(next, .05, .05, 6000);
+        next += st; pos++;
+      }
+    },
+  };
+}
+
+// ---------- 動かす ----------
+(function main() {
+  const Q = new URLSearchParams(location.search);
+  const $ = id => document.getElementById(id);
+  const canvas = $('c'), ctx = canvas.getContext('2d');
+  const seed = Q.has('seed') ? (parseInt(Q.get('seed'), 10) || 0) : (Date.now() & 0xffff);
+  let world = makeWorld(seed, { cheat: Q.has('cheat') }), audio = null, paused = false;
+  let W = 0, H = 0, dpr = 1, scale = 1, offX = 0, offY = 0;
+  const keys = { l: false, r: false, dl: false, dr: false }, touch = Q.has('touch') || matchMedia('(pointer: coarse)').matches;
+
+  const onSite = /\/games\/[^/]+\/(index\.html)?$/.test(location.pathname);
+  const showBack = on => { $('back').hidden = !(on && onSite); };
+  showBack(true);
+
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    if (!W || !H) return;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    const padH = touch ? 84 : 0; // タッチのボタンのぶん、下を空ける
+    world.vw = clamp(Math.round(VH * W / Math.max(1, H - padH)), 520, 1200);
+    scale = Math.min(W / world.vw, (H - padH) / VH);
+    offX = (W - world.vw * scale) / 2; offY = Math.max(0, (H - padH - VH * scale) / 2);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function show(name) {
+    for (const id of ['title', 'pause', 'result']) $(id).hidden = id !== name;
+    $('pad').hidden = !(touch && name === null);
+    showBack(name === 'title' || name === 'result');
+  }
+  function begin(stage) {
+    if (!audio) { try { audio = makeAudio(); } catch (_) { audio = null; } }
+    if (audio) audio.ctx.resume();
+    startGame(world, stage == null ? clamp((parseInt(Q.get('stage'), 10) || 1) - 1, 0, 3) : stage);
+    paused = false; show(null);
+  }
+  function finish() {
+    const w = world, ok = w.phase === 'clear', s = Math.floor(w.time);
+    $('verdict').textContent = ok ? '作戦成功' : 'ゲームオーバー';
+    $('verdict').style.color = ok ? '#ffd54f' : '#ff5252';
+    let best = 0; try { best = +localStorage.getItem('sensuikan-best') || 0; if (w.score > best) localStorage.setItem('sensuikan-best', String(w.score)); } catch (_) {}
+    $('stats').innerHTML = `<b>${w.score}</b> 点${w.score > best && best ? '　記録更新！' : ''}<br>`
+      + `${ok ? '巨大潜水艦を沈めた' : (w.boss ? '最後の海域で沈んだ' : `第${w.stage + 1}海域で沈んだ`)}　${Math.floor(s / 60)}分${String(s % 60).padStart(2, '0')}秒<br>`
+      + `沈めた数 ${w.kills}　最大 ${w.bestChain} 連鎖${best ? `　これまでの最高 ${Math.max(best, w.score)} 点` : ''}`;
+    show('result'); $('retry').focus();
+  }
+  const waiting = () => world.phase === 'title' || world.phase === 'over' || world.phase === 'clear';
+
+  const KEY = { arrowleft: 'l', a: 'l', arrowright: 'r', d: 'r', z: 'dl', j: 'dl', x: 'dr', k: 'dr' };
+  window.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (k in KEY) { keys[KEY[k]] = true; if (!waiting()) e.preventDefault(); if (k === 'z' && waiting() && !e.repeat) begin(world.phase === 'title' ? null : 0); }
+    else if (k === 'escape' && !waiting()) { paused = !paused; show(paused ? 'pause' : null); }
+    else if (k === 'm' && audio) audio.setMute(!audio.muted);
+  });
+  window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (k in KEY) keys[KEY[k]] = false; });
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && !waiting()) { paused = true; show('pause'); } });
+  for (const b of document.querySelectorAll('#pad button')) {
+    const set = on => e => { keys[b.dataset.k] = on; b.classList.toggle('on', on); e.preventDefault(); };
+    b.addEventListener('pointerdown', set(true)); b.addEventListener('pointerup', set(false));
+    b.addEventListener('pointercancel', set(false)); b.addEventListener('pointerleave', set(false));
+  }
+  $('start').addEventListener('click', () => begin(null));
+  $('retry').addEventListener('click', () => begin(0));
+  $('pause').addEventListener('click', () => { paused = false; show(null); });
+
+  let last = performance.now(), shown = 'title';
+  function frame(now) {
+    if (!W || !H) resize();
+    const dt = Math.min(.05, Math.max(0, (now - last) / 1000)); last = now;
+    if (!paused) step(world, dt, keys); else world.sfx.length = 0;
+    if (audio) { for (const n of world.sfx) audio.play(n); audio.music(!paused && !waiting() && world.phase !== 'dead', !!world.boss); }
+    world.sfx.length = 0;
+    if ((world.phase === 'over' || world.phase === 'clear') && shown !== world.phase) finish();
+    shown = world.phase;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#07182a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, offX * dpr, offY * dpr);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, world.vw, VH); ctx.clip();
+    render(ctx, world, world.vw);
+    ctx.restore();
+    requestAnimationFrame(frame);
+  }
+
+  if (Q.has('test')) {
+    const { out, check } = runTests();
+    check('キーで動く・落とす・始める。画面のボタンも効く（合成したイベントで確認）', () => {
+      const res = [], send = (type, key) => window.dispatchEvent(new KeyboardEvent(type, { key }));
+      send('keydown', 'z'); send('keyup', 'z');
+      res.push(world.phase === 'intro' && $('title').hidden ? 'o' : '始まらない');
+      world.phase = 'play'; world.enemies.forEach(e => { e.ft = 999; });
+      for (const [key, test] of [['ArrowRight', w => w.ship.vx > 0], ['ArrowLeft', w => w.ship.vx < 0], ['d', w => w.ship.vx > 0], ['a', w => w.ship.vx < 0],
+        ['z', w => w.charges.some(c => c.x0 < w.ship.x)], ['x', w => w.charges.some(c => c.x0 > w.ship.x)], ['j', w => w.charges.some(c => c.x0 < w.ship.x)], ['k', w => w.charges.some(c => c.x0 > w.ship.x)]]) {
+        world.charges.length = 0; world.ship.vx = 0; world.ship.cdL = world.ship.cdR = 0; world.ship.x = FW / 2;
+        send('keydown', key); for (let i = 0; i < 6; i++) step(world, 1 / 60, keys); send('keyup', key);
+        res.push(test(world) ? 'o' : key);
+      }
+      const btn = document.querySelector('#pad button[data-k=dr]');
+      world.charges.length = 0; world.ship.cdR = 0;
+      btn.dispatchEvent(new PointerEvent('pointerdown')); step(world, 1 / 60, keys); btn.dispatchEvent(new PointerEvent('pointerup'));
+      res.push(world.charges.length === 1 && !keys.dr ? 'o' : 'ボタン');
+      world = makeWorld(seed, { cheat: Q.has('cheat') }); resize(); show('title');
+      return res.every(r => r === 'o') || res.join(' ');
+    });
+    const pass = out.filter(o => o.ok).length;
+    $('test').textContent = `自己テスト ${pass}/${out.length}\n` + out.map(o => o.text).join('\n');
+    $('test').hidden = false;
+    document.title = `潜水艦バトル テスト ${pass}/${out.length}`;
+  }
+
+  if (Q.has('skip') || Q.has('phase')) { // 確認用：自動操作で進めたところから始める
+    startGame(world, clamp((parseInt(Q.get('stage'), 10) || 1) - 1, 0, 3));
+    const n = Math.min(900, parseFloat(Q.get('skip')) || 0) * 60;
+    for (let i = 0; i < n; i++) step(world, 1 / 60, autopilot(world));
+    world.sfx.length = 0;
+    if (world.phase === 'over' || world.phase === 'clear') finish(); else show(null);
+    shown = world.phase;
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
