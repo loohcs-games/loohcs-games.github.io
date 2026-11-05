@@ -1,0 +1,951 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>棒人間バトル</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #fff; overflow: hidden; }
+  body { font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif; -webkit-user-select: none; user-select: none; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+  #back { position: fixed; left: 14px; top: 12px; color: #111; font-size: 13px; font-weight: 700; text-decoration: none; border-bottom: 2px solid #111; }
+  #pad { position: fixed; left: 0; right: 0; bottom: 0; height: 0; pointer-events: none; }
+  #pad div { position: absolute; bottom: max(18px, env(safe-area-inset-bottom)); display: flex; gap: 10px; align-items: flex-end; }
+  #pad .l { left: 14px; }
+  #pad .r { right: 14px; display: grid; grid-template-columns: 62px 62px; gap: 10px; }
+  #pad button {
+    pointer-events: auto; touch-action: none; width: 62px; height: 62px; border-radius: 50%;
+    border: 3px solid #111; background: rgba(255, 255, 255, .82); color: #111;
+    font: 900 22px/1 "Hiragino Sans", "Yu Gothic", sans-serif; padding: 0; -webkit-tap-highlight-color: transparent;
+  }
+  #pad button.on { background: #111; color: #fff; }
+  #test {
+    position: fixed; left: 16px; top: 44px; margin: 0; padding: 12px 16px; max-height: calc(100vh - 80px); overflow: auto;
+    background: rgba(0, 0, 0, .82); color: #fff; font: 13px/1.7 ui-monospace, Menlo, monospace;
+    border-radius: 6px; white-space: pre-wrap; max-width: calc(100vw - 64px);
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="back" href="../../" hidden>← ゲーム一覧にもどる</a>
+<div id="pad" hidden>
+  <div class="l"><button data-k="left">◀</button><button data-k="right">▶</button></div>
+  <div class="r"><button data-k="guard">守</button><button data-k="jump">跳</button><button data-k="kick">蹴</button><button data-k="punch">拳</button></div>
+</div>
+<pre id="test" hidden></pre>
+<script>
+'use strict';
+/*
+  棒人間バトル。左右から来る敵を、殴る・蹴る。全5波、最後に親玉。
+  ?test        自己テスト
+  ?seed=3      敵の出方を固定
+  ?skip=20     自動操作で20秒進めたところから始める（確認用）
+  ?cheat       傷を受けない（確認用）
+  ?phase=over  結果の画面を見る（over / clear。確認用）
+  ?touch       画面のボタンを出す
+*/
+
+// ---------- 道具 ----------
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+function rng32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ---------- 決まりごと ----------
+const W = 960, H = 540, GROUND = 430, GRAV = 1500;
+
+// 姿勢：[胴の傾き, 前腕(上,下), 後腕(上,下), 前脚(上,下), 後脚(上,下)]
+// 角度は「真下が0、向いている側へ回すと正」。下の節は絶対角
+const POSE = {
+  idle:  [ .06,   .55, 2.0,    .15, 1.75,   .28,  .02,  -.32, -.18],
+  jump:  [ .10,  2.2,  2.7,   1.9,  2.5,    .95, -.35,   .2,  -.9 ],
+  p1:    [ .28,  1.5,  1.58,  -.5,  1.3,    .5,   .1,   -.6,  -.3 ],
+  p2:    [ .30,  -.4,  1.4,   1.5,  1.58,   .55,  .12,  -.55, -.25],
+  p3w:   [ .35,   .6,  1.2,   -.3,  1.0,    .7,  -.4,   -.5,  -.9 ],
+  p3:    [-.12,  2.7,  3.0,   -.6,   .4,    .15,  .0,   -.2,  -.1 ],
+  kw:    [-.15,   .3,  1.6,   -.5,   .9,   1.3,  -.2,   -.1,  -.05],
+  k:     [-.40,  -.5,   .5,    .7,  1.5,   1.62, 1.58,  -.12, -.02],
+  jk:    [-.25,  -.6,   .3,    .8,  1.6,   1.3,  1.28,   .7,  -.8 ],
+  hurt:  [-.40,  -.4,  -.1,    .3,   .7,    .3,  -.2,   -.3,  -.5 ],
+  guard: [ .12,  1.5,  2.95,  1.25, 2.85,   .55, -.25,  -.45, -.7 ],
+  air:   [-.30, -1.2, -1.6,   1.6,  2.2,    .9,   .3,   -.5, -1.0 ],
+  lie:   [ .0,   -.3,  -.5,    .4,   .2,    .2,   .1,   -.15, -.1 ],
+  wind:  [-.20, -1.0,   .9,    .6,  1.8,    .3,   .05,  -.4,  -.2 ],
+  bossw: [-.30,  2.9,  3.3,   2.7,  3.2,    .4,   .1,   -.4,  -.2 ],
+  bosss: [ .50,  1.2,  1.3,   1.0,  1.2,    .6,   .2,   -.6,  -.3 ],
+};
+function walkPose(p) {
+  const a = .5 * Math.sin(p), b = .5 * Math.sin(p + Math.PI);
+  return [.12, -a + .2, -a + 1.3, -b + .2, -b + 1.3,
+    a, a - .6 * Math.max(0, Math.cos(p)), b, b - .6 * Math.max(0, Math.cos(p + Math.PI))];
+}
+
+const KIND = {
+  player: { size: 1,    hp: 100, speed: 235 },
+  grunt:  { size: 1,    hp: 26,  speed: 95,  range: 56,  windup: .40, dur: .28, act: [.04, .13], dmg: 7,  reach: 62, knock: false, cd: [.9, 2.0] },
+  kicker: { size: 1.05, hp: 36,  speed: 140, range: 78,  windup: .34, dur: .38, act: [.08, .19], dmg: 10, reach: 84, knock: true,  cd: [1.1, 2.2] },
+  boss:   { size: 1.75, hp: 300, speed: 70,  range: 110, windup: .65, dur: .45, act: [.06, .20], dmg: 20, reach: 76, knock: true,  cd: [1.0, 1.8] },
+};
+// 自分の技。act は当たりが出ている時間、launch は吹き飛ばす速さ
+const ATK = {
+  p1: { dur: .22, act: [.05, .13], reach: 64, dmg: 7,  stun: .30, push: 70, stop: .05, sfx: 'punch' },
+  p2: { dur: .22, act: [.05, .13], reach: 64, dmg: 7,  stun: .30, push: 70, stop: .05, sfx: 'punch' },
+  p3: { dur: .36, act: [.08, .18], reach: 66, dmg: 12, launch: [150, -520], stop: .09, sfx: 'heavy' },
+  k:  { dur: .42, act: [.13, .23], reach: 88, dmg: 13, launch: [430, -250], stop: .09, sfx: 'kick' },
+  jk: { dur: 9,   act: [.03, 9],   reach: 72, dmg: 11, launch: [380, -220], stop: .08, sfx: 'kick' },
+};
+const WAVES = [
+  { list: ['grunt', 'grunt', 'grunt'], max: 2 },
+  { list: ['grunt', 'grunt', 'kicker', 'grunt', 'grunt'], max: 3 },
+  { list: ['kicker', 'grunt', 'kicker', 'grunt', 'kicker', 'grunt'], max: 3 },
+  { list: ['grunt', 'kicker', 'grunt', 'kicker', 'grunt', 'kicker', 'grunt', 'kicker'], max: 4 },
+  { list: ['boss', 'grunt', 'grunt', 'kicker', 'grunt'], max: 3 },
+];
+const WORDS = ['バキッ', 'ドカッ', 'ガッ', 'ズドッ'];
+
+// ---------- 世界 ----------
+function makeFighter(world, kind, x, face) {
+  const K = KIND[kind];
+  return {
+    id: world.nextId++, kind, isPlayer: kind === 'player', size: K.size,
+    x, y: GROUND, vx: 0, vy: 0, air: false, face,
+    hp: K.hp, maxhp: K.hp, state: 'idle', t: 0, stun: 0,
+    pose: POSE.idle.slice(), rot: 0, walk: 0,
+    atk: null, hitSet: null, didHit: false, chain: 0, chainT: 0, airKick: false,
+    bufP: 0, bufK: 0, bufJ: 0, inv: 0,
+    cd: .4 + world.R() * .8, hitDone: false, engaged: false, entered: false, off: world.R() * 80, poise: 0,
+    flash: 0, bounced: false, deadT: 0,
+  };
+}
+function makeWorld(seed) {
+  const world = {
+    R: rng32(seed), seed, nextId: 1, t: 0, time: 0, phase: 'title',
+    player: null, enemies: [], fx: [], events: [],
+    wave: 0, waveState: 'intro', waveT: 0, queue: [], spawnT: 0, spawnSide: 1,
+    hitstop: 0, slow: 0, invert: 0, shake: 0, combo: 0, comboT: 0, comboPop: 0, maxCombo: 0, kos: 0,
+    overT: 0, cheat: false, autoTick: -1,
+  };
+  world.player = makeFighter(world, 'player', W / 2, 1);
+  return world;
+}
+function startGame(world) {
+  const keep = { R: world.R, seed: world.seed, cheat: world.cheat };
+  Object.assign(world, makeWorld(world.seed), keep);
+  world.player = makeFighter(world, 'player', W / 2, 1);
+  world.phase = 'play';
+  beginWave(world, 0);
+}
+function beginWave(world, i) {
+  world.wave = i; world.waveState = 'intro'; world.waveT = 0;
+  world.queue = WAVES[i].list.slice(); world.spawnT = 0;
+}
+function liveEnemies(world) { return world.enemies.filter(e => e.hp > 0); }
+
+// ---------- 当たり ----------
+function addFx(world, o) { world.fx.push(Object.assign({ life: o.life0 }, o)); }
+function strike(world, a, t, spec) {
+  const dir = a.face, hx = t.x - dir * 10 * t.size, hy = t.y - (spec === ATK.k || spec.kick ? 60 : 82) * t.size;
+  if (t.isPlayer) {
+    if (world.cheat) return;
+    if (t.state === 'guard' && t.face === -dir) { // 向かい合って守れば、ほとんど効かない
+      t.hp = Math.max(1, t.hp - spec.dmg * .2); t.vx = dir * 140;
+      world.hitstop = Math.max(world.hitstop, .04);
+      addFx(world, { type: 'block', x: t.x + t.face * 22, y: t.y - 92, life0: .18 });
+      world.events.push('block');
+      return;
+    }
+    world.combo = 0;
+  }
+  t.hp = Math.max(0, t.hp - spec.dmg);
+  t.flash = .12;
+  world.hitstop = Math.max(world.hitstop, spec.stop || .07);
+  world.shake = Math.max(world.shake, spec.launch || spec.knock ? 9 : 5);
+  addFx(world, { type: 'spark', x: hx, y: hy, life0: .2, big: !!(spec.launch || spec.knock) });
+  addFx(world, { type: 'word', x: hx + dir * 14, y: hy - 26, life0: .5, text: WORDS[Math.floor(world.R() * WORDS.length)], rot: (world.R() - .5) * .5 });
+  world.events.push(spec.sfx || (spec.knock ? 'kick' : 'punch'));
+
+  const dead = t.hp <= 0;
+  let launch = spec.launch || (spec.knock ? [300, -280] : null), stagger = true;
+  if (t.kind === 'boss' && !dead) { // 親玉はひるまない。まとめて叩き込んだときだけ倒れる
+    t.poise += spec.dmg;
+    if (t.poise >= 32) { t.poise = 0; launch = [240, -300]; } else { launch = null; stagger = false; }
+  }
+  if (dead) launch = launch ? [launch[0] * 1.2, launch[1] * 1.1] : [320, -330];
+  if (launch) {
+    t.state = 'down'; t.t = 0; t.vx = dir * launch[0]; t.vy = launch[1]; t.air = true; t.face = -dir; t.bounced = false; t.atk = null;
+  } else if (stagger) {
+    t.state = 'hurt'; t.t = 0; t.stun = spec.stun || .3; t.vx = dir * (spec.push || 90); t.atk = null;
+  }
+  if (!t.isPlayer) {
+    world.combo++; world.comboT = 2; world.comboPop = 1;
+    world.maxCombo = Math.max(world.maxCombo, world.combo);
+    if (dead) {
+      world.kos++;
+      if (world.queue.length === 0 && liveEnemies(world).length === 0) { // 最後の1人
+        world.slow = 1.0; world.invert = .1; world.shake = 16;
+        world.events.push('ko');
+        addFx(world, { type: 'word', x: hx, y: hy - 50, life0: .9, text: 'ドーン', rot: -.15, big: true });
+      }
+    }
+  } else if (dead) {
+    world.slow = .8; world.invert = .1; world.events.push('ko');
+  }
+}
+function inReach(a, t, reach) {
+  const dx = (t.x - a.x) * a.face;
+  return dx > -12 && dx < reach * a.size + 12 * t.size;
+}
+
+// ---------- 動き ----------
+function fall(world, f, dt) { // 空中の落下と着地。着地したら true
+  if (!f.air) return false;
+  f.vy += GRAV * dt; f.y += f.vy * dt;
+  if (f.y >= GROUND && f.vy > 0) { f.y = GROUND; return true; }
+  return false;
+}
+function stepDown(world, f, dt) { // 吹き飛び → 倒れる → 起きる
+  if (f.state === 'down') {
+    f.t += dt;
+    if (fall(world, f, dt)) {
+      if (!f.bounced && f.vy > 260) { f.bounced = true; f.vy = -f.vy * .32; f.vx *= .55; f.y = GROUND - 1; world.events.push('thud'); addFx(world, { type: 'dust', x: f.x, y: GROUND, life0: .35 }); }
+      else { f.air = false; f.vy = 0; f.vx = 0; f.state = 'lie'; f.t = 0; world.events.push('thud'); addFx(world, { type: 'dust', x: f.x, y: GROUND, life0: .35 }); }
+    }
+  } else if (f.state === 'lie') {
+    f.t += dt; f.vx = 0;
+    if (f.hp <= 0) f.deadT += dt;
+    else if (f.t >= (f.isPlayer ? .45 : .6)) { f.state = 'getup'; f.t = 0; }
+  } else if (f.state === 'getup') {
+    f.t += dt;
+    if (f.t >= .3) { f.state = 'idle'; f.t = 0; if (f.isPlayer) f.inv = .9; else f.cd = Math.max(f.cd, .5); }
+  }
+}
+
+function startAtk(p, name) {
+  p.state = 'atk'; p.atk = name; p.t = 0; p.hitSet = new Set(); p.didHit = false;
+}
+function stepPlayer(world, p, inp, dt) {
+  p.inv = Math.max(0, p.inv - dt);
+  p.bufP -= dt; p.bufK -= dt; p.bufJ -= dt; p.chainT -= dt;
+  const st = p.state, speed = KIND.player.speed;
+
+  if (st === 'idle' || st === 'walk' || st === 'guard') {
+    if (inp.mx) p.face = inp.mx;
+    if (p.bufK > 0) { p.bufK = 0; p.vx = 0; startAtk(p, 'k'); world.events.push('whoosh'); }
+    else if (p.bufP > 0) { // パンチは3発つながる。3発目は打ち上げ
+      p.bufP = 0; p.vx = 0;
+      const stepN = p.chainT > 0 ? p.chain % 3 : 0;
+      startAtk(p, ['p1', 'p2', 'p3'][stepN]); p.chain = stepN; if (stepN === 2) p.chainT = 0; world.events.push('whoosh');
+    }
+    else if (p.bufJ > 0 && !inp.guard) { p.bufJ = 0; p.vy = -570; p.air = true; p.state = 'jump'; p.airKick = false; p.vx = inp.mx * 200; world.events.push('jump'); }
+    else if (inp.guard) { p.state = 'guard'; p.vx = 0; }
+    else { p.vx = inp.mx * speed; p.state = inp.mx ? 'walk' : 'idle'; }
+  } else if (st === 'jump') {
+    p.vx = inp.mx * 200;
+    if (inp.mx) p.face = inp.mx;
+    if (p.bufK > 0 && !p.airKick) { p.bufK = 0; p.airKick = true; startAtk(p, 'jk'); world.events.push('whoosh'); }
+    if (fall(world, p, dt)) { p.air = false; p.vy = 0; p.state = 'idle'; }
+  } else if (st === 'atk') {
+    const spec = ATK[p.atk];
+    p.t += dt;
+    if (p.atk === 'jk') { if (fall(world, p, dt)) { p.air = false; p.vy = 0; p.vx = 0; p.state = 'idle'; p.atk = null; } }
+    else p.vx = p.t < spec.act[1] ? p.face * 95 : 0;
+    if (p.state === 'atk' && p.t >= spec.act[0] && p.t <= spec.act[1]) {
+      for (const e of world.enemies) {
+        if (e.hp <= 0 || e.state === 'lie' || e.state === 'getup' || p.hitSet.has(e.id)) continue;
+        if (!inReach(p, e, spec.reach)) continue;
+        if (p.atk === 'jk' ? p.y < e.y - 125 * e.size : e.y < GROUND - 95) continue; // 高さが合わない
+        p.hitSet.add(e.id); p.didHit = true;
+        if (p.atk === 'p1' || p.atk === 'p2') { p.chain = (p.atk === 'p1' ? 1 : 2); p.chainT = .55; }
+        strike(world, p, e, spec);
+      }
+    }
+    if (p.state === 'atk' && p.atk !== 'jk') {
+      // 当てたあとは、次の技へすぐつなげられる
+      if (p.didHit && p.t >= spec.act[1] && (p.atk === 'p1' || p.atk === 'p2')) {
+        if (p.bufK > 0) { p.bufK = 0; startAtk(p, 'k'); world.events.push('whoosh'); }
+        else if (p.bufP > 0) { p.bufP = 0; const next = p.atk === 'p1' ? 'p2' : 'p3'; startAtk(p, next); if (next === 'p3') p.chainT = 0; world.events.push('whoosh'); }
+      }
+      if (p.state === 'atk' && p.t >= ATK[p.atk].dur) { p.state = 'idle'; p.atk = null; }
+    }
+  } else if (st === 'hurt') {
+    p.t += dt; p.vx *= Math.max(0, 1 - 7 * dt);
+    if (p.t >= p.stun) p.state = 'idle';
+  } else stepDown(world, p, dt);
+
+  p.x = clamp(p.x + p.vx * dt, 30, W - 30);
+}
+
+function stepEnemy(world, e, dt) {
+  const K = KIND[e.kind], p = world.player;
+  e.poise = Math.max(0, e.poise - 10 * dt);
+  const d = p.x - e.x, ad = Math.abs(d);
+  const st = e.state;
+  if (st === 'idle' || st === 'walk') {
+    e.face = d >= 0 ? 1 : -1;
+    e.cd -= dt;
+    const want = e.engaged ? K.range * .8 : 150 + e.off; // 同時に殴りに来るのは2人まで。残りは間合いの外で待つ
+    let mv = 0;
+    if (ad > want + 10) mv = e.face; else if (ad < want - 25 && !e.engaged) mv = -e.face;
+    e.vx = mv * K.speed * (e.engaged ? 1 : .7); e.state = mv ? 'walk' : 'idle';
+    const open = p.hp > 0 && p.state !== 'down' && p.state !== 'lie' && p.state !== 'getup';
+    if (e.engaged && open && ad <= K.range && e.cd <= 0) { e.state = 'windup'; e.t = 0; e.vx = 0; }
+  } else if (st === 'windup') { // ふりかぶり。ここを見て守るか、先に殴る
+    e.t += dt; e.vx = 0;
+    if (e.t >= K.windup) { e.state = 'strike'; e.t = 0; e.hitDone = false; world.events.push('whoosh'); }
+  } else if (st === 'strike') {
+    e.t += dt; e.vx = e.t < K.act[1] ? e.face * 110 : 0;
+    if (!e.hitDone && e.t >= K.act[0] && e.t <= K.act[1]) {
+      const open = p.hp > 0 && p.inv <= 0 && p.state !== 'down' && p.state !== 'lie' && p.state !== 'getup';
+      if (open && inReach(e, p, K.reach) && p.y > GROUND - 60) { e.hitDone = true; strike(world, e, p, K); }
+    }
+    if (e.t >= K.dur) { e.state = 'idle'; e.cd = lerp(K.cd[0], K.cd[1], world.R()); }
+  } else if (st === 'hurt') {
+    e.t += dt; e.vx *= Math.max(0, 1 - 6 * dt);
+    if (e.t >= e.stun) { e.state = 'idle'; e.cd = Math.max(e.cd, .3); }
+  } else stepDown(world, e, dt);
+
+  e.x += e.vx * dt;
+  if (!e.entered && e.x > 24 && e.x < W - 24) e.entered = true;
+  if (e.entered) {
+    if (e.x < 20 || e.x > W - 20) { // 壁に当たると跳ね返る
+      e.x = clamp(e.x, 20, W - 20);
+      if (e.state === 'down') { e.vx = -e.vx * .5; world.events.push('thud'); }
+    }
+  }
+}
+
+function updatePose(world, f, dt) {
+  let tgt = POSE.idle, rate = 14;
+  switch (f.state) {
+    case 'idle': { const b = Math.sin(world.t * 5 + f.id) * .03; tgt = POSE.idle.slice(); tgt[0] += b; tgt[2] += b * 2; tgt[4] += b * 2; break; }
+    case 'walk': f.walk += Math.abs(f.vx) * dt * .05; tgt = walkPose(f.walk); rate = 22; break;
+    case 'jump': tgt = POSE.jump; rate = 16; break;
+    case 'guard': tgt = POSE.guard; rate = 30; break;
+    case 'atk': {
+      const t = f.t; rate = 40;
+      if (f.atk === 'p1') tgt = t < .15 ? POSE.p1 : POSE.idle;
+      else if (f.atk === 'p2') tgt = t < .15 ? POSE.p2 : POSE.idle;
+      else if (f.atk === 'p3') tgt = t < .06 ? POSE.p3w : t < .26 ? POSE.p3 : POSE.idle;
+      else if (f.atk === 'k') tgt = t < .1 ? POSE.kw : t < .28 ? POSE.k : POSE.idle;
+      else tgt = POSE.jk;
+      break;
+    }
+    case 'windup': tgt = f.kind === 'boss' ? POSE.bossw : f.kind === 'kicker' ? POSE.kw : POSE.wind; rate = 12; break;
+    case 'strike': { const K = KIND[f.kind]; tgt = f.t < K.act[1] + .06 ? (f.kind === 'boss' ? POSE.bosss : f.kind === 'kicker' ? POSE.k : POSE.p1) : POSE.idle; rate = 40; break; }
+    case 'hurt': tgt = POSE.hurt; rate = 34; break;
+    case 'down': tgt = POSE.air; rate = 20; break;
+    case 'lie': tgt = POSE.lie; rate = 14; break;
+    case 'getup': tgt = POSE.guard; rate = 12; break;
+  }
+  const k = Math.min(1, dt * rate); // 関節の角度を、目標へ少しずつ寄せる
+  for (let i = 0; i < 9; i++) f.pose[i] += (tgt[i] - f.pose[i]) * k;
+  const rt = (f.state === 'down' || f.state === 'lie') ? -f.face * Math.PI / 2 : 0;
+  f.rot += (rt - f.rot) * Math.min(1, dt * (f.state === 'getup' ? 12 : 8));
+  f.flash = Math.max(0, f.flash - dt);
+}
+
+// 入力 inp = { mx: -1|0|1, guard: bool, jump/punch/kick: その瞬間に押されたら true }
+function step(world, dt, inp) {
+  inp = inp || {};
+  inp = { mx: inp.mx || 0, guard: !!inp.guard, jump: !!inp.jump, punch: !!inp.punch, kick: !!inp.kick };
+  world.events.length = 0;
+  world.t += dt;
+  const p = world.player;
+  if (world.phase !== 'play') { // 題の画面では、型を見せる
+    if (world.phase === 'title') {
+      const c = Math.floor(world.t / .55) % 6;
+      p.state = 'atk'; p.t = (world.t % .55);
+      p.atk = ['p1', 'p2', 'p3', 'k', null, null][c];
+      if (!p.atk) p.state = 'idle';
+      updatePose(world, p, dt);
+    }
+    return;
+  }
+  // 押した瞬間は、少しのあいだ覚えておく（技の途中で押しても出る）
+  if (inp.punch) p.bufP = .18;
+  if (inp.kick) p.bufK = .18;
+  if (inp.jump) p.bufJ = .12;
+  world.shake = Math.max(0, world.shake - 40 * dt);
+  world.invert = Math.max(0, world.invert - dt);
+  if (world.hitstop > 0) { world.hitstop -= dt; return; } // ヒットストップ：当たった瞬間、全部止める
+  if (world.slow > 0) { world.slow -= dt; dt *= .25; }
+  world.time += dt;
+
+  // 波
+  world.waveT += dt;
+  const wave = WAVES[world.wave];
+  if (world.waveState === 'intro' && world.waveT >= 1.3) { world.waveState = 'fight'; world.spawnT = 0; }
+  if (world.waveState === 'fight') {
+    world.spawnT -= dt;
+    if (world.queue.length && world.spawnT <= 0 && liveEnemies(world).length < wave.max) {
+      const side = world.R() < .7 ? (world.spawnSide = -world.spawnSide) : world.spawnSide;
+      const e = makeFighter(world, world.queue.shift(), side < 0 ? -50 : W + 50, -side);
+      world.enemies.push(e);
+      world.spawnT = 1.1;
+    }
+    if (!world.queue.length && world.enemies.length === 0) {
+      world.waveState = 'cleared'; world.waveT = 0;
+      p.hp = Math.min(p.maxhp, p.hp + 30);
+      world.events.push('clear');
+    }
+  } else if (world.waveState === 'cleared' && world.waveT >= 1.7) {
+    if (world.wave + 1 < WAVES.length) beginWave(world, world.wave + 1);
+    else { world.phase = 'clear'; world.events.push('win'); return; }
+  }
+
+  // 誰が殴りに行くか
+  const ready = world.enemies.filter(e => e.hp > 0 && (e.state === 'idle' || e.state === 'walk' || e.state === 'windup' || e.state === 'strike'));
+  ready.sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x) || a.id - b.id);
+  for (const e of world.enemies) e.engaged = e.kind === 'boss';
+  for (let i = 0; i < Math.min(2, ready.length); i++) ready[i].engaged = true;
+
+  stepPlayer(world, p, inp, dt);
+  for (const e of world.enemies) stepEnemy(world, e, dt);
+  // 敵どうしは重ならない
+  for (let i = 0; i < world.enemies.length; i++) for (let j = i + 1; j < world.enemies.length; j++) {
+    const a = world.enemies[i], b = world.enemies[j];
+    if (a.hp <= 0 || b.hp <= 0 || a.air || b.air) continue;
+    const dx = b.x - a.x;
+    if (Math.abs(dx) < 34) { const s = (dx >= 0 ? 1 : -1) * 45 * dt; a.x -= s; b.x += s; }
+  }
+  updatePose(world, p, dt);
+  for (const e of world.enemies) updatePose(world, e, dt);
+  for (let i = world.enemies.length - 1; i >= 0; i--) if (world.enemies[i].deadT > .9) world.enemies.splice(i, 1);
+
+  for (let i = world.fx.length - 1; i >= 0; i--) { world.fx[i].life -= dt; if (world.fx[i].life <= 0) world.fx.splice(i, 1); }
+  world.comboT -= dt; world.comboPop = Math.max(0, world.comboPop - dt * 5);
+  if (world.comboT <= 0) world.combo = 0;
+
+  if (p.hp <= 0 && p.state === 'lie') {
+    world.overT += dt;
+    if (world.overT >= 1.3) { world.phase = 'over'; world.events.push('lose'); }
+  }
+}
+
+// 自動操作（確認とテスト用）：近い敵へ寄り、ふりかぶりを見たら守り、拳・拳・拳・蹴
+function autoInput(world) {
+  const p = world.player, inp = { mx: 0, guard: false, jump: false, punch: false, kick: false };
+  let best = null, bd = 1e9, threat = null;
+  for (const e of world.enemies) {
+    if (e.hp <= 0 || e.state === 'lie' || e.state === 'getup') continue;
+    const d = Math.abs(e.x - p.x), K = KIND[e.kind];
+    if (d < bd) { bd = d; best = e; }
+    if (((e.state === 'windup' && e.t > K.windup - .16) || (e.state === 'strike' && e.t < K.act[1])) && d < K.reach * e.size + 40) threat = e;
+  }
+  if (threat) { inp.guard = true; inp.mx = threat.x > p.x ? 1 : -1; return inp; }
+  if (!best) return inp;
+  const dir = best.x > p.x ? 1 : -1;
+  if (bd > 58 * best.size || p.face !== dir) inp.mx = dir;
+  if (bd <= 70 * best.size) {
+    const tick = Math.floor(world.t / .1);
+    if (tick !== world.autoTick) { world.autoTick = tick; if (tick % 4 === 3) inp.kick = true; else inp.punch = true; }
+  }
+  return inp;
+}
+
+// ---------- 描く ----------
+function drawFighter(ctx, f, world) {
+  const s = f.size, p = f.pose, face = f.face;
+  const v = (a, l) => [Math.sin(a) * face * l, Math.cos(a) * l];
+  const kA = v(p[5], 30 * s), fA = [kA[0] + v(p[6], 32 * s)[0], kA[1] + v(p[6], 32 * s)[1]];
+  const kB = v(p[7], 30 * s), fB = [kB[0] + v(p[8], 32 * s)[0], kB[1] + v(p[8], 32 * s)[1]];
+  const low = Math.max(fA[1], fB[1], 8 * s); // 低いほうの足が地面に着く
+  const lying = Math.min(1, Math.abs(f.rot) / (Math.PI / 2));
+  const up = [Math.sin(p[0]) * face, -Math.cos(p[0])];
+  const neck = [up[0] * 44 * s, up[1] * 44 * s], sh = [neck[0] * .9, neck[1] * .9];
+  const head = [up[0] * 56 * s, up[1] * 56 * s];
+  const eA = [sh[0] + v(p[1], 22 * s)[0], sh[1] + v(p[1], 22 * s)[1]], hA = [eA[0] + v(p[2], 22 * s)[0], eA[1] + v(p[2], 22 * s)[1]];
+  const eB = [sh[0] + v(p[3], 22 * s)[0], sh[1] + v(p[3], 22 * s)[1]], hB = [eB[0] + v(p[4], 22 * s)[0], eB[1] + v(p[4], 22 * s)[1]];
+
+  // 影
+  const hgt = Math.max(0, GROUND - f.y);
+  ctx.fillStyle = `rgba(0,0,0,${(.16 * Math.max(.3, 1 - hgt / 260)).toFixed(3)})`;
+  ctx.beginPath(); ctx.ellipse(f.x - (lying * f.face * 26 * s), GROUND + 4, (26 + lying * 30) * s * Math.max(.5, 1 - hgt / 400), 5 * s, 0, 0, Math.PI * 2); ctx.fill();
+
+  let alpha = 1;
+  if (f.deadT > 0) alpha = Math.max(0, 1 - f.deadT / .9) * (Math.floor(f.deadT * 20) % 2 ? .5 : 1);
+  if (f.inv > 0 && Math.floor(world.t * 22) % 2) alpha = .35;
+  const hit = f.flash > 0, main = hit ? '#e0281e' : '#111', back = hit ? '#e0281e' : '#555';
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(f.x, f.y - lerp(low, 15 * s, lying));
+  ctx.rotate(f.rot);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 5.2 * s;
+  const line = (col, ...pts) => { ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.stroke(); };
+  line(back, sh, eB, hB);
+  line(back, [0, 0], kB, fB);
+  if (f.isPlayer) { // 赤い鉢巻き
+    ctx.lineWidth = 3.2 * s; ctx.strokeStyle = '#e0281e'; ctx.beginPath();
+    ctx.moveTo(head[0] - face * 9 * s, head[1] - 2 * s);
+    for (let i = 1; i <= 4; i++) ctx.lineTo(head[0] - face * (9 + i * 7) * s - f.vx * .012 * i, head[1] - 2 * s + Math.sin(world.t * 9 + i * 1.1) * 2.2 * s + i * 1.6 * s);
+    ctx.stroke(); ctx.lineWidth = 5.2 * s;
+  }
+  line(main, [0, 0], neck);
+  line(main, [0, 0], kA, fA);
+  line(main, sh, eA, hA);
+  // 頭：自分は塗り、雑兵は白抜き、蹴り屋は灰色、親玉は目つき
+  ctx.beginPath(); ctx.arc(head[0], head[1], 11.5 * s, 0, Math.PI * 2);
+  ctx.fillStyle = f.isPlayer || f.kind === 'boss' ? main : f.kind === 'kicker' ? (hit ? '#f3a7a2' : '#9a9a9a') : '#fff';
+  ctx.fill(); ctx.strokeStyle = main; ctx.lineWidth = 4 * s; ctx.stroke();
+  if (f.isPlayer) { ctx.strokeStyle = '#e0281e'; ctx.lineWidth = 3.4 * s; ctx.beginPath(); ctx.moveTo(head[0] - 10.5 * s, head[1] - 3 * s); ctx.lineTo(head[0] + 10.5 * s, head[1] - 3 * s); ctx.stroke(); }
+  if (f.kind === 'boss') {
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.6 * s; ctx.beginPath();
+    ctx.moveTo(head[0] + face * 1 * s, head[1] - 4 * s); ctx.lineTo(head[0] + face * 8 * s, head[1] - 1 * s);
+    ctx.moveTo(head[0] - face * 7 * s, head[1] - 4.5 * s); ctx.lineTo(head[0] - face * 2 * s, head[1] - 2 * s);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  if (f.state === 'windup') { // ふりかぶりの合図
+    ctx.fillStyle = '#e0281e'; ctx.font = `italic 900 ${Math.round(26 * s)}px "Hiragino Sans", sans-serif`; ctx.textAlign = 'center';
+    ctx.fillText('！', f.x, f.y - 138 * s);
+  }
+  if (!f.isPlayer && f.kind !== 'boss' && f.hp > 0 && f.hp < f.maxhp) { // 小さな体力
+    const w = 38 * s, y = f.y - 150 * s + lying * 110 * s;
+    ctx.fillStyle = '#ddd'; ctx.fillRect(f.x - w / 2, y, w, 4);
+    ctx.fillStyle = '#111'; ctx.fillRect(f.x - w / 2, y, w * f.hp / f.maxhp, 4);
+  }
+}
+
+function drawFx(ctx, world) {
+  for (const o of world.fx) {
+    const u = 1 - o.life / o.life0;
+    if (o.type === 'spark') {
+      const n = o.big ? 10 : 7, r0 = (o.big ? 16 : 10) + u * 30, r1 = r0 + (o.big ? 34 : 20) * (1 - u);
+      ctx.strokeStyle = '#111'; ctx.lineWidth = (o.big ? 5 : 3.5) * (1 - u) + .5; ctx.lineCap = 'butt'; ctx.beginPath();
+      for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 + o.x * .1; ctx.moveTo(o.x + Math.cos(a) * r0, o.y + Math.sin(a) * r0); ctx.lineTo(o.x + Math.cos(a) * r1, o.y + Math.sin(a) * r1); }
+      ctx.stroke();
+      if (u < .4) { ctx.fillStyle = '#fff'; ctx.strokeStyle = '#111'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(o.x, o.y, (o.big ? 16 : 10) * (1 - u), 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    } else if (o.type === 'block') {
+      ctx.strokeStyle = '#111'; ctx.lineWidth = 3 * (1 - u) + .5; ctx.beginPath(); ctx.arc(o.x, o.y, 8 + u * 22, -1.1, 1.1); ctx.stroke();
+      ctx.beginPath(); ctx.arc(o.x, o.y, 8 + u * 22, Math.PI - 1.1, Math.PI + 1.1); ctx.stroke();
+    } else if (o.type === 'dust') {
+      ctx.fillStyle = `rgba(120,120,120,${(.5 * (1 - u)).toFixed(3)})`;
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(o.x + s * (14 + u * 40), o.y - 4 - u * 8, 6 + u * 9, 0, Math.PI * 2); ctx.fill(); }
+    } else if (o.type === 'word') {
+      ctx.save(); ctx.translate(o.x, o.y - u * 26); ctx.rotate(o.rot);
+      const sc = (o.big ? 1.9 : 1) * (u < .15 ? .6 + u / .15 * .6 : 1.2 - (u - .15) * .2);
+      ctx.scale(sc, sc); ctx.globalAlpha = u > .7 ? (1 - u) / .3 : 1;
+      ctx.font = 'italic 900 26px "Hiragino Sans", "Yu Gothic", sans-serif'; ctx.textAlign = 'center';
+      ctx.lineWidth = 6; ctx.strokeStyle = '#fff'; ctx.strokeText(o.text, 0, 0);
+      ctx.fillStyle = '#111'; ctx.fillText(o.text, 0, 0);
+      ctx.restore();
+    }
+  }
+}
+
+function drawStage(ctx) {
+  // 遠くの建物（うすい灰色）と、地面の線
+  const R = rng32(11);
+  ctx.fillStyle = '#efefef';
+  for (let x = -900; x < W + 900;) { const bw = 50 + R() * 90, bh = 60 + R() * 190; ctx.fillRect(x, GROUND - bh, bw, bh); x += bw + 8 + R() * 40; }
+  ctx.fillStyle = '#e4e4e4';
+  for (let x = -900; x < W + 900;) { const bw = 70 + R() * 120, bh = 30 + R() * 80; ctx.fillRect(x, GROUND - bh, bw, bh); x += bw + 30 + R() * 120; }
+  ctx.fillStyle = '#111'; ctx.fillRect(-3000, GROUND + 8, 7000, 5);
+  ctx.strokeStyle = '#bbb'; ctx.lineWidth = 2; ctx.beginPath();
+  for (let x = -2990; x < 4000; x += 46) { ctx.moveTo(x, GROUND + 22); ctx.lineTo(x - 18, GROUND + 44); }
+  ctx.stroke();
+  // 闘技場の端
+  ctx.fillStyle = '#111';
+  ctx.fillRect(-6, GROUND - 40, 6, 50); ctx.fillRect(W, GROUND - 40, 6, 50);
+}
+
+// view = { w, h, dpr, scale, ox, oy, bandH, cam }
+function render(ctx, world, view) {
+  const { w, h, dpr, scale } = view, p = world.player;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+
+  const sx = world.shake ? Math.sin(world.t * 90) * world.shake : 0, sy = world.shake ? Math.cos(world.t * 77) * world.shake * .6 : 0;
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (view.ox + sx * scale), dpr * (view.oy + sy * scale));
+  drawStage(ctx);
+  const all = world.enemies.slice().sort((a, b) => (a.state === 'lie' ? 0 : 1) - (b.state === 'lie' ? 0 : 1));
+  if (world.phase !== 'title') for (const e of all) drawFighter(ctx, e, world);
+  drawFighter(ctx, p, world);
+  drawFx(ctx, world);
+
+  // ここから画面の座標
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const u = clamp(Math.min(w, view.bandH * 1.7) / 820, .72, 1.5), top = view.top, narrow = w < 560;
+  const F = (px, it) => `${it ? 'italic ' : ''}900 ${Math.round(px * u)}px "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif`;
+  const mid = top + view.bandH / 2;
+
+  if (world.phase === 'play') {
+    // 体力
+    const bw = Math.min(260 * u, w * .4), bx = 16 * u, by = top + 18 * u + (view.backShown ? 26 : 0);
+    ctx.fillStyle = '#111'; ctx.fillRect(bx - 3, by - 3, bw + 6, 16 * u + 6);
+    ctx.fillStyle = '#fff'; ctx.fillRect(bx, by, bw, 16 * u);
+    ctx.fillStyle = p.hp <= 30 ? '#e0281e' : '#111'; ctx.fillRect(bx, by, bw * p.hp / p.maxhp, 16 * u);
+    ctx.fillStyle = '#111'; ctx.font = F(15); ctx.textAlign = narrow ? 'left' : 'center';
+    ctx.fillText(`第${world.wave + 1}波 / ${WAVES.length}`, narrow ? bx : w / 2, by + (narrow ? 38 : 14) * u);
+    const boss = world.enemies.find(e => e.kind === 'boss');
+    if (boss) {
+      const x = w - bx - bw;
+      ctx.fillStyle = '#111'; ctx.fillRect(x - 3, by - 3, bw + 6, 16 * u + 6);
+      ctx.fillStyle = '#fff'; ctx.fillRect(x, by, bw, 16 * u);
+      ctx.fillStyle = '#e0281e'; ctx.fillRect(x + bw * (1 - boss.hp / boss.maxhp), by, bw * boss.hp / boss.maxhp, 16 * u);
+      ctx.fillStyle = '#111'; ctx.font = F(13); ctx.textAlign = 'right'; ctx.fillText('親玉', w - bx, by + 34 * u);
+    }
+    if (world.combo >= 2) {
+      ctx.save(); ctx.translate(w - 24 * u, top + 110 * u); ctx.rotate(-.08);
+      const sc = 1 + world.comboPop * .35; ctx.scale(sc, sc);
+      ctx.textAlign = 'right'; ctx.fillStyle = '#111'; ctx.font = F(54, true); ctx.fillText(String(world.combo), -66 * u, 0);
+      ctx.font = F(22, true); ctx.fillText('HIT', 0, 0);
+      ctx.restore();
+    }
+    // 波の合図
+    let banner = null, a = 0;
+    if (world.waveState === 'intro') { banner = world.wave === WAVES.length - 1 ? '最終波' : `第${world.wave + 1}波`; a = Math.min(1, world.waveT / .15) * Math.min(1, (1.3 - world.waveT) / .25); }
+    else if (world.waveState === 'cleared') { banner = world.wave === WAVES.length - 1 ? '全滅' : '突破'; a = Math.min(1, world.waveT / .15) * Math.min(1, (1.7 - world.waveT) / .25); }
+    if (banner) {
+      ctx.globalAlpha = Math.max(0, a); ctx.textAlign = 'center';
+      ctx.font = F(76, true); ctx.lineWidth = 10 * u; ctx.strokeStyle = '#fff'; ctx.strokeText(banner, w / 2, mid - 40 * u);
+      ctx.fillStyle = '#111'; ctx.fillText(banner, w / 2, mid - 40 * u); ctx.globalAlpha = 1;
+    }
+  } else {
+    ctx.textAlign = 'center';
+    const panel = (title, lines, prompt) => {
+      ctx.fillStyle = 'rgba(255,255,255,.86)'; ctx.fillRect(0, top, w, view.bandH);
+      ctx.fillStyle = '#111'; ctx.font = F(92, true); ctx.fillText(title, w / 2, mid - 70 * u);
+      ctx.fillRect(w / 2 - 150 * u, mid - 50 * u, 300 * u, 5 * u);
+      ctx.font = F(19);
+      lines.forEach((t, i) => ctx.fillText(t, w / 2, mid - 8 * u + i * 30 * u));
+      if (Math.floor(world.t * 2.2) % 2 === 0) { ctx.font = F(22); ctx.fillText(prompt, w / 2, mid + 40 * u + lines.length * 30 * u); }
+    };
+    if (world.phase === 'title') {
+      const tpx = Math.min(104, w * .86 / u / 6.4); // 題は6文字。せまい画面でもはみ出さない大きさにする
+      ctx.fillStyle = '#111'; ctx.font = F(tpx, true); ctx.fillText('棒人間バトル', w / 2, top + view.bandH * .27);
+      ctx.fillRect(w / 2 - tpx * 3.2 * u, top + view.bandH * .27 + 16 * u, tpx * 6.4 * u, 6 * u);
+      ctx.font = F(17);
+      const ls = narrow ? ['← → 移動　↑ ジャンプ　↓ ガード', 'Z パンチ（3発つながる）　X キック'] : ['← → 移動　　↑ ジャンプ　　↓ ガード　　Z パンチ（3発つながる）　　X キック'];
+      const y0 = top + view.bandH * .27 + 52 * u;
+      ls.forEach((t, i) => ctx.fillText(t, w / 2, y0 + i * 27 * u));
+      ctx.font = F(14); ctx.fillStyle = '#666';
+      ctx.fillText('敵の「！」はふりかぶり。守るか、先に殴る。全5波、最後に親玉', w / 2, y0 + ls.length * 27 * u + 2 * u);
+      if (Math.floor(world.t * 2.2) % 2 === 0) { ctx.fillStyle = '#e0281e'; ctx.font = F(24, true); ctx.fillText(view.touch ? '画面を押して始める' : 'Z か画面を押して始める', w / 2, top + view.bandH - 26 * u); }
+    } else if (world.phase === 'over') {
+      panel('敗北', narrow ? [`第${world.wave + 1}波で倒れた`, `倒した数 ${world.kos}　　最大 ${world.maxCombo} HIT`] : [`第${world.wave + 1}波で倒れた　　倒した数 ${world.kos}　　最大 ${world.maxCombo} HIT`], view.touch ? '画面を押して、もう一度' : 'Z でもう一度');
+    } else if (world.phase === 'clear') {
+      const s = Math.floor(world.time), mm = Math.floor(s / 60), ss = String(s % 60).padStart(2, '0');
+      panel('完勝', narrow ? [`${mm}分${ss}秒　　残り体力 ${Math.ceil(p.hp)}`, `倒した数 ${world.kos}　　最大 ${world.maxCombo} HIT`] : [`${mm}分${ss}秒　　倒した数 ${world.kos}　　最大 ${world.maxCombo} HIT　　残り体力 ${Math.ceil(p.hp)}`], view.touch ? '画面を押して、もう一度' : 'Z でもう一度');
+    }
+  }
+  if (world.invert > 0) { // とどめの瞬間、白黒が反転する
+    ctx.globalCompositeOperation = 'difference'; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.globalCompositeOperation = 'source-over';
+  }
+}
+
+// ---------- 音（その場で合成する） ----------
+const Sound = {
+  ac: null, muted: false,
+  wake() {
+    if (!this.ac) { try { this.ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.ac = null; } }
+    if (this.ac && this.ac.state === 'suspended') this.ac.resume();
+  },
+  noise(dur, freq, gain, type) {
+    const ac = this.ac, n = Math.max(1, Math.floor(ac.sampleRate * dur)), buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = buf; f.type = type || 'lowpass'; f.frequency.value = freq; g.gain.value = gain;
+    src.connect(f); f.connect(g); g.connect(ac.destination); src.start();
+  },
+  tone(f0, f1, dur, gain, type, delay) {
+    const ac = this.ac, t = ac.currentTime + (delay || 0), o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + dur + .02);
+  },
+  play(name) {
+    if (!this.ac || this.muted) return;
+    try {
+      switch (name) {
+        case 'punch': this.noise(.07, 1900, .5); this.tone(190, 70, .09, .5); break;
+        case 'heavy': this.noise(.13, 1300, .6); this.tone(150, 45, .2, .7); break;
+        case 'kick': this.noise(.11, 1000, .6); this.tone(130, 42, .18, .7); break;
+        case 'whoosh': this.noise(.11, 900, .12, 'bandpass'); break;
+        case 'block': this.noise(.05, 3000, .25, 'highpass'); this.tone(700, 420, .06, .15, 'square'); break;
+        case 'thud': this.noise(.1, 380, .5); this.tone(95, 40, .14, .5); break;
+        case 'jump': this.tone(280, 520, .09, .12, 'triangle'); break;
+        case 'ko': this.noise(.45, 600, .6); this.tone(230, 34, .7, .6, 'sawtooth'); break;
+        case 'clear': [523, 659, 784].forEach((f, i) => this.tone(f, f, .12, .14, 'square', i * .09)); break;
+        case 'win': [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(f, f, .18, .14, 'square', i * .12)); break;
+        case 'lose': [392, 330, 262, 196].forEach((f, i) => this.tone(f, f * .97, .25, .14, 'triangle', i * .2)); break;
+      }
+    } catch (e) { /* 音が出なくても遊べる */ }
+  },
+};
+
+// ---------- 自己テスト ----------
+function runTests() {
+  const out = [];
+  const check = (name, fn) => {
+    let ok = false, note = '';
+    try { const r = fn(); ok = r === true; if (!ok) note = '  ' + String(r); } catch (e) { note = '  ' + e.message; }
+    out.push({ ok, text: (ok ? 'OK  ' : 'NG  ') + name + note });
+  };
+  const DT = 1 / 60;
+  const run = (wd, sec, inp) => { for (let i = 0; i < sec * 60; i++) step(wd, DT, typeof inp === 'function' ? inp(wd) : inp); };
+  const duel = (kind, dist) => { // 自分と敵1人だけの場面
+    const wd = makeWorld(1); startGame(wd);
+    wd.queue = []; wd.waveState = 'fight';
+    const e = makeFighter(wd, kind, wd.player.x + dist, -1); e.entered = true; e.cd = 99;
+    wd.enemies.push(e);
+    return { wd, p: wd.player, e };
+  };
+  const finite = wd => [wd.player, ...wd.enemies].every(f => [f.x, f.y, f.vx, f.vy, f.hp, f.rot, ...f.pose].every(Number.isFinite));
+
+  check('パンチが当たると敵の体力が減る', () => {
+    const { wd, e } = duel('grunt', 50);
+    step(wd, DT, { punch: true }); run(wd, .4, {});
+    return e.hp === e.maxhp - ATK.p1.dmg || '体力 ' + e.hp;
+  });
+  check('届かない距離では当たらない', () => {
+    const { wd, e } = duel('grunt', 220);
+    step(wd, DT, { punch: true }); run(wd, .4, {});
+    return e.hp === e.maxhp || '体力 ' + e.hp;
+  });
+  check('後ろの敵には当たらない', () => {
+    const { wd, e } = duel('grunt', -50);
+    step(wd, DT, { punch: true }); run(wd, .4, {});
+    return e.hp === e.maxhp || '体力 ' + e.hp;
+  });
+  check('当たった瞬間はヒットストップで止まる', () => {
+    const { wd, p, e } = duel('grunt', 50);
+    step(wd, DT, { punch: true });
+    let i = 0; while (wd.hitstop <= 0 && i++ < 60) step(wd, DT, {});
+    if (wd.hitstop <= 0) return 'ヒットストップに入らない';
+    const x = e.x, px = p.x, t = p.t; step(wd, DT, {});
+    return (e.x === x && p.x === px && p.t === t) || '止まっていない';
+  });
+  check('キックで敵が吹き飛び、倒れて、起き上がる', () => {
+    const { wd, e } = duel('kicker', 60);
+    step(wd, DT, { kick: true }); run(wd, .35, {});
+    if (e.state !== 'down' || !e.air) return 'キックのあと ' + e.state;
+    const x0 = e.x; run(wd, 1.0, {});
+    if (e.state !== 'lie' && e.state !== 'getup') return '1秒後 ' + e.state;
+    if (!(e.x > x0)) return '後ろへ飛んでいない';
+    run(wd, 1.2, {});
+    return e.state === 'idle' || e.state === 'walk' || '起きない ' + e.state;
+  });
+  check('パンチは3発つながり、3発目で打ち上げる', () => {
+    const { wd, p, e } = duel('kicker', 50);
+    const seen = [];
+    for (let i = 0; i < 90; i++) { step(wd, DT, { punch: i % 6 === 0 }); if (p.atk && seen[seen.length - 1] !== p.atk) seen.push(p.atk); }
+    return (seen.slice(0, 3).join() === 'p1,p2,p3' && wd.maxCombo >= 3) || `技 ${seen.join()} / 最大 ${wd.maxCombo} HIT`;
+  });
+  check('ジャンプして降りてくる。空中でキックが出る', () => {
+    const { wd, p, e } = duel('grunt', 70);
+    step(wd, DT, { jump: true }); run(wd, .2, {});
+    if (!(p.air && p.y < GROUND - 40)) return '跳んでいない y=' + p.y;
+    step(wd, DT, { kick: true }); run(wd, .2, {});
+    if (e.hp === e.maxhp) return '飛び蹴りが当たらない';
+    run(wd, 1, {});
+    return (!p.air && p.y === GROUND) || '降りてこない';
+  });
+  check('敵の攻撃で自分の体力が減る。守ると傷が小さい', () => {
+    const hurt = guard => {
+      const { wd, p, e } = duel('grunt', 45); e.cd = 0; e.engaged = true;
+      run(wd, 1.2, { guard });
+      return p.maxhp - p.hp;
+    };
+    const a = hurt(false), b = hurt(true);
+    return (a >= 7 && b > 0 && b < a * .5) || `守らない ${a} / 守る ${b}`;
+  });
+  check('関節は一瞬で切り替わらず、少しずつ目標の姿勢へ寄る', () => {
+    const { wd, p } = duel('grunt', 300);
+    run(wd, .5, {});
+    const before = p.pose[1];
+    step(wd, DT, { punch: true }); step(wd, DT, {});
+    const mid = p.pose[1]; run(wd, .08, {});
+    const after = p.pose[1];
+    return (mid > before && mid < POSE.p1[1] && after > mid) || `前 ${before.toFixed(2)} 途中 ${mid.toFixed(2)} 後 ${after.toFixed(2)}`;
+  });
+  check('敵を全部倒すと波が進む', () => {
+    const wd = makeWorld(2); startGame(wd);
+    for (let i = 0; i < 60 * 40 && wd.wave === 0; i++) {
+      for (const e of wd.enemies) if (e.hp > 0 && e.entered) { e.hp = 1; strike(wd, wd.player, e, ATK.k); }
+      step(wd, DT, {});
+    }
+    return (wd.wave === 1 && wd.kos === 3) || `波 ${wd.wave + 1} / 倒した数 ${wd.kos}`;
+  });
+  check('最後の1人を倒すとスローになる', () => {
+    const { wd, p, e } = duel('grunt', 50); e.hp = 1;
+    step(wd, DT, { punch: true }); let i = 0; while (wd.slow <= 0 && i++ < 60) step(wd, DT, {});
+    return (wd.slow > 0 && wd.invert > 0) || 'スローにならない';
+  });
+  check('何もしないと負ける', () => {
+    const wd = makeWorld(3); startGame(wd);
+    let i = 0; while (wd.phase === 'play' && i++ < 60 * 240) step(wd, DT, {});
+    return wd.phase === 'over' || `${Math.round(i / 60)}秒たっても ${wd.phase}（体力 ${wd.player.hp}）`;
+  });
+  check('傷を受けない自動操作で、親玉まで倒して完勝になる', () => {
+    const wd = makeWorld(4); wd.cheat = true; startGame(wd);
+    let i = 0; while (wd.phase === 'play' && i++ < 60 * 600) { step(wd, DT, autoInput(wd)); if (!finite(wd)) return '数値が壊れた'; }
+    return (wd.phase === 'clear' && wd.kos === WAVES.reduce((n, w) => n + w.list.length, 0)) || `${Math.round(i / 60)}秒で ${wd.phase}、第${wd.wave + 1}波、倒した数 ${wd.kos}`;
+  });
+  let autoNote = '';
+  check('ふつうの自動操作で最後まで回しても数値が壊れず、体力と位置が範囲に収まる', () => {
+    const res = [];
+    for (const seed of [5, 6, 7]) {
+      const wd = makeWorld(seed); startGame(wd);
+      let i = 0;
+      while (wd.phase === 'play' && i++ < 60 * 600) {
+        step(wd, DT, autoInput(wd));
+        const p = wd.player;
+        if (!finite(wd)) return '数値が壊れた';
+        if (p.hp < 0 || p.hp > p.maxhp || p.x < 30 || p.x > W - 30 || p.y > GROUND) return `範囲の外 hp=${p.hp} x=${p.x} y=${p.y}`;
+      }
+      if (wd.phase === 'play') return '10分たっても終わらない';
+      res.push(`${wd.phase === 'clear' ? '完勝' : '第' + (wd.wave + 1) + '波で敗北'} ${Math.round(wd.time)}秒`);
+    }
+    autoNote = res.join(' / ');
+    return true;
+  });
+  check('同じ種・同じ操作なら同じ結果になる', () => {
+    const play = () => { const wd = makeWorld(9); startGame(wd); run(wd, 30, autoInput); return [wd.player.x, wd.player.hp, wd.wave, wd.kos, wd.enemies.length].join(); };
+    const a = play(), b = play();
+    return a === b || a + ' ≠ ' + b;
+  });
+  check('負けたあと、やり直すと最初の状態に戻る', () => {
+    const wd = makeWorld(3); startGame(wd);
+    let i = 0; while (wd.phase === 'play' && i++ < 60 * 240) step(wd, DT, {});
+    startGame(wd);
+    return (wd.phase === 'play' && wd.wave === 0 && wd.player.hp === 100 && wd.enemies.length === 0 && wd.kos === 0) || '戻っていない';
+  });
+  return { out, check, note: () => autoNote };
+}
+
+// ---------- 動かす ----------
+(function main() {
+  const Q = new URLSearchParams(location.search);
+  const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+  const pad = document.getElementById('pad'), back = document.getElementById('back');
+  const published = /\/games\/[a-z0-9-]+\//.test(location.pathname); // ゲーム大全に置かれたときだけ、戻る道を出す
+  const touch = Q.has('touch') || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  if (touch) pad.hidden = false;
+
+  const seed = Q.has('seed') ? (parseInt(Q.get('seed'), 10) || 0) : (Date.now() & 0xffff);
+  const world = makeWorld(seed);
+  world.cheat = Q.has('cheat');
+  const view = { w: 1, h: 1, dpr: 1, scale: 1, ox: 0, oy: 0, top: 0, bandH: 1, cam: -1, touch, backShown: false };
+
+  function resize() {
+    view.w = window.innerWidth; view.h = window.innerHeight;
+    view.dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(view.w * view.dpr); canvas.height = Math.round(view.h * view.dpr);
+    const portrait = view.h > view.w;
+    view.bandH = portrait ? Math.min(view.h * .58, view.w * 1.2) : view.h; // 縦長の画面では上に寄せ、下をボタンに空ける
+    view.top = portrait ? Math.max(0, view.h * .07) : 0;
+    view.scale = view.bandH / H;
+    view.cam = -1;
+  }
+  function camera(dt) { // 画面が闘技場より狭いときは、自分を追う
+    const vw = view.w / view.scale;
+    if (vw >= W) { view.ox = (view.w - W * view.scale) / 2; }
+    else {
+      const want = clamp(world.player.x - vw / 2, 0, W - vw);
+      view.cam = view.cam < 0 ? want : view.cam + (want - view.cam) * Math.min(1, dt * 6);
+      view.ox = -view.cam * view.scale;
+    }
+    view.oy = view.top;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const held = { left: false, right: false, guard: false }, edge = { jump: false, punch: false, kick: false };
+  function press(k, down) {
+    if (down) Sound.wake();
+    if (k in held) held[k] = down;
+    else if (down && k in edge) {
+      if (world.phase !== 'play') { if (k === 'punch') begin(); return; }
+      edge[k] = true;
+    }
+  }
+  function begin() { if (world.phase !== 'play') { Sound.wake(); startGame(world); view.cam = -1; } }
+  const KEYS = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowDown: 'guard', s: 'guard', ArrowUp: 'jump', w: 'jump', ' ': 'jump', z: 'punch', j: 'punch', Enter: 'punch', x: 'kick', k: 'kick' };
+  window.addEventListener('keydown', e => {
+    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (key === 'm') { Sound.muted = !Sound.muted; return; }
+    const k = KEYS[key]; if (!k) return;
+    e.preventDefault();
+    if (e.repeat) return;
+    press(k, true);
+  });
+  window.addEventListener('keyup', e => { const k = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]; if (k) press(k, false); });
+  window.addEventListener('blur', () => { held.left = held.right = held.guard = false; });
+  canvas.addEventListener('pointerdown', e => { e.preventDefault(); begin(); });
+  for (const b of pad.querySelectorAll('button')) {
+    const k = b.dataset.k;
+    const set = down => e => { e.preventDefault(); b.classList.toggle('on', down); press(k, down); };
+    b.addEventListener('pointerdown', set(true));
+    b.addEventListener('pointerup', set(false));
+    b.addEventListener('pointercancel', set(false));
+    b.addEventListener('pointerleave', set(false));
+    b.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  const readInput = () => ({ mx: (held.right ? 1 : 0) - (held.left ? 1 : 0), guard: held.guard, jump: edge.jump, punch: edge.punch, kick: edge.kick });
+
+  if (Q.has('test')) {
+    const T = runTests(), { out, check } = T;
+    check('合成した keydown / keyup / pointerdown が効く', () => {
+      const key = (type, k) => window.dispatchEvent(new KeyboardEvent(type, { key: k, bubbles: true, cancelable: true }));
+      if (world.phase !== 'title') return '題の画面から始まっていない';
+      key('keydown', 'z'); key('keyup', 'z');
+      if (world.phase !== 'play') return 'Z で始まらない';
+      key('keydown', 'ArrowRight'); if (readInput().mx !== 1) return '→ が効かない';
+      key('keyup', 'ArrowRight'); if (readInput().mx !== 0) return '→ を離しても止まらない';
+      key('keydown', 'x'); if (!readInput().kick) return 'X が効かない';
+      edge.kick = false;
+      const btn = k => pad.querySelector(`[data-k="${k}"]`);
+      btn('left').dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1 })); if (readInput().mx !== -1) return '◀ が効かない';
+      btn('left').dispatchEvent(new PointerEvent('pointerup', { pointerId: 1 })); if (readInput().mx !== 0) return '◀ を離しても止まらない';
+      btn('punch').dispatchEvent(new PointerEvent('pointerdown', { pointerId: 2 })); if (!readInput().punch) return '拳 が効かない';
+      btn('punch').dispatchEvent(new PointerEvent('pointerup', { pointerId: 2 }));
+      edge.punch = false;
+      world.phase = 'over';
+      canvas.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 3, cancelable: true }));
+      if (world.phase !== 'play' || world.wave !== 0) return '画面を押してもやり直せない';
+      world.phase = 'title';
+      return true;
+    });
+    const pass = out.filter(o => o.ok).length, el = document.getElementById('test');
+    el.textContent = `自己テスト ${pass}/${out.length}\n` + out.map(o => o.text).join('\n') + `\n（参考）ふつうの自動操作の結果: ${T.note()}`;
+    el.hidden = false;
+    document.title = `棒人間バトル テスト ${pass}/${out.length}`;
+  }
+
+  const skip = Math.min(900, parseFloat(Q.get('skip')) || 0);
+  if (skip > 0) { startGame(world); for (let i = 0; i < skip * 60 && world.phase === 'play'; i++) step(world, 1 / 60, autoInput(world)); }
+  if (Q.get('phase') === 'over' || Q.get('phase') === 'clear') { if (world.phase === 'title') startGame(world); world.phase = Q.get('phase'); }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(1 / 30, Math.max(0, (now - last) / 1000));
+    last = now;
+    if (window.innerWidth !== view.w || window.innerHeight !== view.h) resize(); // 枠に入れて開いたとき、最初の大きさが0のことがある
+    step(world, dt, readInput());
+    edge.jump = edge.punch = edge.kick = false;
+    for (const ev of world.events) Sound.play(ev);
+    view.backShown = published && world.phase !== 'play';
+    back.hidden = !view.backShown;
+    camera(dt);
+    render(ctx, world, view);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
