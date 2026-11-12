@@ -27,7 +27,8 @@
 
 ## 公開の手順
 
-Pull Request を出すと、GitHub Actions（`自動公開`）が中身を確かめ、問題がなければ自動で `main` に取り込む。数分で公開ページに出る。Merge ボタンを押す必要はない。
+Pull Request を出すと、GitHub Actions（`自動公開`）が中身を確かめ、問題がなければ自動で `main` に取り込む（Merge）。数分で公開ページに出る。
+自動で取り込まれなかったときは、理由を直すか、手順 6 の「自分で取り込む」で Merge する。**Pull Request を開いたまま終わらせない。** 取り込まれるまでが公開。
 
 ### 1. 準備を確かめる
 
@@ -111,7 +112,24 @@ gh pr view --json state,comments --jq '.state, (.comments[-1].body // "")'
 - `MERGED` になり、「公開しました。」のコメントが付く → 手順 7 へ
 - 「自動では公開しませんでした。」のコメントが付く → 書いてある理由を直し、同じブランチでコミットして `git push`。自動でもう一度確かめられる。Pull Request を作り直さない
 - 理由が「取り込めませんでした」（他の人とぶつかった）のとき：`git fetch origin && git merge origin/main`。`games.js` がぶつかったら、**両方の人の行を残して**解決し、コミットして `git push`
-- 2分待っても何も起きないとき：`gh run list --workflow auto-publish.yml --limit 3` で様子を見る。失敗していたら、そのことを本人に伝え、先生に見せてもらう。自分で `gh pr merge` はしない
+- 2分待っても何も起きないとき、仕組みが失敗しているとき（`gh run list --workflow auto-publish.yml --limit 3` で見る）→ 下の「自分で取り込む」へ
+
+#### 自分で取り込む
+
+自動で取り込まれなかったときは、頼んだ人の Pull Request を自分で Merge する。頼んだ人には書き込み権限があるので、Merge できる。
+
+1. コメントに理由が書いてあるなら、まずそれを直して送り直す。noindex が無い、PC のフォルダ名が入っている、`games.js` の書き間違い、は直せば自動で通る。直さずに Merge しない
+2. 直すものが無いのに開いたままのとき（仕組みが動いていない、失敗している）は、下の「自動公開が通る条件」を自分で1つずつ確かめる。`gh pr diff --name-only` で、変えたファイルが自分のフォルダと `games.js` だけであることも見る
+3. 全部満たしていたら Merge する
+
+```sh
+gh pr merge --merge --delete-branch
+```
+
+4. 他の人のフォルダを直した Pull Request は、その人が「いいよ」と言ったことを頼んだ人に確かめてから Merge する。確かめられないなら Merge せず、開いたままであることと理由を伝える
+5. Merge するのは、いま頼まれて自分が出した Pull Request だけ。他の人の Pull Request は Merge しない
+
+`gh` が無いときは、Pull Request のページ（`git push` のあとに開いた URL）で、緑の **Merge pull request** → **Confirm merge** を押してもらう。「このボタンを押すと公開されます」と、押す場所を具体的に伝える。
 
 ### 7. 公開ページで確かめて、片づける
 
@@ -131,11 +149,11 @@ git branch -d <ブランチ名>
 
 ## 自動公開が通る条件
 
-次を全部満たす Pull Request だけが自動で取り込まれる。満たさないものは理由がコメントされ、先生が見るまで止まる。
+次を全部満たす Pull Request だけが自動で取り込まれる。満たさないものは理由がコメントされて止まる。
 
 - 変えたのが `games/<id>/`、`games/<id>-数字/` の中と、`games.js` の自分の行だけ
 - `games/<id>/index.html` があり、その `<head>` に noindex の行がある
 - HTML・JS・CSS などに `/Users/名前/` のような PC のフォルダ名が入っていない
 - `games.js` に書き間違いがない
 
-他の人のゲームを直す Pull Request は自動では取り込まれない。本人に声をかけ、先生に取り込んでもらう。
+他の人のゲームを直す Pull Request は自動では取り込まれない。持ち主に声をかけてから、手順 6 の「自分で取り込む」で Merge する。
