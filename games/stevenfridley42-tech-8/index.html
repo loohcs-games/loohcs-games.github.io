@@ -1,0 +1,1072 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>始祖の大地</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Antique+B1&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: full-bleed canvas world; the HUD sits in the four corners like field notes pinned over the land. Single dark look by design. */
+:root{
+  --soil:#14110c; --panel:rgba(22,18,12,.8); --panel2:rgba(36,29,19,.92); --line:rgba(232,214,176,.17);
+  --bone:#efe5cf; --dim:#a2967c; --ochre:#d9a03f; --leaf:#86ad5f; --blood:#d0503d; --sky:#76b3c6; --violet:#b48ad6;
+  --f-disp:'Shippori Antique B1','Hiragino Mincho ProN','Yu Mincho',serif;
+  --f-body:'Zen Kaku Gothic New','Hiragino Sans','Yu Gothic',system-ui,sans-serif;
+  --f-num:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;overflow:hidden}
+body{background:var(--soil);color:var(--bone);font-family:var(--f-body);margin:0;user-select:none;-webkit-user-select:none;font-size:14px}
+#cv{position:fixed;left:0;top:0;width:100vw;height:100vh;display:block;touch-action:none}
+button{font-family:inherit;color:inherit}
+kbd{font-family:var(--f-num);font-size:11px;background:rgba(239,229,207,.12);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;line-height:17px;display:inline-block;min-width:18px;text-align:center}
+.hud{position:fixed;z-index:5;pointer-events:none}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;backdrop-filter:blur(3px)}
+#era{top:calc(12px + env(safe-area-inset-top,0px));left:calc(12px + env(safe-area-inset-left,0px));padding:10px 14px 11px;min-width:190px}
+#era .ma{display:flex;align-items:baseline;gap:6px}
+#maNum{font-family:var(--f-num);font-size:30px;font-weight:600;color:var(--ochre);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+#era small{color:var(--dim);font-size:12px;letter-spacing:.1em}
+#spName{font-family:var(--f-disp);font-size:19px;margin-top:2px}
+#spSci{font-style:italic;color:var(--dim);font-size:12px}
+#genTxt{margin-top:6px;font-size:12.5px;color:var(--bone);display:flex;gap:8px;align-items:center}
+#genTxt .tod{font-family:var(--f-num);font-size:11px;padding:1px 6px;border-radius:9px;background:rgba(217,160,63,.18);color:var(--ochre)}
+#right{top:calc(12px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));display:flex;flex-direction:column;align-items:flex-end;gap:8px;width:230px}
+.pill{pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 12px 6px 14px;font-size:13px}
+.pill:hover,.pill:focus-visible{border-color:var(--ochre);outline:none}
+.pill b{font-family:var(--f-num);color:var(--violet);font-size:15px}
+#neuBtn.glow{box-shadow:0 0 0 2px rgba(180,138,214,.5)}
+#leapBtn.ready{border-color:var(--ochre);color:var(--ochre)}
+#clan{list-style:none;margin:0;padding:8px 10px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:5px}
+#clan li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:12px;align-items:center}
+#clan li.me .nm{color:var(--ochre)}
+#clan .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#clan .tag{font-size:10.5px;color:var(--dim)}
+#clan .hb{grid-column:1/3;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+#clan .hb i{display:block;height:100%;background:var(--blood)}
+#clanHead{font-size:11px;color:var(--dim);letter-spacing:.08em;display:flex;justify-content:space-between}
+#me{left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:10px 14px 12px;width:240px}
+#meName{font-family:var(--f-disp);font-size:16px;display:flex;justify-content:space-between;align-items:baseline}
+#meName span{font-family:var(--f-body);font-size:11px;color:var(--dim)}
+.bars{display:grid;grid-template-columns:38px 1fr;gap:4px 8px;margin-top:7px;align-items:center;font-size:11px;color:var(--dim)}
+.bar{height:7px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;position:relative}
+.bar i{position:absolute;inset:0 auto 0 0;border-radius:4px;transition:width .15s}
+#bHp i{background:var(--blood)}#bHu i{background:var(--ochre)}#bTh i{background:var(--sky)}#bEn i{background:var(--leaf)}#bFe i{background:var(--violet)}
+.bar.low{animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.45}}
+#status{font-size:11px;color:var(--blood);min-height:14px;margin-top:5px}
+#hands{display:flex;gap:6px;margin-top:6px}
+.slot{flex:1;border:1px dashed var(--line);border-radius:6px;padding:4px 6px;font-size:12px;text-align:center;min-height:16px}
+.slot.full{border-style:solid;border-color:rgba(217,160,63,.5);color:var(--ochre)}
+.slot.lock{opacity:.45}
+#prompt{left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:5px;max-width:min(520px,calc(100% - 32px))}
+#prompt .tn{font-family:var(--f-disp);font-size:15px;text-shadow:0 1px 3px #000}
+#prompt .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+#prompt .acts span{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:4px 9px;font-size:13px;display:flex;gap:6px;align-items:center}
+#prompt .qte{font-family:var(--f-disp);font-size:22px;color:var(--ochre);text-shadow:0 2px 6px #000}
+#miniWrap{right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:6px}
+#mini{display:block;width:180px;height:132px;image-rendering:pixelated;border-radius:6px}
+#log{left:50%;transform:translateX(-50%);top:calc(14px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;align-items:center;gap:5px;width:min(520px,calc(100% - 32px))}
+#log div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 12px;font-size:13px;transition:opacity .6s;text-align:center}
+#log .good{border-color:rgba(134,173,95,.55)}#log .bad{border-color:rgba(208,80,61,.7);color:#f2c3b8}#log .feat{border-color:var(--ochre);color:var(--ochre);font-weight:700}
+#keys{left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:4px 10px;flex-wrap:wrap;justify-content:center;font-size:11px;color:var(--dim);max-width:min(760px,calc(100% - 520px))}
+#keys span{white-space:nowrap}
+#fade{position:fixed;inset:0;background:#05060a;opacity:0;pointer-events:none;z-index:30;transition:opacity .7s;display:grid;place-items:center;font-family:var(--f-disp);font-size:24px;color:var(--dim)}
+#fade.on{opacity:1}
+.modal{position:fixed;inset:0;z-index:20;background:rgba(10,8,5,.78);display:grid;place-items:center;padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
+.sheet{background:var(--panel2);border:1px solid var(--line);border-radius:14px;width:min(980px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px 24px;box-sizing:border-box}
+.sheet h2{font-family:var(--f-disp);font-weight:400;font-size:26px;margin:0 0 4px;text-wrap:balance}
+.sheet .sub{color:var(--dim);margin:0 0 16px;font-size:13px;line-height:1.7}
+.btn{pointer-events:auto;cursor:pointer;text-decoration:none;display:inline-block;background:var(--ochre);color:#1b1408;border:none;border-radius:8px;padding:10px 18px;font-size:15px;font-weight:700}
+.btn.ghost{background:transparent;color:var(--bone);border:1px solid var(--line);font-weight:500}
+.btn:hover,.btn:focus-visible{filter:brightness(1.1);outline:2px solid var(--bone);outline-offset:2px}
+.btn:disabled{opacity:.4;cursor:default;filter:none;outline:none}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+/* title */
+#title{background:linear-gradient(180deg,rgba(10,8,5,.35),rgba(10,8,5,.86) 70%)}
+#title .sheet{background:transparent;border:none;max-width:760px;text-align:left}
+#title h1{font-family:var(--f-disp);font-weight:400;font-size:clamp(46px,10vw,92px);margin:0;letter-spacing:.06em;line-height:1.05;color:var(--bone)}
+#title .lead{font-size:15px;line-height:1.9;color:var(--bone);max-width:34em;margin:14px 0 22px}
+.timeline{display:grid;grid-template-columns:repeat(7,1fr);gap:0;margin:0 0 26px;border-top:2px solid var(--ochre);padding-top:8px;overflow-x:auto}
+.timeline div{font-size:11px;color:var(--dim);line-height:1.4;padding-right:6px;min-width:70px}
+.timeline b{display:block;font-family:var(--f-num);color:var(--ochre);font-size:13px}
+/* skills */
+.tree{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.branch h3{font-family:var(--f-disp);font-weight:400;font-size:17px;margin:0 0 8px;color:var(--ochre);letter-spacing:.1em}
+.branch .nodes{display:flex;flex-direction:column;gap:7px}
+.node{pointer-events:auto;cursor:pointer;text-align:left;background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;display:grid;grid-template-columns:1fr auto;gap:2px 6px}
+.node small{grid-column:1/3;font-size:10.5px;color:var(--dim)}
+.node .c{font-family:var(--f-num);font-size:12px;color:var(--violet)}
+.node.avail{border-color:rgba(180,138,214,.65)}
+.node.learned{border-color:var(--leaf);background:rgba(134,173,95,.14)}
+.node.fixed{border-color:var(--ochre);background:rgba(217,160,63,.16)}
+.node.locked{opacity:.45}
+.node.hidden{opacity:.3;border-style:dashed;cursor:default}
+.node.sel{outline:2px solid var(--bone);outline-offset:1px}
+.node:focus-visible{outline:2px solid var(--bone)}
+#skDetail{margin-top:16px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between;min-height:48px}
+#skDetail p{margin:2px 0 0;color:var(--dim);font-size:13px;line-height:1.6}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--dim);margin-bottom:14px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid}
+.chk{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;pointer-events:auto}
+.chk input{margin-top:3px;accent-color:#d9a03f}
+.chk.dis{opacity:.45;cursor:default}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.list{display:flex;flex-direction:column;gap:6px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px}
+.kv dt{color:var(--dim)}.kv dd{margin:0}
+.big{font-family:var(--f-num);color:var(--ochre);font-size:22px}
+.help{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:6px 22px;font-size:13px;line-height:1.6}
+.help div{display:flex;gap:10px}.help div kbd{flex:none}
+.tips{font-size:13px;color:var(--dim);line-height:1.8;margin:14px 0 0;padding-left:1.2em}
+/* touch */
+#touch{position:fixed;inset:0;z-index:6;pointer-events:none}
+#joy{position:absolute;left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(170px + env(safe-area-inset-bottom,0px));width:120px;height:120px;border-radius:50%;border:1px solid var(--line);background:rgba(20,16,10,.35);pointer-events:auto;touch-action:none}
+#joy i{position:absolute;left:40px;top:40px;width:40px;height:40px;border-radius:50%;background:rgba(239,229,207,.35)}
+#tbtns{position:absolute;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(160px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(3,52px);gap:8px;pointer-events:auto}
+#tbtns button{height:52px;border-radius:50%;border:1px solid var(--line);background:rgba(20,16,10,.6);font-size:12px;touch-action:none}
+@media (max-width:1100px){#keys{display:none}#prompt{bottom:calc(20px + env(safe-area-inset-bottom,0px))}}
+@media (max-width:760px){
+  #keys{display:none}
+  #right{width:150px}
+  #clan{display:none}
+  #me{width:190px;padding:8px 10px}
+  #mini{width:120px;height:88px}
+  #era{min-width:0;padding:8px 10px}
+  #maNum{font-size:22px}
+  .tree{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #prompt{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+}
+#saveTag{position:fixed;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:7;font-size:12px;color:var(--dim);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 12px;opacity:0;transition:opacity .5s;pointer-events:none}
+#saveTag.on{opacity:1}
+.slots{display:flex;flex-direction:column;gap:8px}
+.srow{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.srow b{font-family:var(--f-disp);font-weight:400;font-size:16px}
+.srow small{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+.srow .row{gap:6px}
+.btn.sm{padding:6px 12px;font-size:13px}
+#codeIn{width:100%;box-sizing:border-box;min-height:72px;background:rgba(0,0,0,.3);color:var(--bone);border:1px solid var(--line);border-radius:8px;padding:8px;font-family:var(--f-num);font-size:11px;resize:vertical}
+@media (prefers-reduced-motion:reduce){.bar.low{animation:none}#fade{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud" hidden>
+  <section class="hud box" id="era">
+    <div class="ma"><span id="maNum">10.00</span><small>百万年前</small></div>
+    <div id="spName"></div>
+    <div id="spSci"></div>
+    <div id="genTxt"></div>
+  </section>
+  <section class="hud" id="right">
+    <button id="menuBtn" class="pill" type="button">メニュー <kbd>Esc</kbd></button>
+    <button id="neuBtn" class="pill" type="button">神経 <b id="neuNum">0</b> <kbd>K</kbd></button>
+    <button id="leapBtn" class="pill" type="button">世代交代 <kbd>L</kbd></button>
+    <div class="box" style="width:100%">
+      <ul id="clan"></ul>
+    </div>
+  </section>
+  <section class="hud box" id="me">
+    <div id="meName"></div>
+    <div class="bars">
+      <span>体力</span><div class="bar" id="bHp"><i></i></div>
+      <span>満腹</span><div class="bar" id="bHu"><i></i></div>
+      <span>水分</span><div class="bar" id="bTh"><i></i></div>
+      <span>元気</span><div class="bar" id="bEn"><i></i></div>
+      <span>恐怖</span><div class="bar" id="bFe"><i></i></div>
+    </div>
+    <div id="hands"><div class="slot" id="h0"></div><div class="slot" id="h1"></div></div>
+    <div id="status"></div>
+  </section>
+  <div class="hud" id="prompt"></div>
+  <div class="hud" id="log"></div>
+</div>
+
+<div id="touch" hidden>
+  <div id="joy"><i></i></div>
+  <div id="tbtns">
+    <button data-k="e" type="button">E 使う</button><button data-k="f" type="button">F 拾う</button><button data-k="space" type="button">回避</button>
+    <button data-k="q" type="button">感覚</button><button data-k="v" type="button">鎮静</button><button data-k="x" type="button">立つ</button>
+    <button data-k="r" type="button">作る</button><button data-k="c" type="button">呼ぶ</button><button data-k="z" type="button">眠る</button>
+    <button data-k="shift" type="button">走る</button><button data-k="k" type="button">神経</button><button data-k="tab" type="button">交代</button>
+  </div>
+</div>
+
+<div id="saveTag">自動保存しました</div>
+<div id="fade"><span id="fadeTxt"></span></div>
+
+<div class="modal" id="title">
+  <div class="sheet">
+    <div style="color:var(--ochre);font-family:var(--f-num);letter-spacing:.2em;font-size:12px">NEOGENE · AFRICA · 10.0 → 2.0 Ma</div>
+    <h1>始祖の大地</h1>
+    <p class="lead">一千万年前、アフリカの森。あなたは一頭の類人猿として一族を率いる。地図も道しるべもない。嗅いで、聞いて、確かめる。恐れを乗り越えて道具を手にし、子に、孫にその知恵を託す。大地が乾き、森がサバンナに変わるなかで、一族を「ヒト」へと導こう。</p>
+    <div class="timeline" id="tl"></div>
+    <div class="row">
+      <button class="btn" id="startBtn" type="button">一族の旅をはじめる</button>
+      <button class="btn ghost" id="contBtn" type="button" hidden>つづきから</button>
+      <button class="btn ghost" id="loadBtn0" type="button" hidden>セーブデータ</button>
+      <button class="btn ghost" id="helpBtn0" type="button">遊び方</button>
+      <a class="btn ghost" href="../../">← ゲーム一覧にもどる</a>
+    </div>
+    <p class="sub" style="margin-top:16px">キーボード操作のゲームです（日本語入力はオフに）。スマホではタッチ操作ボタンが表示されます。</p>
+  </div>
+</div>
+
+<div class="modal" id="skillsM" hidden>
+  <div class="sheet">
+    <div class="row" style="justify-content:space-between">
+      <div><h2>神経の発達</h2><p class="sub">神経は経験から芽生える。試し、失敗し、観察した先に新しい枝が見えてくる。習得した能力は、<b style="color:var(--ochre)">世代交代のときに定着させない限り</b>次の世代には受け継がれない。</p></div>
+      <div style="text-align:right"><div style="color:var(--dim);font-size:12px">神経エネルギー</div><div class="big" id="skNeu" style="color:var(--violet)">0</div></div>
+    </div>
+    <div class="legend"><span><i style="border-color:var(--ochre);background:rgba(217,160,63,.3)"></i>定着（遺伝）</span><span><i style="border-color:var(--leaf);background:rgba(134,173,95,.3)"></i>習得（この世代のみ）</span><span><i style="border-color:var(--violet)"></i>習得できる</span><span><i style="border-color:var(--line)"></i>前提が足りない</span><span><i style="border-color:var(--line);border-style:dashed"></i>まだ経験していない</span></div>
+    <div class="tree" id="tree"></div>
+    <div id="skDetail"></div>
+    <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn ghost" id="skClose" type="button">閉じる <kbd>K</kbd></button></div>
+  </div>
+</div>
+
+<div class="modal" id="leapM" hidden><div class="sheet" id="leapBody"></div></div>
+<div class="modal" id="menuM" hidden><div class="sheet" id="menuBody"></div></div>
+<div class="modal" id="infoM" hidden><div class="sheet" id="infoBody"></div></div>
+
+<div class="modal" id="helpM" hidden>
+  <div class="sheet">
+    <h2>遊び方</h2>
+    <p class="sub">目標：一族を絶やさず世代を重ね、200万年前の「ホモ・ハビリス」へ進化すること。</p>
+    <div class="help">
+      <div><kbd>WASD</kbd><span>移動（矢印キーも可）。<kbd>Shift</kbd>で走る</span></div>
+      <div><kbd>E</kbd><span>調べる・食べる・飲む・木に登る・使う</span></div>
+      <div><kbd>F</kbd><span>拾う／摘む。何もなければ手の物を置く</span></div>
+      <div><kbd>Q</kbd><span>長押しで感覚を研ぎ澄ます。周囲の匂いと物音を感じ取る</span></div>
+      <div><kbd>V</kbd><span>長押しで立ち止まって落ち着く。恐怖を克服すると神経が育つ</span></div>
+      <div><kbd>X</kbd><span>立ち上がる／四足に戻る（要「立ち上がる」）</span></div>
+      <div><kbd>R</kbd><span>両手の素材で道具を作る</span></div>
+      <div><kbd>Space</kbd><span>襲われたとき、輪が金色の帯に重なった瞬間に押してかわす。普段は威嚇</span></div>
+      <div><kbd>T</kbd><span>手の石を投げる（要「投てき」）</span></div>
+      <div><kbd>C</kbd><span>仲間を呼ぶ／巣で待たせる。子は背中に乗る</span></div>
+      <div><kbd>Tab</kbd><span>操作する個体を交代する</span></div>
+      <div><kbd>Z</kbd><span>巣か木の上で眠る（夕方以降）</span></div>
+      <div><kbd>K</kbd><span>神経（スキル）を開く</span></div>
+      <div><kbd>L</kbd><span>巣で世代交代。時が進み、子が大人になる</span></div>
+    </div>
+    <p class="sub" style="margin-top:14px">地図も、目的地の印もない。匂いを嗅ぎ、物音に耳を澄まし、触れて確かめること。神経は、経験と失敗の中から芽生える。迷ったら [C] で仲間を呼べば、遠くから呼び声が返ってくる。</p>
+    <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="helpClose" type="button">わかった</button></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ================= utilities =================
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,t)=>a+(b-a)*t;
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const rgb=c=>`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+const mix=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
+const shadeC=(c,v)=>[c[0]+v,c[1]+v,c[2]+v];
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+
+const cv=$('#cv'),ctx=cv.getContext('2d');
+const lc=document.createElement('canvas'),lx=lc.getContext('2d');
+let DPR=1,VW=800,VH=600,ZOOM=1;
+function resize(){DPR=Math.min(2,window.devicePixelRatio||1);VW=innerWidth;VH=innerHeight;cv.width=Math.round(VW*DPR);cv.height=Math.round(VH*DPR);lc.width=Math.ceil(VW/2);lc.height=Math.ceil(VH/2);ZOOM=clamp(Math.min(VW,VH)/640,0.8,1.45)}
+addEventListener('resize',resize);resize();
+
+// ================= data =================
+const TS=24,W=150,H=110,WPX=W*TS,HPX=H*TS,CH=16,DAY_LEN=300;
+const T={SAV:0,JUN:1,WAT:2,SAND:3,ROCK:4};
+const STAGES=[
+ {ma:10.0,name:'中新世の類人猿',sci:'cf. Nakalipithecus',desc:'森の樹上と地上を行き来する、ずんぐりとした類人猿。四足で歩き、果実を主食とする。',req:[],sav:0.24},
+ {ma:7.0,name:'サヘラントロプス',sci:'Sahelanthropus tchadensis',desc:'頭骨の付け根の孔がやや前に移り、上体を起こす姿勢が身についた。最古級の人類の候補。',req:['m3'],sav:0.34},
+ {ma:6.0,name:'オロリン',sci:'Orrorin tugenensis',desc:'太ももの骨に二足歩行の痕跡を残す。森の縁で立ち上がり、遠くを見渡すようになった。',req:['m3','m2'],sav:0.42},
+ {ma:4.4,name:'アルディピテクス',sci:'Ardipithecus ramidus',desc:'森と疎林が入り混じる土地で、地上では二本の足で歩き、樹上では木登りを使い分けた。',req:['m4'],sav:0.52},
+ {ma:3.6,name:'アウストラロピテクス',sci:'Australopithecus afarensis',desc:'ラエトリに足跡を残した猿人。サバンナを二本の足で長く歩き、道具に手を伸ばし始める。',req:['m4','m5','i2'],sav:0.62},
+ {ma:2.6,name:'初期のヒト属',sci:'Homo sp.',desc:'石を打ち欠いて鋭い刃を作り出した。オルドワン石器の始まり。',req:['i3','i4'],sav:0.7},
+ {ma:2.0,name:'ホモ・ハビリス',sci:'Homo habilis',desc:'「器用なヒト」。石器で肉を切り分け、大きくなる脳を養う。人類の長い旅の、新しい始まり。',req:['i4','i5'],sav:0.74,final:true},
+];
+const SKILLS=[
+ {id:'m1',br:0,name:'力強い四足歩行',cost:2,req:[],desc:'四足での移動速度 +15%。'},
+ {id:'m2',br:0,name:'持久力',cost:2,req:[],desc:'スタミナの回復 +50%、元気の消耗 -20%。'},
+ {id:'m3',br:0,name:'立ち上がる',cost:3,req:['m1'],desc:'[X] で上体を起こせる。視界が広がり、威嚇が強まる。ただし歩みは遅い。'},
+ {id:'m4',br:0,name:'直立二足歩行',cost:5,req:['m3','m2'],desc:'立ったまま速く歩ける。両手がふさがっていても速度が落ちない。'},
+ {id:'m5',br:0,name:'長距離歩行',cost:4,req:['m4'],desc:'直立時の速度 +15%、空腹と渇きの進み -25%。'},
+ {id:'m6',br:0,name:'投てき',cost:4,req:['m4','i2'],desc:'[T] で手の石を投げ、捕食者をひるませる。'},
+ {id:'s1',br:1,name:'鋭い嗅覚',cost:2,req:[],desc:'感覚 [Q] の届く範囲 +60%。'},
+ {id:'s2',br:1,name:'鋭い聴覚',cost:2,req:[],desc:'捕食者の気配を遠くから察知（+60%）。回避の猶予も少し伸びる。'},
+ {id:'s3',br:1,name:'空間記憶',cost:3,req:['s1'],desc:'景色を覚え、遠くまで見渡せる。探索の範囲 +50%、感覚の範囲 +30%。'},
+ {id:'s4',br:1,name:'夜目',cost:3,req:['s2'],desc:'夜の視界が広がり、夜の恐怖が和らぐ。'},
+ {id:'s5',br:1,name:'観察眼',cost:3,req:['s1'],desc:'未知の物を調べる速さが2倍。'},
+ {id:'i1',br:2,name:'手先の器用さ',cost:3,req:[],desc:'もう片方の手も使える（物を2つ持てる）。'},
+ {id:'i2',br:2,name:'道具の使用',cost:3,req:['i1'],desc:'枝でシロアリを釣り、石で硬い木の実を割る。'},
+ {id:'i3',br:2,name:'枝を削る',cost:4,req:['i2'],desc:'[R] 枝＋石 → 尖った枝。反撃に使える武器になる。'},
+ {id:'i6',br:2,name:'精密把握',cost:3,req:['i1','m3'],desc:'道具作りと道具の使用が2倍速くなる。'},
+ {id:'i4',br:2,name:'石を打ち欠く',cost:5,req:['i3'],desc:'[R] 石＋石 → 鋭い石片（オルドワン石器）。'},
+ {id:'i5',br:2,name:'解体',cost:4,req:['i4'],desc:'石片で獲物の死骸から肉を切り分ける。'},
+ {id:'c1',br:3,name:'毛づくろい',cost:2,req:[],desc:'仲間の近くで恐怖が早く和らぐ。'},
+ {id:'c2',br:3,name:'鳴き交わし',cost:2,req:[],desc:'[C] の呼び声がどこまでも届く。'},
+ {id:'c3',br:3,name:'子育て',cost:3,req:['c1'],desc:'子が生まれやすくなり、世代交代で定着できる神経 +1。'},
+ {id:'c5',br:3,name:'勇気',cost:3,req:['c1'],desc:'恐怖の高まりが 40% 緩やかに。'},
+ {id:'c4',br:3,name:'集団防衛',cost:4,req:['c2'],desc:'近くの仲間が捕食者に立ち向かい、追い払いやすくなる。'},
+];
+const SK=Object.fromEntries(SKILLS.map(s=>[s.id,s]));
+const BRANCHES=['運動','感覚','知性','社会'];
+const FEATS={
+ upright:{n:'初めて立ち上がった',v:0.2},poison:{n:'毒の実を見分けた',v:0.2},herb:{n:'薬草を見つけた',v:0.2},
+ termite:{n:'枝でシロアリを釣った',v:0.4},nut:{n:'石で木の実を割った',v:0.4},spear:{n:'尖った枝を作った',v:0.4},
+ flake:{n:'石を打ち欠いて刃を作った',v:0.6},butcher:{n:'肉を切り分けた',v:0.6},leopard:{n:'ヒョウを追い払った',v:0.5},
+ hyena:{n:'ハイエナを追い払った',v:0.4},croc:{n:'ワニを退けた',v:0.4},snake:{n:'ヘビを退けた',v:0.3},throw:{n:'石を投げて追い払った',v:0.3},
+ treenight:{n:'木の上で夜を越した',v:0.2},explore:{n:'土地の4割を歩き尽くした',v:0.4},clan8:{n:'一族が8人になった',v:0.4},
+ savwalk:{n:'サバンナを二本の足で旅した',v:0.4},carry:{n:'食料を巣に持ち帰った',v:0.2},
+};
+const MUTS=[
+ {id:'brain',n:'大きな脳',d:'神経エネルギーの獲得 +20%'},{id:'legs',n:'長い脚',d:'移動速度 +8%'},
+ {id:'jaw',n:'丈夫な顎',d:'食べ物から得る満腹 +20%'},{id:'eyes',n:'鋭い目',d:'視界 +15%'},
+ {id:'heat',n:'汗をかく肌',d:'元気の消耗 -20%'},{id:'immune',n:'強い免疫',d:'毒と出血の害 -40%'},
+];
+const KNOW={bush:['ベリーの茂み','甘い実がなる。食べられる。'],poison:['毒の実の茂み','見た目は似ているが、苦く危険な実だ。'],herb:['薬草','葉の汁が傷と毒を癒やす。'],
+ stick:['枝','まっすぐで丈夫な枝。'],stone:['石','手に収まる硬い石。'],termite:['シロアリ塚','中にたくさんの虫が潜んでいる。'],nuttree:['木の実の木','殻の硬い実を落とす。'],
+ carcass:['獣の死骸','肉食獣の食べ残し。'],water:['水','喉の渇きを癒やす。水辺には危険も潜む。'],tree:['木','登れば地上の危険から逃れられる。']};
+const ITEM={stick:'枝',stone:'石',fruit:'果実',meat:'肉',flake:'石片',spear:'尖った枝',herb:'薬草'};
+const GLYPH={bush:'実',poison:'毒',herb:'薬',stick:'枝',stone:'石',termite:'蟻',nuttree:'殻',carcass:'屍',fruit:'実',meat:'肉',flake:'刃',spear:'槍'};
+const PRED={
+ leopard:{n:'ヒョウ',g:'豹',spd:62,run:185,aggro:210,hp:4,dmg:26,qd:1.05,w:[0.6,0.88]},
+ hyena:{n:'ハイエナ',g:'獣',spd:70,run:170,aggro:250,hp:3,dmg:20,qd:1.0,w:[0.57,0.88]},
+ snake:{n:'ヘビ',g:'蛇',spd:0,run:30,aggro:30,hp:2,dmg:8,qd:0.8,w:[0.5,0.8]},
+ croc:{n:'ワニ',g:'鰐',spd:38,run:150,aggro:80,hp:3,dmg:40,qd:0.95,w:[0.6,0.84]},
+};
+const NAMES=['ウル','ナギ','ボア','キト','ララ','ゴン','ミナ','ザザ','トゥク','ヒヨ','アカ','ムム','ポポ','ケナ','ユル','オロ','ダダ','シシ','ネネ','ルカ','ホウ','ガラ','ピピ','モク','サイ','ヌー','タマ','リリ','コダ','エボ'];
+const ROLE={adult:'大人',elder:'長老',baby:'子'};
+const SKEY='shiso-no-daichi-v1';
+
+// ================= noise & world =================
+function noiseLayer(r,scale){const gw=Math.ceil(W/scale)+3,gh=Math.ceil(H/scale)+3,g=new Float32Array(gw*gh);for(let i=0;i<g.length;i++)g[i]=r();
+ return (x,y)=>{const fx=x/scale,fy=y/scale,ix=Math.floor(fx),iy=Math.floor(fy),tx=fx-ix,ty=fy-iy,sx=tx*tx*(3-2*tx),sy=ty*ty*(3-2*ty);
+  const a=g[iy*gw+ix],b=g[iy*gw+ix+1],c=g[(iy+1)*gw+ix],d=g[(iy+1)*gw+ix+1];return a+(b-a)*sx+(c-a)*sy+(a-b-c+d)*sx*sy}}
+let world=null;
+function genWorld(seed,sav){
+ const r=mulberry32(seed);
+ const m0=noiseLayer(r,30),m1=noiseLayer(r,13),m2=noiseLayer(r,5);
+ const r0=noiseLayer(r,46),r1=noiseLayer(r,18);
+ const k0=noiseLayer(r,15),k1=noiseLayer(r,6);
+ const N=W*H,tiles=new Uint8Array(N),moist=new Float32Array(N),jb=new Float32Array(N);
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++)moist[y*W+x]=(m0(x,y)+m1(x,y)*.5+m2(x,y)*.22)/1.72;
+ const sorted=Float32Array.from(moist).sort();const thr=sorted[Math.floor(sav*N)];
+ let water=0;
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x,m=moist[i];
+  const rv=Math.abs((r0(x,y)+r1(x,y)*.35)/1.35-0.5),k=(k0(x,y)+k1(x,y)*.4)/1.4;
+  let t=m>thr?T.JUN:T.SAV;
+  if(k>0.69)t=T.ROCK;
+  if(rv<0.017||(k<0.25&&m>thr-0.02))t=T.WAT;else if(rv<0.03||(k<0.275&&m>thr-0.02))t=T.SAND;
+  tiles[i]=t;if(t===T.WAT)water++;
+  jb[i]=clamp((m-thr)/0.09*0.5+0.5,0,1);jb[i]=jb[i]*jb[i]*(3-2*jb[i]);
+ }
+ const w={seed,tiles,moist,jb,objs:[],nest:null,explored:new Uint8Array(N),exN:0,chunks:new Map(),water:0};
+ world=w;
+ // nest: jungle-ish tile near (but not at) water, closest to centre
+ let best=null,bs=1e9;
+ for(let y=Math.floor(H*.2);y<H*.8;y+=2)for(let x=Math.floor(W*.2);x<W*.8;x+=2){const i=y*W+x;if(tiles[i]!==T.JUN&&tiles[i]!==T.SAV)continue;
+  let wd=99;for(let dy=-9;dy<=9;dy++)for(let dx=-9;dx<=9;dx++){const xx=x+dx,yy=y+dy;if(xx<0||yy<0||xx>=W||yy>=H)continue;if(tiles[yy*W+xx]===T.WAT){const d=Math.hypot(dx,dy);if(d<wd)wd=d}}
+  if(wd<3.5||wd>9)continue;const s=Math.hypot(x-W/2,y-H/2)+(tiles[i]===T.JUN?0:25)+r()*6;if(s<bs){bs=s;best=[x,y]}}
+ if(!best){best=[W/2|0,H/2|0];for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++)if(Math.hypot(dx,dy)<4){const i=(best[1]+dy)*W+best[0]+dx+8;tiles[i]=T.WAT}}
+ for(let i=0;i<N;i++)if(tiles[i]===T.WAT)water++;
+ w.water=water;
+ const nx=(best[0]+.5)*TS,ny=(best[1]+.5)*TS;
+ for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){const i=(best[1]+dy)*W+best[0]+dx;if(tiles[i]===T.ROCK)tiles[i]=T.JUN}
+ w.nest={t:'nest',x:nx,y:ny};
+ const objs=w.objs;objs.push(w.nest);
+ for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=y*W+x,t=tiles[i],q=r(),px=(x+r())*TS,py=(y+r())*TS;
+  if(Math.hypot(px-nx,py-ny)<95)continue;const v=r();
+  if(t===T.JUN){if(q<.08)objs.push({t:'tree',x:px,y:py,v});else if(q<.1)objs.push({t:'bush',x:px,y:py,n:4,max:4,rg:0,v});else if(q<.107)objs.push({t:'poison',x:px,y:py,n:4,max:4,rg:0,v});
+   else if(q<.112)objs.push({t:'herb',x:px,y:py,v});else if(q<.123)objs.push({t:'item',k:'stick',x:px,y:py,v});else if(q<.129)objs.push({t:'nuttree',x:px,y:py,nuts:3,rg:0,v});else if(q<.132)objs.push({t:'item',k:'stone',x:px,y:py,v})}
+  else if(t===T.SAV){if(q<.013)objs.push({t:'acacia',x:px,y:py,v});else if(q<.019)objs.push({t:'termite',x:px,y:py,v});else if(q<.023)objs.push({t:'item',k:'stick',x:px,y:py,v});
+   else if(q<.028)objs.push({t:'item',k:'stone',x:px,y:py,v});else if(q<.034)objs.push({t:'bush',x:px,y:py,n:3,max:3,rg:0,v});else if(q<.037)objs.push({t:'poison',x:px,y:py,n:3,max:3,rg:0,v});else if(q<.039)objs.push({t:'herb',x:px,y:py,v})}
+  else if(t===T.ROCK){if(q<.07)objs.push({t:'item',k:'stone',x:px,y:py,v})}
+  else if(t===T.SAND){if(q<.025)objs.push({t:'item',k:'stone',x:px,y:py,v});else if(q<.032)objs.push({t:'item',k:'stick',x:px,y:py,v})}
+ }
+ // a starter kit near the nest
+ const near=(o,a,d)=>{const x=nx+Math.cos(a)*d,y=ny+Math.sin(a)*d;if(tileAt(x,y)!==T.WAT){o.x=x;o.y=y;o.v=r();objs.push(o)}};
+ near({t:'item',k:'stick'},0.3,110);near({t:'item',k:'stone'},1.2,125);near({t:'item',k:'stone'},2.4,140);near({t:'bush',n:4,max:4,rg:0},3.5,150);
+ near({t:'tree'},4.4,130);near({t:'tree'},5.4,150);near({t:'item',k:'stick'},5.9,170);near({t:'bush',n:4,max:4,rg:0},1.9,190);
+ // minimap base
+ const base=new Uint8ClampedArray(N*4);for(let i=0;i<N;i++){const c=tileRGB(i);base[i*4]=c[0];base[i*4+1]=c[1];base[i*4+2]=c[2];base[i*4+3]=255}
+ w.mini=base;
+ return w;
+}
+function tileAt(px,py){const tx=Math.floor(px/TS),ty=Math.floor(py/TS);if(tx<0||ty<0||tx>=W||ty>=H)return T.ROCK;return world.tiles[ty*W+tx]}
+function tileRGB(i){const t=world.tiles[i];let c;
+ if(t===T.WAT)c=[40,86,94];else if(t===T.SAND)c=[178,158,112];else if(t===T.ROCK)c=[126,118,106];else c=mix([188,156,84],[50,82,40],world.jb[i]);
+ const v=(world.moist[i]-0.5)*44;return [c[0]+v*.6,c[1]+v*.6,c[2]+v*.4]}
+function waterNear(x,y,r){const t0=Math.floor((x-r)/TS),t1=Math.floor((x+r)/TS),u0=Math.floor((y-r)/TS),u1=Math.floor((y+r)/TS);
+ for(let ty=u0;ty<=u1;ty++)for(let tx=t0;tx<=t1;tx++){if(tx<0||ty<0||tx>=W||ty>=H)continue;if(world.tiles[ty*W+tx]!==T.WAT)continue;
+  const cx=clamp(x,tx*TS,tx*TS+TS),cy=clamp(y,ty*TS,ty*TS+TS);if(Math.hypot(cx-x,cy-y)<r)return {x:cx,y:cy}}return null}
+function chunkCanvas(cx,cy){const key=cx+'_'+cy;let c=world.chunks.get(key);if(c)return c;
+ c=document.createElement('canvas');const S=CH*TS;c.width=S;c.height=S;const g=c.getContext('2d');
+ const r=mulberry32((world.seed^(cx*73856093)^(cy*19349663))>>>0);
+ for(let ty=0;ty<CH;ty++)for(let tx=0;tx<CH;tx++){const X=cx*CH+tx,Y=cy*CH+ty,px=tx*TS,py=ty*TS;
+  if(X>=W||Y>=H){g.fillStyle='#0d0b08';g.fillRect(px,py,TS,TS);continue}
+  const i=Y*W+X,t=world.tiles[i],col=tileRGB(i);g.fillStyle=rgb(col);g.fillRect(px,py,TS+.5,TS+.5);
+  if(t===T.WAT){let deep=true;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const xx=X+dx,yy=Y+dy;if(xx>=0&&yy>=0&&xx<W&&yy<H&&world.tiles[yy*W+xx]!==T.WAT)deep=false}
+   if(deep){g.fillStyle='rgba(10,30,45,.35)';g.fillRect(px,py,TS+.5,TS+.5)}continue}
+  for(let k=0;k<5;k++){const v=(r()-.5)*26;g.fillStyle=rgb(shadeC(col,v));g.fillRect(px+r()*TS,py+r()*TS,2+r()*3,1.5+r()*2)}
+  if(t===T.SAV){g.lineWidth=1;for(let k=0;k<5;k++){const bx=px+r()*TS,by=py+r()*TS;g.strokeStyle=r()<.5?'rgba(232,204,130,.55)':'rgba(120,96,40,.45)';g.beginPath();g.moveTo(bx,by);g.lineTo(bx+(r()-.5)*5,by-4-r()*6);g.stroke()}}
+  else if(t===T.JUN){for(let k=0;k<3;k++){g.fillStyle=r()<.55?'rgba(18,36,14,.45)':'rgba(96,128,52,.3)';g.beginPath();g.ellipse(px+r()*TS,py+r()*TS,2+r()*3,1+r()*2,r()*3,0,7);g.fill()}}
+  else if(t===T.ROCK){g.strokeStyle='rgba(70,64,56,.6)';g.lineWidth=1;g.beginPath();const ax=px+r()*TS,ay=py+r()*TS;g.moveTo(ax,ay);g.lineTo(ax+(r()-.5)*14,ay+(r()-.5)*14);g.stroke()}
+ }
+ world.chunks.set(key,c);return c}
+
+// ================= state =================
+let autoT=60,echoes=[],G=null,apes=[],preds=[],PL=null,uid=0,state='title',projs=[],fx=[];
+let TG=null,CUR={},QTE=null,HEARD=0,sensing=false,calming=false,spawnT=0,exT=0,hudT=0,miniT=0,shake=0,rdt=0.016,clock=0;
+const cam={x:0,y:0};
+const has=id=>!!(G&&G.skills[id]);
+const fixed=id=>G&&G.skills[id]==='fixed';
+const hasMut=id=>G&&G.muts.includes(id);
+const isNight=()=>G&&(G.time>0.78||G.time<0.03);
+function addNeu(v){G.neu+=v*(hasMut('brain')?1.2:1)}
+function maxHp(a){return a.role==='elder'?75:a.role==='baby'?60:100}
+function mkApe(role,name){const v=(Math.random()-.5)*30;return {id:++uid,name:name||NAMES[Math.random()*NAMES.length|0],role,x:0,y:0,hp:role==='elder'?75:role==='baby'?60:100,hun:80,thi:85,ene:90,fear:0,sta:100,hands:[null,null],up:false,climb:null,ride:false,follow:false,face:1,ph:0,moving:false,bleed:0,poison:0,act:null,fur:[92+v,64+v*.8,42+v*.6],aiT:0,tx:0,ty:0,eatT:0,hurtT:0,panicT:0,roarT:0}}
+function nameUnused(){const used=new Set(apes.map(a=>a.name));const c=NAMES.filter(n=>!used.has(n));return c.length?c[Math.random()*c.length|0]:NAMES[Math.random()*NAMES.length|0]}
+
+function newGame(){
+ G={stage:0,ma:10,gen:1,day:1,dayInGen:0,time:0.08,neu:3,skills:{},know:{},feats:{},genFeats:[],muts:[],insp:{},cnt:{},store:3,seed:(Math.random()*1e9)|0,savWalk:0,deaths:0,births:0,started:Date.now()};
+ genWorld(G.seed,STAGES[0].sav);
+ apes=[];const nm=shuffle(NAMES);
+ ['adult','adult','adult','elder','baby','baby'].forEach((r,i)=>apes.push(mkApe(r,nm[i])));
+ startPlay();
+ msg('森のねぐらで目を覚ました');
+}
+function startPlay(place=true){
+ if(place){placeClan();PL=apes.find(a=>a.role==='adult')||apes[0]}
+ preds=[];projs=[];fx=[];QTE=null;spawnT=25;
+ cam.x=PL.x-VW/ZOOM/2;cam.y=PL.y-VH/ZOOM/2;
+ state='play';$('#hud').hidden=false;$('#title').hidden=true;
+ if(matchMedia('(pointer:coarse)').matches)$('#touch').hidden=false;
+ updateHUD(true);
+}
+function placeClan(){const n=world.nest;apes.forEach((a,i)=>{const ang=i/apes.length*6.283;a.x=n.x+Math.cos(ang)*38;a.y=n.y+Math.sin(ang)*22;a.climb=null;a.ride=false;a.follow=false;a.act=null;a.up=false})}
+
+// ================= messages & fx =================
+function msg(t,cls){const d=document.createElement('div');d.textContent=t;if(cls)d.className=cls;const L=$('#log');L.prepend(d);while(L.children.length>5)L.lastChild.remove();
+ setTimeout(()=>{d.style.opacity=0;setTimeout(()=>d.remove(),700)},cls==='feat'?7000:4800)}
+function inspire(id){if(!G||G.insp[id])return;G.insp[id]=1;msg(`ひらめき：神経に新しい枝が芽生えた ―「${SK[id].name}」`,'good')}
+function bump(k,n,id,v){G.cnt[k]=(G.cnt[k]||0)+(v==null?1:v);if(G.cnt[k]>=n)inspire(id)}
+function echo(a,faint){echoes.push({x:a.x,y:a.y,life:2,faint});floatTxt(a.x,a.y-40,faint?'…ホーッ':'ホーッ！')}
+function floatTxt(x,y,t,col){fx.push({x,y,t,col:col||'#efe5cf',life:1.4})}
+function feat(id){if(!G||G.feats[id])return;G.feats[id]=1;G.genFeats.push(id);addNeu(2);msg(`偉業：${FEATS[id].n}（世代交代で +${Math.round(FEATS[id].v*100)}万年）`,'feat')}
+
+// ================= input =================
+const keys={};const joy={x:0,y:0};
+const CODEMAP={KeyW:'w',KeyA:'a',KeyS:'s',KeyD:'d',ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',ShiftLeft:'shift',ShiftRight:'shift',Space:'space',Tab:'tab',Escape:'esc',KeyE:'e',KeyF:'f',KeyQ:'q',KeyV:'v',KeyX:'x',KeyR:'r',KeyT:'t',KeyC:'c',KeyZ:'z',KeyK:'k',KeyL:'l',KeyH:'h',KeyP:'p',Enter:'enter'};
+addEventListener('keydown',e=>{const k=CODEMAP[e.code];if(!k)return;if(e.target&&/^(TEXTAREA|INPUT)$/.test(e.target.tagName)&&k!=='esc')return;if(['tab','space','up','down','left','right'].includes(k)&&state!=='title'&&!anyModal()){e.preventDefault();if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()}if(!keys[k]&&!e.repeat)onPress(k);keys[k]=true});
+addEventListener('keyup',e=>{const k=CODEMAP[e.code];if(k)keys[k]=false});
+addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
+function anyModal(){return ['skillsM','leapM','infoM','helpM','menuM'].some(id=>!$('#'+id).hidden)}
+function onPress(k){
+ if(state==='title')return;
+ if(!$('#skillsM').hidden){if(k==='k'||k==='esc')closeSkills();return}
+ if(!$('#menuM').hidden){if(k==='esc'||k==='p')closeMenu();return}
+ if(!$('#helpM').hidden){if(k==='h'||k==='esc'||k==='enter')$('#helpM').hidden=true;return}
+ if(anyModal())return;
+ if(state!=='play')return;
+ const P=PL;
+ if(k==='space'){if(QTE){qteResolve(QTE.t/QTE.dur>=QTE.w[0]&&QTE.t/QTE.dur<=QTE.w[1]);return}roar(P);return}
+ if(QTE||P.panicT>0)return;
+ switch(k){
+  case 'e':if(CUR.e&&CUR.e.f)CUR.e.f();break;
+  case 'f':if(CUR.f&&CUR.f.f)CUR.f.f();break;
+  case 'r':craft(P);break;
+  case 'x':toggleUp(P);break;
+  case 't':throwStone(P);break;
+  case 'c':callClan();break;
+  case 'tab':switchApe();break;
+  case 'k':openSkills();break;
+  case 'l':openLeap();break;
+  case 'z':trySleep(P);break;
+  case 'h':$('#helpM').hidden=false;break;
+  case 'esc':case 'p':openMenu();break;
+ }
+}
+// touch
+(function(){const J=$('#joy'),K=J.querySelector('i');let id=null,ox=0,oy=0;
+ J.addEventListener('pointerdown',e=>{id=e.pointerId;J.setPointerCapture(id);const r=J.getBoundingClientRect();ox=r.left+60;oy=r.top+60;mv(e)});
+ const mv=e=>{if(e.pointerId!==id)return;let dx=e.clientX-ox,dy=e.clientY-oy;const l=Math.hypot(dx,dy);if(l>50){dx*=50/l;dy*=50/l}joy.x=dx/50;joy.y=dy/50;K.style.transform=`translate(${dx}px,${dy}px)`};
+ J.addEventListener('pointermove',mv);const up=e=>{if(e.pointerId!==id)return;id=null;joy.x=joy.y=0;K.style.transform=''};J.addEventListener('pointerup',up);J.addEventListener('pointercancel',up);
+ document.querySelectorAll('#tbtns button').forEach(b=>{const k=b.dataset.k;b.addEventListener('pointerdown',e=>{e.preventDefault();if(!keys[k])onPress(k);keys[k]=true});const u=()=>{keys[k]=false};b.addEventListener('pointerup',u);b.addEventListener('pointerleave',u);b.addEventListener('pointercancel',u)});
+})();
+
+// ================= interactions =================
+function kk(o){if(o.t==='item')return o.k;if(o.t==='acacia')return 'tree';if(o.t==='nest')return null;return o.t}
+function isTree(o){return o.t==='tree'||o.t==='acacia'||o.t==='nuttree'}
+function nameOf(o){if(o.t==='item')return ITEM[o.k];if(o.t==='nest')return '一族のねぐら';const k=kk(o);return KNOW[k]?KNOW[k][0]:''}
+function freeHand(P){const n=has('i1')?2:1;for(let i=0;i<n;i++)if(!P.hands[i])return i;return -1}
+function removeObj(o){const i=world.objs.indexOf(o);if(i>=0)world.objs.splice(i,1)}
+function startAct(P,label,dur,fn){P.act={label,t:0,dur,fn}}
+const investT=()=>has('s5')?0.8:1.6, toolT=t=>has('i6')?t/2:t;
+function eat(P,v){P.hun=Math.min(100,P.hun+v*(hasMut('jaw')?1.2:1));addNeu(0.1)}
+function eatFood(P,k){eat(P,k==='meat'?30:14);floatTxt(P.x,P.y-40,'もぐもぐ')}
+function useHerb(P){P.bleed=0;P.poison=0;P.hp=Math.min(maxHp(P),P.hp+12);msg('薬草の汁が傷と毒を癒やした','good')}
+function identify(k){if(G.know[k])return;G.know[k]=1;bump('invest',4,'s5');if(k==='bush')G.know.fruit=1;if(k==='carcass')G.know.meat=1;addNeu(3);
+ msg(`発見：${KNOW[k][0]} ― ${KNOW[k][1]}`,'good');if(k==='poison')feat('poison');if(k==='herb')feat('herb')}
+function pickup(P,o){const h=freeHand(P);if(h<0)return;P.hands[h]=o.k;removeObj(o);G.know[o.k]=1;bump('pick',3,'i1')}
+function dropItem(P,i){const k=P.hands[i];if(!k)return;world.objs.push({t:'item',k,x:P.x+P.face*14,y:P.y+3,v:Math.random(),seen:true});P.hands[i]=null}
+function lastHeld(P){for(let i=1;i>=0;i--)if(P.hands[i])return i;return -1}
+function climb(P,tr){P.climb=tr;P.x=tr.x;P.y=tr.y;P.act=null;if(!G.climbed){G.climbed=1;addNeu(1)}bump('climb',2,'m3');}
+function climbDown(P){if(!P.climb)return;P.y=P.climb.y+16;P.climb=null}
+
+function findTarget(P){
+ if(P.climb)return null;let best=null,bd=1e9;
+ for(const o of world.objs){if(o.t==='nest')continue;const dx=o.x-P.x,dy=o.y-P.y;if(Math.abs(dx)>50||Math.abs(dy)>50)continue;
+  const d=Math.hypot(dx,dy)+(o.t==='item'?-6:0);const lim=isTree(o)?30:40;if(d<lim&&d<bd){bd=d;best=o}}
+ if(best)return best;
+ const w=waterNear(P.x,P.y,30);if(w)return {t:'water',x:w.x,y:w.y};
+ if(dist(P,world.nest)<80)return world.nest;
+ return null}
+function actionsFor(P,tg){
+ const A={};const fh=freeHand(P);
+ const fi=P.hands.findIndex(h=>h==='fruit'||h==='meat');
+ if(P.climb){A.name='木の上';A.e={l:'木から降りる',f:()=>climbDown(P)};if(isNight()||P.ene<35)A.z={l:'ここで眠る'};return A}
+ if(tg){const k=kk(tg);
+  if(k&&!G.know[k]){A.name='？？？';A.e={l:'調べる',f:()=>startAct(P,'調べている…',investT(),()=>identify(k))}}
+  else{A.name=nameOf(tg);
+   switch(tg.t){
+    case 'item':if(fh>=0)A.f={l:'拾う',f:()=>pickup(P,tg)};
+     if(tg.k==='fruit'||tg.k==='meat')A.e={l:'食べる',f:()=>{removeObj(tg);eatFood(P,tg.k)}};
+     if(tg.k==='herb')A.e={l:'薬草を使う',f:()=>{removeObj(tg);useHerb(P)}};
+     if(fh<0)A.note='両手がふさがっている';break;
+    case 'bush':if(tg.n>0){A.e={l:'実を食べる',f:()=>startAct(P,'食べている',0.7,()=>{if(tg.n>0){tg.n--;eat(P,13);floatTxt(P.x,P.y-40,'甘い')}})};if(fh>=0)A.f={l:'実を摘む',f:()=>{tg.n--;P.hands[fh]='fruit'}}}else A.note='実が残っていない';break;
+    case 'poison':if(tg.n>0)A.e={l:'実を食べる（毒）',f:()=>startAct(P,'食べている',0.7,()=>{tg.n--;P.poison+=22;P.hun=Math.min(100,P.hun+4);msg('苦い！ 体がしびれる…毒だ','bad')})};break;
+    case 'herb':A.e={l:'薬草を食べる',f:()=>{removeObj(tg);useHerb(P)}};if(fh>=0)A.f={l:'摘む',f:()=>{removeObj(tg);P.hands[fh]='herb'}};break;
+    case 'tree':case 'acacia':A.e={l:'木に登る',f:()=>climb(P,tg)};break;
+    case 'nuttree':
+     if(P.hands.includes('stone')&&tg.nuts>0){if(has('i2'))A.e={l:'石で木の実を割る',f:()=>startAct(P,'木の実を割っている',toolT(2.2),()=>{tg.nuts--;eat(P,22);addNeu(1);feat('nut');floatTxt(P.x,P.y-40,'カツン！')})};
+      else A.e={l:'木の実を割る？',f:()=>{inspire('i2');msg('石で殻を叩いてみたが、うまく当たらない…')}}}
+     else{A.e={l:'木に登る',f:()=>climb(P,tg)}}break;
+    case 'termite':
+     if(P.hands.includes('stick')){if(has('i2'))A.e={l:'枝でシロアリを釣る',f:()=>startAct(P,'シロアリを釣っている',toolT(2.4),()=>{eat(P,24);addNeu(1);feat('termite');floatTxt(P.x,P.y-40,'たくさん釣れた')})};
+      else A.e={l:'枝を差し込む？',f:()=>{inspire('i2');msg('枝を穴に差し込んでみたが、うまく扱えない…')}}}
+     else A.e={l:'穴をのぞく',f:()=>msg('穴の奥で何かがうごめいている')};break;
+    case 'carcass':
+     if(P.hands.includes('flake')&&has('i5'))A.e={l:'石片で肉を切り分ける',f:()=>startAct(P,'肉を切り分けている',toolT(3),()=>{eat(P,35);for(let j=0;j<2;j++)world.objs.push({t:'item',k:'meat',x:tg.x+(j?16:-16),y:tg.y+8,v:Math.random(),seen:true});removeObj(tg);addNeu(3);feat('butcher')})};
+     else A.e={l:'肉片をあさる',f:()=>startAct(P,'あさっている',1.2,()=>{if(tg.meat>0){tg.meat--;eat(P,9);if(tg.meat<=0)removeObj(tg)}if(P.hands.includes('flake')&&!has('i5')){inspire('i5');msg('この石なら切れそうな気がする…')}})};break;
+    case 'water':A.e={l:'水を飲む',f:()=>{crocAlert(P);startAct(P,'水を飲んでいる',1.1,()=>{P.thi=Math.min(100,P.thi+40);addNeu(0.1)})}};break;
+    case 'nest':if(fi>=0)A.e={l:'食料を蓄える',f:()=>{const k=P.hands[fi];P.hands[fi]=null;G.store+=k==='meat'?2:1;addNeu(0.5);feat('carry');msg(`蓄えが ${G.store} になった`,'good')}};else A.note=`蓄え ${G.store}`;break;
+   }}}
+ if(!A.e&&fi>=0)A.e={l:`手の${ITEM[P.hands[fi]]}を食べる`,f:()=>{const k=P.hands[fi];P.hands[fi]=null;eatFood(P,k)}};
+ if(!A.e&&P.hands.includes('herb'))A.e={l:'手の薬草を使う',f:()=>{P.hands[P.hands.indexOf('herb')]=null;useHerb(P)}};
+ if(!A.f){const li=lastHeld(P);if(li>=0)A.f={l:`${ITEM[P.hands[li]]}を置く`,f:()=>dropItem(P,li)}}
+ return A}
+function craft(P){
+ const a=P.hands[0],b=P.hands[1];
+ if(!has('i1'))return msg('片手しか自由にならない');
+ if(!a||!b)return msg('両手に何か持たないと…');
+ const pair=[a,b].sort().join('+');
+ if(pair==='stick+stone'){if(!has('i3')){inspire('i3');return msg('枝を石でこすってみた。何かがわかりかけている…')}
+  startAct(P,'枝を削っている',toolT(2.6),()=>{P.hands[P.hands.indexOf('stick')]='spear';addNeu(G.feats.spear?0.5:3);feat('spear');bump('craft',2,'i6');msg('尖った枝ができた','good')})}
+ else if(pair==='stone+stone'){if(!has('i4')){inspire('i4');return msg('石同士を打ちつけてみた。かけらが飛んだ…')}
+  startAct(P,'石を打ち欠いている',toolT(3.2),()=>{P.hands[1]='flake';addNeu(G.feats.flake?0.5:4);feat('flake');bump('craft',2,'i6');msg('鋭い石片ができた！','good')})}
+ else msg('この組み合わせでは何も作れない')}
+function toggleUp(P){if(P.climb)return;if(!has('m3')){inspire('m3');msg('後ろ足で立とうとしたが、すぐに手をついてしまった');return}P.up=!P.up;if(P.up){feat('upright');floatTxt(P.x,P.y-56,'すっ')}}
+function roar(P){if(P.roarT>0||P.climb)return;P.roarT=1.4;floatTxt(P.x,P.y-50,P.up?'ウォオオッ！':'キキーッ！','#f2c3b8');let hit=0;if(P.hands.includes('stone'))inspire('m6');
+ for(const p of preds){if(p.state==='flee'||dist(p,P)>170)continue;let d=(P.up?0.5:0.25)+(P.hands.includes('spear')?0.5:P.hands.includes('stick')?0.25:0);p.c-=d;hit++;
+  if(p.c<=0)predFlee(p,true);else if(p.k!=='snake'){p.state='recover';p.cd=1.4;p.tgt=P}}
+ if(hit)addNeu(0.3)}
+function throwStone(P){if(!has('m6')){if(P.hands.includes('stone'))inspire('m6');msg('うまく投げられない');return}const i=P.hands.indexOf('stone');if(i<0){msg('投げる石を持っていない');return}
+ let tgt=null,bd=280;for(const p of preds){if(p.state==='flee')continue;const d=dist(p,P);if(d<bd){bd=d;tgt=p}}
+ P.hands[i]=null;const tx=tgt?tgt.x:P.x+P.face*160,ty=tgt?tgt.y-10:P.y-10;projs.push({x:P.x,y:P.y-30,sx:P.x,sy:P.y-30,tx,ty,t:0,tgt})}
+function callClan(){const P=PL;const R=has('c2')?1e9:380;bump('call',2,'c2');apes.filter(a=>a!==P&&!a.ride&&dist(a,P)>=R&&dist(a,P)<1700).forEach(a=>echo(a,true));
+ const stay=apes.filter(a=>a!==P&&!a.follow&&dist(a,P)<R);floatTxt(P.x,P.y-50,'ホーッ、ホーッ');
+ if(stay.length){stay.forEach(a=>{a.follow=true;echo(a)});msg(`呼び声に ${stay.length} 人が応えた。ついてくる`)}
+ else{const f=apes.filter(a=>a!==P&&a.follow);if(f.length){f.forEach(a=>{a.follow=false;a.ride=false});msg('仲間に、ねぐらで待つよう伝えた')}else msg('呼び声の届く所に仲間がいない')}}
+function switchApe(){const c=apes.filter(a=>a.role!=='baby');if(c.length<2)return;const i=c.indexOf(PL);const nx=c[(i+1)%c.length];PL.follow=true;PL.act=null;PL=nx;PL.follow=false;PL.act=null;msg(`${PL.name}（${ROLE[PL.role]}）を操作する`)}
+function crocAlert(P){for(const p of preds)if(p.k==='croc'&&p.state!=='flee'&&dist(p,P)<230){p.tgt=P;p.state='charge'}}
+
+// ================= sleep & generations =================
+function fade(text,fn){$('#fadeTxt').textContent=text;$('#fade').classList.add('on');state='fade';setTimeout(()=>{fn();setTimeout(()=>{$('#fade').classList.remove('on');if(state==='fade')state='play'},700)},900)}
+function trySleep(P){const atNest=dist(P,world.nest)<90;
+ if(!atNest&&!P.climb)return msg('地上では安心して眠れない。ねぐらか木の上で眠ろう');
+ if(!(G.time>0.6||G.time<0.03)&&P.ene>35)return msg('まだ眠くない（夕方以降か、疲れたときに眠れる）');
+ fade('夜が明ける…',()=>{
+  if(G.time>0.03){G.day++;G.dayInGen++}G.time=0.03;
+  if(P.climb&&!atNest)feat('treenight');
+  for(const a of apes){a.hp=Math.min(maxHp(a),a.hp+30);a.ene=100;a.hun=Math.max(8,a.hun-18);if(a===P)a.thi=Math.max(8,a.thi-22);a.fear=0}
+  let fed=0;for(const a of apes){if(dist(a,world.nest)<200&&G.store>0&&a.hun<70){G.store--;a.hun=Math.min(100,a.hun+45);fed++}}
+  preds=preds.filter(p=>p.k!=='hyena');preds.forEach(p=>{if(p.state!=='flee'){p.state='roam';p.tgt=null}});
+  const adults=apes.filter(a=>a.role==='adult').length,babies=apes.filter(a=>a.role==='baby').length;
+  if(atNest&&adults>=2&&G.store>=3&&apes.length<10&&babies<3&&Math.random()<(has('c3')?0.75:0.5)){G.store-=3;const b=mkApe('baby',nameUnused());b.x=world.nest.x+10;b.y=world.nest.y;apes.push(b);G.births++;inspire('c3');msg(`子どもが生まれた！ 名は ${b.name}`,'good');if(apes.length>=8)feat('clan8')}
+  msg(`${G.day}日目の朝。${fed?`蓄えから ${fed} 人が食べた（残り ${G.store}）`:''}`);save()})}
+
+function openLeap(){
+ const P=PL;if(dist(P,world.nest)>100)return msg('世代交代は、ねぐらで行う');
+ const babies=apes.filter(a=>a.role==='baby');
+ if(G.dayInGen<1)return msg('この世代はまだ若い。少なくとも一晩を越そう');
+ if(!babies.length)return msg('次の世代を担う子がいない。食料を蓄えて、ねぐらで眠ろう');
+ const slots=babies.length+1+(has('c3')?1:0);
+ const learned=SKILLS.filter(s=>G.skills[s.id]==='learned');
+ const fixedL=SKILLS.filter(s=>G.skills[s.id]==='fixed');
+ const elders=apes.filter(a=>a.role==='elder');
+ const fsum=G.genFeats.reduce((s,f)=>s+FEATS[f].v,0),adv=0.3+fsum;
+ const next=STAGES[G.stage+1];
+ let h=`<h2>世代交代 ― 第${G.gen}世代から第${G.gen+1}世代へ</h2>
+ <p class="sub">子は大人に、大人は長老になる。長老は眠りにつく。この世代で身につけた神経のうち、<b style="color:var(--ochre)">${slots} つまで</b>を子孫に定着させられる（子の数 + 1${has('c3')?' + 子育て':''}）。</p>
+ <div class="grid2"><div><h3 style="font-family:var(--f-disp);font-weight:400;margin:0 0 8px">定着させる神経</h3><div class="list" id="fixList">`;
+ if(!learned.length)h+=`<p class="sub">この世代で新しく習得した神経はない。</p>`;
+ for(const s of learned)h+=`<label class="chk" data-id="${s.id}"><input type="checkbox" id="fx_${s.id}" value="${s.id}"><span><b>${s.name}</b><br><small style="color:var(--dim)">${s.desc}</small></span></label>`;
+ h+=`</div>${fixedL.length?`<p class="sub" style="margin-top:10px">定着済み：${fixedL.map(s=>s.name).join('、')}</p>`:''}</div>
+ <div><h3 style="font-family:var(--f-disp);font-weight:400;margin:0 0 8px">時の流れ</h3><dl class="kv">
+ <dt>進む時間</dt><dd><span class="big">${Math.round(adv*100)}</span> 万年（基本 30 + 偉業 ${Math.round(fsum*100)}）</dd>
+ <dt>この世代の偉業</dt><dd>${G.genFeats.length?G.genFeats.map(f=>FEATS[f].n).join('、'):'なし'}</dd>
+ <dt>眠りにつく長老</dt><dd>${elders.length?elders.map(a=>a.name).join('、'):'なし'}</dd>
+ <dt>大人になる子</dt><dd>${babies.map(a=>a.name).join('、')}</dd>
+ <dt>次の種へ</dt><dd>${next?`${next.name}（${next.ma.toFixed(1)}百万年前）<br><small style="color:var(--dim)">定着が必要：${next.req.map(r=>fixed(r)?'✓ '+SK[r].name:'？？？').join('、')||'なし'}</small>`:'—'}</dd>
+ </dl></div></div>
+ <div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn ghost" id="leapNo" type="button">まだ続ける</button><button class="btn" id="leapGo" type="button">世代を継ぐ</button></div>`;
+ $('#leapBody').innerHTML=h;$('#leapM').hidden=false;
+ const validate=()=>{let changed=true;while(changed){changed=false;for(const s of learned){const c=$('#fx_'+s.id);if(c.checked&&s.req.some(r=>!(fixed(r)||($('#fx_'+r)&&$('#fx_'+r).checked)))){c.checked=false;changed=true}}}
+  const n=learned.filter(s=>$('#fx_'+s.id).checked).length;
+  for(const s of learned){const c=$('#fx_'+s.id);const reqOk=s.req.every(r=>fixed(r)||($('#fx_'+r)&&$('#fx_'+r).checked));c.disabled=!c.checked&&(n>=slots||!reqOk);c.closest('.chk').classList.toggle('dis',c.disabled)}};
+ learned.forEach(s=>$('#fx_'+s.id).addEventListener('change',validate));validate();
+ $('#leapNo').onclick=()=>{$('#leapM').hidden=true};state='modal';$('#leapNo').onclick=()=>{$('#leapM').hidden=true;state='play'};
+ $('#leapGo').onclick=()=>{const sel=learned.filter(s=>$('#fx_'+s.id).checked).map(s=>s.id).slice(0,slots);$('#leapM').hidden=true;doLeap(sel,adv)};
+ $('#leapGo').focus()}
+function doLeap(sel,adv){
+ const lost=[];for(const id in G.skills)if(G.skills[id]==='learned'){if(sel.includes(id))G.skills[id]='fixed';else{delete G.skills[id];lost.push(SK[id].name)}}
+ const parents=apes.filter(a=>a.role==='adult').length;const died=apes.filter(a=>a.role==='elder').map(a=>a.name);apes=apes.filter(a=>a.role!=='elder');
+ const grown=[];for(const a of apes){if(a.role==='adult'){a.role='elder';a.hp=Math.min(a.hp,75)}else if(a.role==='baby'){a.role='adult';a.hp=100;a.ride=false;grown.push(a.name)}}
+ let nb=parents>=2?Math.min(3,1+(G.store>=4?1:0)+(has('c3')?1:0)):0;nb=Math.min(nb,10-apes.length);
+ const born=[];for(let i=0;i<nb;i++){const b=mkApe('baby',nameUnused());apes.push(b);born.push(b.name);G.births++}
+ G.store=Math.floor(G.store/2);
+ let mut=null;const pool=MUTS.filter(m=>!G.muts.includes(m.id));if(pool.length&&Math.random()<0.45){mut=pool[Math.random()*pool.length|0];G.muts.push(mut.id)}
+ for(const a of apes){a.hands=[null,null];a.bleed=0;a.poison=0;a.hun=Math.max(a.hun,70);a.thi=90;a.ene=100;a.fear=0;a.up=false}
+ G.gen++;G.dayInGen=0;G.time=0.04;G.genFeats=[];
+ // time advance with species gate
+ const next=STAGES[G.stage+1];let evolved=false,blocked=null;const target=G.ma-adv;
+ if(next&&target<=next.ma){if(next.req.every(fixed)){G.ma=next.ma;G.stage++;evolved=true}else{G.ma=Math.max(target,next.ma+0.05);blocked=next}}else G.ma=target;
+ if(apes.length>=8)feat('clan8');
+ PL=apes.find(a=>a.role==='adult')||apes[0];
+ const st=STAGES[G.stage];
+ let h=`<h2>第${G.gen}世代</h2><p class="sub">${G.ma.toFixed(2)} 百万年前 ― ${Math.round(adv*100)}万年の時が流れた。</p><dl class="kv">
+ ${died.length?`<dt>眠りについた</dt><dd>${died.join('、')}</dd>`:''}<dt>大人になった</dt><dd>${grown.join('、')||'—'}</dd><dt>生まれた子</dt><dd>${born.join('、')||'なし（親となる大人が2人以上必要）'}</dd>
+ <dt>受け継いだ神経</dt><dd>${sel.length?sel.map(i=>SK[i].name).join('、'):'なし'}</dd>${lost.length?`<dt>失われた神経</dt><dd style="color:var(--dim)">${lost.join('、')}</dd>`:''}
+ ${mut?`<dt>突然変異</dt><dd style="color:var(--leaf)">${mut.n} ― ${mut.d}</dd>`:''}</dl>`;
+ if(blocked)h+=`<p class="sub" style="margin-top:14px;color:var(--blood)">進化の壁：${blocked.name}へ進むには、まだ ${blocked.req.filter(r=>!fixed(r)).length} つの神経が一族に定着していない。</p>`;
+ if(evolved)h+=`<div style="margin-top:18px;padding:16px;border:1px solid var(--ochre);border-radius:10px"><div style="color:var(--ochre);font-size:12px;letter-spacing:.15em">新たな種へ</div><h2 style="margin-top:4px">${st.name}</h2><div style="font-style:italic;color:var(--dim)">${st.sci}</div><p class="sub" style="margin-top:8px">${st.desc}</p>${st.final?'':'<p class="sub">気候は乾き、森は縮み、サバンナが広がった。一族は新しい土地へ移り住む。</p>'}</div>`;
+ h+=`<div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="infoGo" type="button">${st.final&&evolved?'旅の終わりへ':'旅を続ける'}</button></div>`;
+ showInfo(h,()=>{if(evolved&&st.final){victory();return}
+  if(evolved){G.seed=(Math.random()*1e9)|0;genWorld(G.seed,st.sav);preds=[];spawnT=20;msg(`${st.name}として、新しい土地で目覚めた`)}
+  placeClan();for(const a of apes)if(a.role==='baby')a.follow=false;
+  cam.x=PL.x-VW/ZOOM/2;cam.y=PL.y-VH/ZOOM/2;state='play';updateHUD(true);save()})}
+function showInfo(html,onGo){state='modal';$('#infoBody').innerHTML=html;$('#infoM').hidden=false;const b=$('#infoGo');b.onclick=()=>{$('#infoM').hidden=true;onGo&&onGo()};setTimeout(()=>b.focus(),50)}
+function victory(){
+ const yrs=Math.round((G.playMs||0)/60000);tryRemove();
+ showInfo(`<div style="color:var(--ochre);font-family:var(--f-num);letter-spacing:.2em;font-size:12px">2.0 Ma · HOMO HABILIS</div><h2 style="font-size:34px">人類の夜明け</h2>
+ <p class="sub">一千万年前の森から、あなたの一族は ${G.gen} の世代を重ね、石の刃を手にした「器用なヒト」へと辿り着いた。この先には火があり、言葉があり、まだ見ぬ大陸がある。</p>
+ <dl class="kv"><dt>世代</dt><dd>${G.gen}</dd><dt>生まれた子</dt><dd>${G.births}</dd><dt>失われた命</dt><dd>${G.deaths}</dd><dt>偉業</dt><dd>${Object.keys(G.feats).length} / ${Object.keys(FEATS).length}</dd><dt>突然変異</dt><dd>${G.muts.map(m=>MUTS.find(x=>x.id===m).n).join('、')||'なし'}</dd><dt>プレイ時間</dt><dd>約 ${yrs} 分</dd></dl>
+ <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="infoGo" type="button">はじめから</button></div>`,()=>location.reload())}
+function gameOver(){
+ state='over';tryRemove();
+ showInfo(`<h2>一族は絶えた</h2><p class="sub">${G.ma.toFixed(2)} 百万年前、第${G.gen}世代。この系統は大地に消えた。けれど、別の一族がどこかで旅を続けている。</p>
+ <dl class="kv"><dt>種</dt><dd>${STAGES[G.stage].name}</dd><dt>偉業</dt><dd>${Object.keys(G.feats).length}</dd><dt>生まれた子</dt><dd>${G.births}</dd></dl>
+ <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="infoGo" type="button">はじめから</button></div>`,()=>location.reload())}
+const SLOTS=['auto','1','2','3'];const skey=s=>'shiso-v2-'+s;
+function rle(u){const r=[];let c=u[0],n=0;for(let i=0;i<u.length;i++){if(u[i]===c)n++;else{r.push(n);c=u[i];n=1}}r.push(n);return {f:u[0],r}}
+function unrle(o,N){const u=new Uint8Array(N);if(!o)return u;let c=o.f,i=0;for(const n of o.r){u.fill(c,i,i+n);i+=n;c=c?0:1}return u}
+function serialize(){return {v:2,t:Date.now(),G,world:{seed:world.seed,objs:world.objs,ex:rle(world.explored),exN:world.exN},apes:apes.map(a=>Object.assign({},a,{climb:a.climb?world.objs.indexOf(a.climb):-1,act:null})),pl:apes.indexOf(PL)}}
+function writeSlot(slot){if(!G||!apes.length||!world)return false;try{localStorage.setItem(skey(slot),JSON.stringify(serialize()));return true}catch(e){return false}}
+function readSlot(slot){try{const v=localStorage.getItem(skey(slot));return v?JSON.parse(v):null}catch(e){return null}}
+function clearSlot(slot){try{localStorage.removeItem(skey(slot))}catch(e){}}
+function flashTag(t){const el=$('#saveTag');el.textContent=t;el.classList.add('on');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('on'),1800)}
+function save(){if(writeSlot('auto'))flashTag('自動保存しました')}
+function autosave(){if(state==='play'&&!QTE&&G&&!anyModal())save()}
+function tryRemove(){clearSlot('auto')}
+function latestSlot(){let best=null,bt=-1;for(const s of SLOTS){const d=readSlot(s);if(d&&(d.t||0)>bt){bt=d.t||0;best=d}}return best}
+function encodeSave(d){return 'SHISO2:'+btoa(unescape(encodeURIComponent(JSON.stringify(d))))}
+function decodeSave(code){code=code.trim().replace(/^SHISO2:/,'');return JSON.parse(decodeURIComponent(escape(atob(code))))}
+function restore(d){if(!d||!d.G)return false;
+ try{G=d.G;G.insp=G.insp||{};G.cnt=G.cnt||{};G.genFeats=G.genFeats||[];G.muts=G.muts||[];G.started=Date.now();
+  genWorld(G.seed,STAGES[G.stage].sav);
+  $('#menuM').hidden=true;QTE=null;echoes=[];
+  if(d.world){world.objs=d.world.objs;world.nest=world.objs.find(o=>o.t==='nest')||world.nest;if(!world.objs.includes(world.nest))world.objs.push(world.nest);
+   world.explored=unrle(d.world.ex,W*H);world.exN=d.world.exN||0;
+   apes=d.apes.map(a=>Object.assign(mkApe(a.role,a.name),a,{climb:a.climb>=0?world.objs[a.climb]||null:null,act:null}));
+   const pl=apes[d.pl];PL=pl&&pl.role!=='baby'?pl:(apes.find(a=>a.role!=='baby')||apes[0]);startPlay(false)}
+  else{apes=d.clan.map(c=>{const a=mkApe(c.role,c.name);a.fur=c.fur;a.hp=c.hp;return a});startPlay(true)}
+  msg(`第${G.gen}世代、${G.ma.toFixed(2)}百万年前から旅を再開した`);return true}catch(e){console.error(e);return false}}
+// ---- menu ----
+function slotLabel(d){if(!d||!d.G)return '<small>空き</small>';const st=STAGES[d.G.stage]||STAGES[0];const n=(d.apes||d.clan||[]).length;
+ const when=d.t?new Date(d.t).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+ return `<small>第${d.G.gen}世代 · ${Number(d.G.ma).toFixed(2)}百万年前 · ${st.name} · ${n}人${when?' · '+when:''}</small>`}
+function openMenu(){const inGame=!!G&&state!=='title';if(inGame){if(QTE||state!=='play')return;state='modal'}renderMenu(inGame);$('#menuM').hidden=false}
+function closeMenu(){$('#menuM').hidden=true;if(G&&state==='modal'&&!anyModal())state='play'}
+function renderMenu(inGame){
+ let h=`<div class="row" style="justify-content:space-between;align-items:flex-start"><div style="flex:1;min-width:220px"><h2>${inGame?'一時停止':'セーブデータ'}</h2><p class="sub">${inGame?'ゲームは止まっている。オートセーブは約1分ごと、眠って朝を迎えたとき、世代交代のとき、画面を離れたときに行われる。':'続きから遊ぶデータを選ぶ。'}</p></div>${inGame?'<button class="btn" id="mResume" type="button">再開する</button>':''}</div><div class="slots">`;
+ for(const sl of SLOTS){const d=readSlot(sl);
+  h+=`<div class="srow"><div><b>${sl==='auto'?'オートセーブ':'スロット '+sl}</b>${slotLabel(d)}</div><div class="row">`;
+  if(inGame&&sl!=='auto')h+=`<button class="btn sm" type="button" data-save="${sl}" data-has="${d?1:0}">${d?'上書き保存':'ここに保存'}</button>`;
+  if(d)h+=`<button class="btn sm ghost" type="button" data-load="${sl}">ロード</button><button class="btn sm ghost" type="button" data-copy="${sl}">コードをコピー</button>`;
+  h+='</div></div>'}
+ h+=`</div><details id="codeBox" style="margin-top:16px"><summary style="cursor:pointer;color:var(--dim)">セーブコードから読み込む</summary><p class="sub" style="margin:8px 0">「コードをコピー」で写したコードを貼り付けると、別のブラウザや端末でも続きから遊べる。</p><textarea id="codeIn" placeholder="SHISO2: で始まるセーブコードを貼り付け"></textarea><div class="row" style="margin-top:8px"><button class="btn sm" id="codeLoad" type="button">このコードで再開</button><span id="codeMsg" style="color:var(--blood);font-size:13px"></span></div></details>
+ <div class="row" style="justify-content:flex-end;margin-top:16px">${inGame?'<button class="btn ghost" id="mTitle" type="button">保存してタイトルへ</button>':'<a class="btn ghost" href="../../">← ゲーム一覧にもどる</a>'}<button class="btn ghost" id="mClose" type="button">閉じる</button></div>`;
+ $('#menuBody').innerHTML=h;
+ const arm=(b,txt)=>{if(b.dataset.armed)return true;b.dataset.armed=1;b.textContent=txt;return false};
+ $('#menuBody').querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>{if(b.dataset.has==='1'&&!arm(b,'本当に上書きする？'))return;if(writeSlot(b.dataset.save)){flashTag(`スロット ${b.dataset.save} に保存した`);renderMenu(true)}else b.textContent='保存できなかった'});
+ $('#menuBody').querySelectorAll('[data-load]').forEach(b=>b.onclick=()=>{if(inGame&&!arm(b,'今の進行を捨てて読み込む？'))return;if(!restore(readSlot(b.dataset.load)))b.textContent='読み込めなかった'});
+ $('#menuBody').querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{const code=encodeSave(readSlot(b.dataset.copy));
+  const fallback=()=>{$('#codeBox').open=true;const t=$('#codeIn');t.value=code;t.focus();t.select();b.textContent='下の欄を選択してコピー'};
+  try{navigator.clipboard.writeText(code).then(()=>{b.textContent='コピーした'},fallback)}catch(e){fallback()}});
+ $('#codeLoad').onclick=()=>{let d=null;try{d=decodeSave($('#codeIn').value)}catch(e){}if(!d||!restore(d))$('#codeMsg').textContent='コードを読み取れなかった。全体を貼り付けたか確かめよう'};
+ if($('#mResume'))$('#mResume').onclick=closeMenu;$('#mClose').onclick=closeMenu;
+ if($('#mTitle'))$('#mTitle').onclick=()=>{writeSlot('auto');location.reload()};
+ setTimeout(()=>{const f=$('#mResume')||$('#mClose');f&&f.focus()},30)}
+addEventListener('visibilitychange',()=>{if(document.hidden)autosave()});addEventListener('pagehide',autosave);
+
+// ================= skills UI =================
+let skSel=null;
+function skStatus(s){const v=G.skills[s.id];if(v)return v;if(!G.insp[s.id])return 'hidden';return s.req.every(has)?'avail':'locked'}
+function openSkills(){if(state!=='play')return;state='modal';$('#skillsM').hidden=false;renderSkills()}
+function closeSkills(){$('#skillsM').hidden=true;state='play'}
+function renderSkills(){
+ $('#skNeu').textContent=Math.floor(G.neu);
+ let h='';BRANCHES.forEach((b,bi)=>{h+=`<div class="branch"><h3>${b}</h3><div class="nodes">`;
+  for(const s of SKILLS.filter(s=>s.br===bi)){const st=skStatus(s);const lab={fixed:'定着',learned:'習得',avail:'習得可',locked:'未解放'}[st];if(st==='hidden'){h+=`<button type="button" class="node hidden" disabled><span>？？？</span><span class="c"></span><small>まだ経験していない</small></button>`;continue}
+   h+=`<button type="button" class="node ${st}${skSel===s.id?' sel':''}" data-id="${s.id}"><span>${s.name}</span><span class="c">${st==='fixed'||st==='learned'?lab:s.cost}</span><small>${s.req.length?'前提：'+s.req.map(r=>G.insp[r]||G.skills[r]?SK[r].name:'？？？').join('・'):'—'}</small></button>`}
+  h+='</div></div>'});
+ $('#tree').innerHTML=h;
+ $('#tree').querySelectorAll('.node').forEach(n=>n.onclick=()=>{skSel=n.dataset.id;renderSkills()});
+ const s=SK[skSel];let d='';
+ if(s){const st=skStatus(s);d=`<div style="flex:1;min-width:220px"><b style="font-family:var(--f-disp);font-size:17px">${s.name}</b><p>${s.desc}</p></div>`;
+  if(st==='avail')d+=`<button class="btn" id="learnBtn" type="button" ${G.neu>=s.cost?'':'disabled'}>習得する（神経 ${s.cost}）</button>`;
+  else if(st==='learned')d+=`<span style="color:var(--leaf)">習得済み ― 世代交代で定着させよう</span>`;
+  else if(st==='fixed')d+=`<span style="color:var(--ochre)">一族に定着している</span>`;
+  else d+=`<span style="color:var(--dim)">先に前提の神経を身につけよう</span>`}
+ else d='<p>芽生えた神経を選ぶと、詳しい説明が出る。</p>';
+ $('#skDetail').innerHTML=d;
+ const lb=$('#learnBtn');if(lb)lb.onclick=()=>{if(G.neu<s.cost)return;G.neu-=s.cost;G.skills[s.id]='learned';msg(`神経「${s.name}」が発達した`,'good');renderSkills()}}
+$('#skClose').onclick=closeSkills;
+$('#neuBtn').onclick=()=>openSkills();$('#leapBtn').onclick=()=>{if(state==='play')openLeap()};
+$('#helpClose').onclick=()=>{$('#helpM').hidden=true};
+$('#helpBtn0').onclick=()=>{$('#helpM').hidden=false};
+$('#startBtn').onclick=()=>newGame();
+$('#contBtn').onclick=()=>{if(!restore(latestSlot()))$('#contBtn').textContent='読み込めなかった'};
+$('#loadBtn0').onclick=()=>openMenu();$('#menuBtn').onclick=()=>openMenu();
+try{const old=localStorage.getItem(SKEY);if(old){if(!localStorage.getItem(skey('auto')))localStorage.setItem(skey('auto'),old);localStorage.removeItem(SKEY)}}catch(e){}
+if(SLOTS.some(sl=>readSlot(sl))){$('#contBtn').hidden=false;$('#loadBtn0').hidden=false}
+$('#tl').innerHTML=STAGES.map(s=>`<div><b>${s.ma.toFixed(1)}</b>${s.name}</div>`).join('');
+
+// ================= predators =================
+function tileOk(k,x,y){const t=tileAt(x,y);if(k==='croc')return t===T.WAT||t===T.SAND;return t!==T.WAT&&x>8&&y>8&&x<WPX-8&&y<HPX-8}
+function pmove(p,tx,ty,spd,gdt){const dx=tx-p.x,dy=ty-p.y,l=Math.hypot(dx,dy);if(l<1)return;const s=Math.min(l,spd*gdt),nx=p.x+dx/l*s,ny=p.y+dy/l*s;
+ if(tileOk(p.k,nx,ny)){p.x=nx;p.y=ny}else if(tileOk(p.k,nx,p.y))p.x=nx;else if(tileOk(p.k,p.x,ny))p.y=ny;else{p.wx=null}
+ if(Math.abs(dx)>2)p.face=dx>0?1:-1;p.ph+=s*0.15;p.moving=true}
+function validPrey(p,a){if(!a||a.hp<=0||a.climb||a.ride||!apes.includes(a))return false;
+ if(p.k==='leopard'&&!isNight()&&dist(a,world.nest)<170)return false;if(p.k==='croc'&&!waterNear(a.x,a.y,40))return false;return true}
+function findPrey(p){const D=PRED[p.k];const R=D.aggro*(isNight()?1.3:1);let best=null,bd=R;for(const a of apes){if(!validPrey(p,a))continue;const d=dist(p,a);if(d<bd){bd=d;best=a}}return best}
+function spawnPred(k){const P=PL;for(let i=0;i<60;i++){const x=Math.random()*WPX,y=Math.random()*HPX,t=tileAt(x,y),d=Math.hypot(x-P.x,y-P.y),dn=Math.hypot(x-world.nest.x,y-world.nest.y);
+ let ok=false;if(k==='leopard')ok=t===T.JUN&&d>650&&d<1500&&dn>450;else if(k==='snake')ok=t===T.SAV&&d>380&&dn>220;else if(k==='hyena')ok=(t===T.SAV||t===T.SAND)&&d>600&&d<1300&&dn>300;
+ else if(k==='croc')ok=t===T.WAT&&d>320&&d<1600&&dn>260&&!!(tileAt(x+TS,y)!==T.WAT||tileAt(x-TS,y)!==T.WAT||tileAt(x,y+TS)!==T.WAT||tileAt(x,y-TS)!==T.WAT);
+ if(ok){preds.push({id:++uid,k,x,y,state:'roam',c:PRED[k].hp,cd:0,face:1,ph:0,wx:null,wy:null,tgt:null});return}}}
+function manageSpawns(gdt){spawnT-=gdt;if(spawnT>0)return;spawnT=2.5;const n=isNight();
+ const cnt=k=>preds.filter(p=>p.k===k&&p.state!=='flee').length;
+ if(cnt('leopard')<(n?2:1)+(G.stage>=3?1:0))spawnPred('leopard');
+ if(cnt('snake')<6)spawnPred('snake');
+ if(cnt('croc')<Math.min(4,Math.floor(world.water/160)+1))spawnPred('croc');
+ if(n&&cnt('hyena')<2+(G.stage>=4?1:0))spawnPred('hyena');
+ if(world.objs.filter(o=>o.t==='carcass').length<2&&Math.random()<0.2){for(let i=0;i<40;i++){const x=Math.random()*WPX,y=Math.random()*HPX,d=Math.hypot(x-PL.x,y-PL.y);if(tileAt(x,y)===T.SAV&&d>450&&d<1400){world.objs.push({t:'carcass',x,y,meat:4,life:260,v:Math.random()});break}}}}
+function predFlee(p,byP){if(p.state==='flee')return;p.state='flee';p.tgt=null;msg(`${PRED[p.k].n}は逃げていった`,'good');if(byP){addNeu(4);feat(p.k)}}
+function attack(p,a){const D=PRED[p.k];
+ if(a===PL){QTE={p,t:0,dur:D.qd*(has('s2')?1.12:1),w:D.w};PL.act=null;p.state='attacking';shake=6}
+ else{let avoid=0.5+(has('c4')&&dist(a,PL)<220?0.2:0);if(Math.random()<avoid){floatTxt(a.x,a.y-40,'さっ')}else{a.hp-=D.dmg*0.7;a.bleed+=p.k==='snake'?0:0.4;if(p.k==='snake')a.poison+=15;a.hurtT=0.5}
+  p.c-=0.6+(has('c4')?0.8:0);inspire('c4');msg(`${a.name}が${D.n}に襲われた！`,'bad');if(p.c<=0)predFlee(p,false);else{p.state='recover';p.cd=3}}}
+function qteResolve(ok){const q=QTE;if(!q)return;QTE=null;const p=q.p,D=PRED[p.k],P=PL;
+ if(ok){let d=1;if(P.hands.includes('spear'))d+=2;else if(P.hands.includes('stick'))d+=0.6;if(P.up)d+=0.5;if(has('c4')&&apes.some(a=>a!==P&&a.role!=='baby'&&!a.ride&&dist(a,P)<170))d+=1;
+  p.c-=d;addNeu(2);floatTxt(P.x,P.y-50,P.hands.includes('spear')?'突いた！':'かわした！','#d9a03f')}
+ else{const dm=D.dmg*(P.role==='elder'?1.2:1)*(P.hands.includes('spear')?0.8:1);P.hp-=dm;if(p.k==='snake')P.poison+=18;else P.bleed+=0.6;P.hurtT=0.6;shake=14;P.fear=Math.min(100,P.fear+25);addNeu(0.5);floatTxt(P.x,P.y-50,'ぐあっ','#d0503d');
+  if(P.hands[0]&&Math.random()<0.35)dropItem(P,0)}
+ if(p.c<=0)predFlee(p,true);else{p.state='recover';p.cd=p.k==='snake'?3:2.2;p.tgt=P}}
+function updatePreds(gdt){const P=PL;let heard=0;const hearR=260*(has('s2')?1.6:1);
+ for(const p of preds){const D=PRED[p.k];p.cd-=gdt;p.moving=false;const dP=dist(p,P);p.heard=dP<hearR&&p.state!=='flee';
+  if(p.heard&&(p.state==='stalk'||p.state==='charge'||p.state==='attacking'||(p.k!=='snake'&&dP<hearR*0.5)))heard++;
+  switch(p.state){
+   case 'roam':
+    if(p.k==='snake'){for(const a of apes)if(validPrey(p,a)&&dist(p,a)<D.aggro){attack(p,a);break}break}
+    if(p.k==='hyena'&&!isNight()){p.state='flee';break}
+    if(p.wx==null||Math.hypot(p.wx-p.x,p.wy-p.y)<10||p.cd<-10){p.wx=p.x+(Math.random()-.5)*500;p.wy=p.y+(Math.random()-.5)*500;p.cd=0}
+    pmove(p,p.wx,p.wy,D.spd*0.6,gdt);{const t=findPrey(p);if(t){p.tgt=t;p.state='stalk'}}break;
+   case 'stalk':{const t=p.tgt;if(!validPrey(p,t)){p.state='roam';break}const d=dist(p,t);if(d>D.aggro*1.7){p.state='roam';break}if(d<(p.k==='croc'?70:120))p.state='charge';pmove(p,t.x,t.y,D.spd,gdt)}break;
+   case 'charge':{const t=p.tgt;if(!validPrey(p,t)){p.state='recover';p.cd=1;break}pmove(p,t.x,t.y,D.run,gdt);const d=dist(p,t);if(d<24)attack(p,t);else if(d>D.aggro*1.6)p.state='roam'}break;
+   case 'recover':{const t=p.tgt;if(t&&p.k!=='snake')pmove(p,p.x+(p.x-t.x),p.y+(p.y-t.y),D.spd*0.9,gdt);if(p.cd<=0){if(p.c<=0)predFlee(p,false);else p.state=(p.k!=='snake'&&validPrey(p,t))?'stalk':'roam'}}break;
+   case 'attacking':if(!QTE||QTE.p!==p){p.state='recover';p.cd=2}break;
+   case 'flee':if(p.k==='snake'){p.x+=p.face*20*gdt;p.ph+=gdt*3;p.moving=true}else pmove(p,p.x+(p.x-P.x)*3+1,p.y+(p.y-P.y)*3,Math.max(D.run*0.8,40),gdt);break;
+  }}
+ HEARD=heard;
+ preds=preds.filter(p=>{const d=dist(p,P);if(p.state==='flee'&&d>650)return false;if(d>2200)return false;return true})}
+
+// ================= ape AI & needs =================
+function apeSpeed(a,run){let s=92;
+ if(a.up&&a.role!=='baby'){s=has('m4')?100:52;if(has('m5'))s*=1.15}
+ else{if(has('m1'))s*=1.15;const n=a.hands.filter(Boolean).length;if(n===1)s*=0.88;else if(n===2)s*=0.6}
+ if(hasMut('legs'))s*=1.08;if(a.role==='elder')s*=0.85;if(a.role==='baby')s*=0.85;if(a===PL&&a.ene<20)s*=0.75;
+ const t=tileAt(a.x,a.y);if(t===T.WAT)s*=0.45;else if(t===T.JUN)s*=0.93;if(run)s*=1.7;return s}
+function move(a,dx,dy,gdt,run){const sp=apeSpeed(a,run)*gdt;a.x=clamp(a.x+dx*sp,10,WPX-10);a.y=clamp(a.y+dy*sp,10,HPX-10);a.moving=true;a.ph+=sp*0.16;if(Math.abs(dx)>0.1)a.face=dx>0?1:-1;return sp}
+function steer(a,tx,ty,gdt,run){const dx=tx-a.x,dy=ty-a.y,l=Math.hypot(dx,dy);if(l<3){a.moving=false;return}move(a,dx/l,dy/l,gdt,run)}
+function updateAI(a,gdt){const P=PL;
+ if(a.role==='baby'&&a.follow&&P.role!=='baby'){a.ride=true;a.x=P.x;a.y=P.y;a.climb=P.climb;a.moving=P.moving;return}
+ if(a.ride){a.ride=false;a.climb=null}
+ a.aiT-=gdt;a.eatT-=gdt;
+ let th=null,td=1e9;for(const p of preds){if(p.state==='flee'||p.k==='snake')continue;const d=dist(p,a);if(d<170&&d<td){th=p;td=d}}
+ if(a.climb){a.moving=false;if(!th){a.safeT=(a.safeT||0)+gdt;if(a.safeT>3){a.y=a.climb.y+16;a.climb=null;a.safeT=0}}else a.safeT=0;return}
+ if(th){let tr=null,bd=240;for(const o of world.objs){if(!isTree(o))continue;const d=dist(o,a);if(d<bd){bd=d;tr=o}}
+  if(tr){if(bd<18){a.climb=tr;a.x=tr.x;a.y=tr.y;a.moving=false;return}steer(a,tr.x,tr.y,gdt,true)}else steer(a,a.x+(a.x-th.x),a.y+(a.y-th.y),gdt,true);a.up=false;return}
+ let tx,ty,run=false;
+ if(a.follow){const idx=apes.indexOf(a),ang=idx*2.1;tx=P.x+Math.cos(ang)*48;ty=P.y+Math.sin(ang)*30;const d=Math.hypot(tx-a.x,ty-a.y);
+  if(d<26){a.moving=false;aiEat(a);return}run=d>180}
+ else{if(a.aiT<=0){a.aiT=2+Math.random()*4;const ang=Math.random()*6.283,r=Math.random()*55;a.tx=world.nest.x+Math.cos(ang)*r;a.ty=world.nest.y+Math.sin(ang)*r*0.6}
+  tx=a.tx;ty=a.ty;run=dist(a,world.nest)>400;if(Math.hypot(tx-a.x,ty-a.y)<6){a.moving=false;aiEat(a);return}}
+ steer(a,tx,ty,gdt,run);a.up=has('m4')&&a.moving&&a.role!=='baby'}
+function aiEat(a){if(a.eatT>0)return;a.eatT=4;
+ if(dist(a,world.nest)<120&&a.hun<55&&G.store>0){G.store--;a.hun=Math.min(100,a.hun+45);return}
+ if(a.hun<45){for(const o of world.objs){if(o.t==='bush'&&o.n>0&&dist(o,a)<80){o.n--;a.hun=Math.min(100,a.hun+15);floatTxt(a.x,a.y-34,'もぐ');return}}}}
+function updateNeeds(a,gdt,isP){const m5=isP&&a.up&&has('m5')?0.75:1;
+ a.hun=Math.max(0,a.hun-gdt*0.4*m5*(isP?1:0.45));
+ if(isP){a.thi=Math.max(0,a.thi-gdt*0.52*m5);a.ene=Math.max(0,a.ene-gdt*0.2*(hasMut('heat')?0.8:1)*(has('m2')?0.8:1)*(a.moving?1.2:1))}
+ else{a.thi=Math.min(100,a.thi+gdt*2);a.ene=Math.min(100,a.ene+gdt*0.5)}
+ const imm=hasMut('immune')?0.6:1;let dm=0;
+ if(a.hun<=0)dm+=1.1;if(a.thi<=0)dm+=1.5;
+ if(a.bleed>0){dm+=a.bleed*2*imm;a.bleed=Math.max(0,a.bleed-gdt*0.04)}
+ if(a.poison>0){dm+=1.0*imm;a.poison=Math.max(0,a.poison-gdt)}
+ a.hp-=dm*gdt;if(dm===0&&a.hun>30&&a.thi>30)a.hp=Math.min(maxHp(a),a.hp+0.6*gdt);
+ a.hurtT-=gdt;a.roarT-=gdt}
+function updateFear(P,gdt){const atNest=dist(P,world.nest)<90;let g=0,red=0;
+ if(isNight()&&!P.climb&&!atNest){g+=has('s4')?2:4.5;inspire('s4')}
+ const dN=dist(P,world.nest);if(dN>520)g+=Math.min(4,(dN-520)/450);
+ if(HEARD){g+=4+HEARD*3;inspire('s2')}if(P.poison>0||P.bleed>0.2)g+=2;
+ if(apes.some(a=>a!==P&&a.role!=='baby'&&!a.ride&&dist(a,P)<130)||apes.some(a=>a.ride))red+=has('c1')?7:3.5;
+ if(atNest)red+=8;if(P.climb)red+=6;
+ if(calming&&!P.moving){red+=has('c1')?18:12;if(apes.some(a=>a!==P&&!a.ride&&dist(a,P)<130))inspire('c1');if(P.fear>25)addNeu(0.3*gdt)}
+ if(has('c5'))g*=0.6;
+ P.fear=clamp(P.fear+(g-red)*gdt,0,100);
+ if(P.fear>=99&&!P.panicT&&!QTE){P.panicT=3;P.act=null;msg('恐怖でパニックに陥った！','bad');if(P.hands[0])dropItem(P,0)}}
+
+// ================= main update =================
+function update(dt){const P=PL;clock+=dt;G.playMs=(G.playMs||0)+dt*1000;autoT-=dt;if(autoT<=0){autoT=60;autosave()}
+ sensing=!!keys.q&&!QTE&&!P.panicT;calming=!!keys.v&&!QTE;
+ const ts=QTE?0.25:sensing?0.45:1,gdt=dt*ts;
+ G.time+=gdt/DAY_LEN;if(G.time>=1){G.time-=1;G.day++;G.dayInGen++;msg(`${G.day}日目の朝が来た`)}
+ if(QTE){QTE.t+=dt*0.8;if(QTE.t>=QTE.dur)qteResolve(false)}
+ else updatePlayer(P,dt,gdt);
+ for(const a of apes)if(a!==P)updateAI(a,gdt);
+ for(const a of apes)updateNeeds(a,gdt,a===P);
+ updateFear(P,gdt);
+ updatePreds(gdt);manageSpawns(gdt);
+ for(const o of world.objs){if(o.max){if(o.n<o.max){o.rg+=gdt;if(o.rg>50){o.n++;o.rg=0}}}else if(o.t==='nuttree'&&o.nuts<3){o.rg+=gdt;if(o.rg>70){o.nuts++;o.rg=0}}else if(o.t==='carcass'){o.life-=gdt;if(o.life<=0)o.dead=1}}
+ if(world.objs.some(o=>o.dead))world.objs=world.objs.filter(o=>!o.dead);
+ for(const pr of projs){pr.t+=dt*2.6;if(pr.t>=1&&!pr.done){pr.done=1;world.objs.push({t:'item',k:'stone',x:pr.tx,y:pr.ty+10,v:Math.random(),seen:true});
+  if(pr.tgt&&preds.includes(pr.tgt)&&dist(pr.tgt,{x:pr.tx,y:pr.ty+10})<40){const p=pr.tgt;p.c-=1.5;floatTxt(p.x,p.y-30,'ガッ','#d9a03f');addNeu(1);if(p.c<=0){predFlee(p,true);feat('throw')}else{p.state='recover';p.cd=2;p.tgt=PL}}}}
+ projs=projs.filter(p=>!p.done);
+ exT-=dt;if(exT<=0){exT=0.3;explore(P)}
+ // deaths
+ for(const a of apes.slice())if(a.hp<=0)die(a);
+ shake=Math.max(0,shake-dt*30);
+ hudT-=dt;if(hudT<=0){hudT=0.12;updateHUD()}
+ }
+function updatePlayer(P,dt,gdt){
+ if(P.panicT>0){P.panicT-=gdt;if(P.pdir==null||Math.random()<0.04)P.pdir=Math.random()*6.283;if(P.climb)climbDown(P);move(P,Math.cos(P.pdir),Math.sin(P.pdir),gdt,true);if(calming)P.panicT-=gdt*1.5;if(P.panicT<=0){P.fear=65;P.panicT=0;P.pdir=null;addNeu(1);inspire('c5');msg('なんとか我に返った')}TG=null;CUR={};return}
+ let dx=(keys.d||keys.right?1:0)-(keys.a||keys.left?1:0)+joy.x,dy=(keys.s||keys.down?1:0)-(keys.w||keys.up?1:0)+joy.y;
+ const len=Math.hypot(dx,dy);if(len>1){dx/=len;dy/=len}const moving=len>0.2;
+ if(moving&&P.act)P.act=null;if(moving&&P.climb)climbDown(P);
+ if(P.act){P.act.t+=gdt;if(P.act.t>=P.act.dur){const f=P.act.fn;P.act=null;f()}}
+ const run=!!keys.shift&&P.sta>5&&moving;
+ if(moving){const s=move(P,dx,dy,gdt,run);if(P.up)bump('up',600,'m4',s);else bump('quad',1500,'m1',s);if(run&&P.sta<6)inspire('m2');if(run)P.sta=Math.max(0,P.sta-25*gdt);if(P.up&&tileAt(P.x,P.y)===T.SAV){G.savWalk+=s;if(G.savWalk>1200)inspire('m5');if(G.savWalk>2600)feat('savwalk')}}else P.moving=false;
+ if(!run)P.sta=Math.min(100,P.sta+15*(has('m2')?1.5:1)*gdt);
+ if(sensing){bump('sense',8,'s1',dt);const R=200*(has('s1')?1.6:1)*(has('s3')?1.3:1);for(const o of world.objs){if(o.seen||Math.abs(o.x-P.x)>R||Math.abs(o.y-P.y)>R)continue;if(dist(o,P)<R){o.seen=true;const k=kk(o);if(k&&!G.know[k])addNeu(0.2);else addNeu(0.02)}}}
+ TG=findTarget(P);CUR=actionsFor(P,TG)}
+function explore(P){const R=Math.round(5*(has('s3')?1.5:1)*(P.up?1.3:1)*(P.climb?1.8:1)*(hasMut('eyes')?1.15:1));const cx=Math.floor(P.x/TS),cy=Math.floor(P.y/TS);let n=0;
+ for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){if(dx*dx+dy*dy>R*R)continue;const x=cx+dx,y=cy+dy;if(x<0||y<0||x>=W||y>=H)continue;const i=y*W+x;if(!world.explored[i]){world.explored[i]=1;n++;world.exN++}}
+ if(n)addNeu(n*0.012*(1+P.fear/80));if(world.exN/(W*H)>0.06)inspire('s3');if(world.exN/(W*H)>0.4)feat('explore');
+ for(const a of apes)if(a!==P&&a.follow){const x=Math.floor(a.x/TS),y=Math.floor(a.y/TS);if(x>=0&&y>=0&&x<W&&y<H&&!world.explored[y*W+x]){world.explored[y*W+x]=1;world.exN++}}}
+function die(a){const i=apes.indexOf(a);if(i<0)return;apes.splice(i,1);G.deaths++;msg(`${a.name}（${ROLE[a.role]}）が息絶えた…`,'bad');
+ for(const b of apes)if(b.ride&&a===PL){b.ride=false;b.follow=false;b.x=a.x;b.y=a.y}
+ if(QTE&&a===PL)QTE=null;
+ if(a===PL){const n=apes.find(b=>b.role==='adult')||apes.find(b=>b.role==='elder');if(!n){gameOver();return}PL=n;PL.follow=false;msg(`${PL.name}が一族を率いる`)}
+ if(!apes.some(b=>b.role!=='baby'))gameOver()}
+
+// ================= drawing =================
+function ell(x,y,rx,ry,rot){ctx.beginPath();ctx.ellipse(x,y,Math.max(.1,rx),Math.max(.1,ry),rot||0,0,6.284);ctx.fill()}
+function circ(x,y,r){ctx.beginPath();ctx.arc(x,y,r,0,6.284);ctx.fill()}
+function seg(x1,y1,x2,y2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+function drawItem(k,x,y,s){ctx.save();ctx.translate(x,y);ctx.scale(s||1,s||1);ctx.lineCap='round';
+ switch(k){
+  case 'stick':ctx.strokeStyle='#6b4a2c';ctx.lineWidth=2.6;seg(-10,2,10,-3);ctx.lineWidth=1.5;seg(2,0,6,-6);break;
+  case 'stone':ctx.fillStyle='#8d877d';ell(0,0,5.5,4.2);ctx.fillStyle='#b4ada2';ell(-1.5,-1.5,2.2,1.4);break;
+  case 'fruit':ctx.fillStyle='#c23a48';circ(0,0,3.6);circ(3.5,1,3);ctx.fillStyle='#4f7d36';ell(1,-4,2.5,1.2,0.5);break;
+  case 'meat':ctx.fillStyle='#8e2f2a';ell(0,0,6.5,4.2,0.2);ctx.strokeStyle='#e8dcc4';ctx.lineWidth=1.6;seg(4,-1,9,-3);break;
+  case 'flake':ctx.fillStyle='#c9c4ba';ctx.beginPath();ctx.moveTo(-5,3);ctx.lineTo(6,-1);ctx.lineTo(-1,-5);ctx.closePath();ctx.fill();ctx.strokeStyle='#7d776c';ctx.lineWidth=0.8;ctx.stroke();break;
+  case 'spear':ctx.strokeStyle='#6b4a2c';ctx.lineWidth=2.6;seg(-14,4,10,-4);ctx.strokeStyle='#d8c39a';ctx.lineWidth=2;seg(10,-4,15,-5.7);break;
+  case 'herb':ctx.strokeStyle='#6f9d5d';ctx.lineWidth=2;for(let i=-2;i<=2;i++)seg(0,2,i*3,-6+Math.abs(i));break;
+ }ctx.restore()}
+function drawApe(a,x,y){
+ const s=(a.role==='baby'?0.58:a.role==='elder'?0.94:1)*(1+G.stage*0.025);const up=a.up&&a.role!=='baby';const mv=a.moving?1:0;
+ ctx.save();ctx.translate(x,y);
+ if(!a.climb){ctx.fillStyle='rgba(0,0,0,.28)';ell(0,0,13*s,4*s)}
+ if(a===PL&&state==='play'){ctx.strokeStyle='rgba(217,160,63,.85)';ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(0,0,17*s,6*s,0,0,6.284);ctx.stroke()}
+ ctx.scale(a.face*s,s);
+ const st=G.stage;const fur=a.role==='elder'?mix(a.fur,[150,140,128],0.45):a.fur;const dk=rgb(shadeC(fur,-26)),fc=rgb(mix([196,150,112],[214,172,136],st/6));
+ const sw=Math.sin(a.ph)*mv*5,sw2=Math.sin(a.ph+Math.PI)*mv*5;
+ ctx.lineCap='round';ctx.lineJoin='round';
+ if(a.hurtT>0&&Math.floor(clock*20)%2)ctx.globalAlpha=0.55;
+ if(!up){
+  ctx.strokeStyle=dk;ctx.lineWidth=4.2;seg(-8,-12,-8+sw2,0);seg(9,-13,9+sw,0);
+  ctx.fillStyle=rgb(fur);ell(0,-15,14,8.5,-0.08);
+  ctx.strokeStyle=rgb(shadeC(fur,-10));ctx.lineWidth=4.4;seg(-7,-12,-7+sw,0);seg(10,-13,10+sw2,0);
+  ctx.fillStyle=rgb(fur);circ(13,-21,6.8+st*0.25);ctx.fillStyle=fc;ell(16.5,-19.5,3.6,4.2);
+  ctx.fillStyle='#1a120c';circ(17,-22,1.1);ctx.strokeStyle=dk;ctx.lineWidth=1.6;seg(13,-24.5,19.5,-23.8);
+  if(a.hands[0])drawItem(a.hands[0],18,-6,0.85);if(a.hands[1])drawItem(a.hands[1],-2,-5,0.85);
+ }else{
+  const lean=has('m4')?0.06+Math.max(0,0.12-st*0.02):0.28;
+  ctx.strokeStyle=dk;ctx.lineWidth=4.2;ctx.beginPath();ctx.moveTo(0,-17);ctx.lineTo(sw2*0.6+2,-8);ctx.lineTo(sw2*1.1,0);ctx.stroke();
+  ctx.fillStyle=rgb(fur);ell(2+lean*10,-28,7.5,11.5,lean);
+  ctx.strokeStyle=rgb(shadeC(fur,-10));ctx.lineWidth=4.4;ctx.beginPath();ctx.moveTo(0,-17);ctx.lineTo(sw*0.6+2,-8);ctx.lineTo(sw*1.1,0);ctx.stroke();
+  const hx=4+lean*24,hy=-42;ctx.fillStyle=rgb(fur);circ(hx,hy,6.6+st*0.3);ctx.fillStyle=fc;ell(hx+3.4,hy+1,3.4,4.2);
+  ctx.fillStyle='#1a120c';circ(hx+4,hy-1.5,1.1);ctx.strokeStyle=dk;ctx.lineWidth=1.6;seg(hx,hy-3.6,hx+6.4,hy-3);
+  const armL=Math.max(14,22-st*1.3);const shx=3+lean*18,shy=-34;
+  ctx.strokeStyle=rgb(shadeC(fur,-5));ctx.lineWidth=3.6;const hx2=shx+2+sw2*0.5,hy2=shy+armL;seg(shx,shy,hx2,hy2);
+  if(a.hands[0])drawItem(a.hands[0],hx2+2,hy2,0.9);if(a.hands[1])drawItem(a.hands[1],hx2-6,hy2+1,0.9);
+ }
+ ctx.restore()}
+function drawRider(c,x,y){const babies=apes.filter(a=>a.ride);babies.forEach((b,i)=>{b.face=c.face;const up=c.up;const ox=-c.face*(up?6:4+i*6),oy=up?-30-i*3:-24;ctx.save();ctx.translate(x+ox,y+oy+6);
+ const s=0.5;ctx.scale(c.face*s,s);ctx.fillStyle=rgb(b.fur);ell(0,-8,10,7);circ(9,-12,6);ctx.fillStyle='#c79a74';ell(12,-11,3,3.6);ctx.fillStyle='#1a120c';circ(12.5,-13,1);ctx.restore()})}
+function drawPred(p){const x=p.x,y=p.y,mv=p.moving?1:0,sw=Math.sin(p.ph)*mv*5;ctx.save();ctx.translate(x,y);
+ if(p.k==='snake'){const vis=sensing||dist(p,PL)<70||p.state!=='roam';ctx.globalAlpha=vis?1:0.28;ctx.strokeStyle='#5d6b2c';ctx.lineWidth=4;ctx.lineCap='round';ctx.beginPath();
+  for(let i=0;i<8;i++){const xx=-18+i*5,yy=Math.sin(i*1.1+clock*(p.state==='roam'?1:6))*4;i?ctx.lineTo(xx*p.face,yy):ctx.moveTo(xx*p.face,yy)}ctx.stroke();ctx.fillStyle='#4a5622';ell(19*p.face,Math.sin(8.8+clock)*4,4.5,3.2);ctx.restore();return}
+ if(p.k==='croc'){const t=tileAt(x,y),sub=t===T.WAT&&p.state==='roam';ctx.globalAlpha=sub?0.45:1;ctx.scale(p.face,1);ctx.fillStyle='#3a4a2a';ell(0,-3,30,6.5);ell(28,-3,12,4);ctx.fillStyle='#2b3820';
+  for(let i=-3;i<=2;i++)circ(i*7,-8,2.2);ctx.fillStyle='#d9c56a';circ(25,-7,1.4);ctx.strokeStyle='#3a4a2a';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-28,-3);ctx.quadraticCurveTo(-40,-2+sw,-46,2);ctx.stroke();ctx.restore();return}
+ ctx.fillStyle='rgba(0,0,0,.28)';ell(0,0,20,4.5);ctx.scale(p.face,1);ctx.lineCap='round';
+ if(p.k==='leopard'){const crouch=p.state==='stalk'?4:0;ctx.strokeStyle='#a67a2c';ctx.lineWidth=4;seg(-12,-12+crouch,-12+sw,0);seg(13,-12+crouch,13-sw,0);
+  ctx.fillStyle='#c99a3c';ell(0,-15+crouch,22,8);ctx.strokeStyle='#c99a3c';ctx.lineWidth=3.5;ctx.beginPath();ctx.moveTo(-20,-16+crouch);ctx.quadraticCurveTo(-36,-24,-38,-8+Math.sin(clock*3)*3);ctx.stroke();
+  ctx.fillStyle='#5a3e16';[[-12,-17],[-4,-19],[5,-16],[12,-19],[-8,-12],[2,-11],[10,-12]].forEach(([a,b])=>circ(a,b+crouch,1.6));
+  ctx.strokeStyle='#b7882f';ctx.lineWidth=4;seg(-10,-12+crouch,-10-sw,0);seg(15,-12+crouch,15+sw,0);
+  ctx.fillStyle='#c99a3c';circ(21,-19+crouch,7);ctx.fillStyle='#e6cf98';ell(25,-16+crouch,3.5,3);ctx.fillStyle='#1a120c';circ(24,-21+crouch,1.2);ctx.fillStyle='#c99a3c';circ(17,-25+crouch,2.5)}
+ else{ctx.strokeStyle='#6f6044';ctx.lineWidth=4;seg(-12,-11,-12+sw,0);seg(12,-14,12-sw,0);ctx.fillStyle='#8f7e5c';ell(0,-16,19,8,-0.18);
+  ctx.fillStyle='#4e4330';[[-8,-15],[0,-18],[-3,-12],[6,-15]].forEach(([a,b])=>circ(a,b,1.8));ctx.fillStyle='#5e5038';ell(6,-23,9,2.5,-0.2);
+  ctx.strokeStyle='#7d6c4c';ctx.lineWidth=4;seg(-10,-11,-10-sw,0);seg(14,-14,14+sw,0);ctx.fillStyle='#8f7e5c';circ(19,-19,6.5);ctx.fillStyle='#3d3426';ell(24,-16,4,3);ctx.fillStyle='#1a120c';circ(21,-21,1.1)}
+ ctx.restore()}
+function drawObj(o){const x=o.x,y=o.y;
+ switch(o.t){
+  case 'item':ctx.fillStyle='rgba(0,0,0,.2)';ell(x,y+3,7,2.2);drawItem(o.k,x,y,1);break;
+  case 'bush':case 'poison':{const po=o.t==='poison';ctx.fillStyle='rgba(0,0,0,.25)';ell(x,y+2,16,5);ctx.fillStyle=po?'#40664e':'#3d6a2c';circ(x-8,y-7,9);circ(x+8,y-7,9);ctx.fillStyle=po?'#4f7a5c':'#4c7d36';circ(x,y-12,10);
+   for(let i=0;i<o.n;i++){const a=o.v*9+i*1.7;ctx.fillStyle=po?'#d4604a':'#b8344a';circ(x+Math.cos(a)*9,y-9+Math.sin(a)*5,2.4);if(po){ctx.fillStyle='#e8d070';circ(x+Math.cos(a)*9+0.8,y-9.8+Math.sin(a)*5,0.7)}}}break;
+  case 'herb':ctx.strokeStyle='#76a865';ctx.lineWidth=2.4;ctx.lineCap='round';for(let i=-3;i<=3;i++){ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x+i*3,y-8,x+i*5,y-12+Math.abs(i)*2);ctx.stroke()}break;
+  case 'termite':ctx.fillStyle='rgba(0,0,0,.25)';ell(x,y+2,14,4);ctx.fillStyle='#9b6a3e';ctx.beginPath();ctx.moveTo(x-13,y+1);ctx.quadraticCurveTo(x-8,y-28,x-2,y-38);ctx.quadraticCurveTo(x+4,y-28,x+6,y-22);ctx.lineTo(x+10,y-26);ctx.quadraticCurveTo(x+13,y-10,x+13,y+1);ctx.closePath();ctx.fill();
+   ctx.fillStyle='#7e5330';ell(x-3,y-12,2,3);ell(x+5,y-6,2,2.5);break;
+  case 'carcass':ctx.fillStyle='rgba(0,0,0,.25)';ell(x,y+2,20,5);ctx.fillStyle='#6b2f24';ell(x,y-4,18,7);ctx.strokeStyle='#e4d8be';ctx.lineWidth=1.8;for(let i=-2;i<=2;i++){ctx.beginPath();ctx.arc(x+i*5,y-4,6,3.6,5.8);ctx.stroke()}break;
+  case 'nest':ctx.fillStyle='rgba(60,42,22,.55)';ell(x,y,64,30);ctx.fillStyle='rgba(98,120,52,.75)';for(let i=0;i<14;i++){const a=i/14*6.283;ell(x+Math.cos(a)*54,y+Math.sin(a)*24,10,4,a)}ctx.fillStyle='rgba(120,92,52,.6)';ell(x,y,40,17);break;
+  case 'tree':case 'nuttree':ctx.fillStyle='rgba(0,0,0,.3)';ell(x,y+2,16,5);ctx.fillStyle='#4a3524';ctx.fillRect(x-4.5,y-46,9,47);ctx.fillStyle='#5c4330';ctx.fillRect(x-4.5,y-46,3,47);
+   if(o.t==='nuttree')for(let i=0;i<o.nuts;i++){ctx.fillStyle='#6b4a2a';circ(x-12+i*10,y+6,2.6)}break;
+  case 'acacia':ctx.fillStyle='rgba(0,0,0,.25)';ell(x,y+2,24,5);ctx.strokeStyle='#4f3a26';ctx.lineWidth=4;ctx.lineCap='round';seg(x,y,x+2,y-34);ctx.lineWidth=2.5;seg(x+2,y-34,x-16,y-48);seg(x+2,y-34,x+20,y-50);break;
+ }}
+function drawCanopy(o,near){const x=o.x,y=o.y;ctx.globalAlpha=near?0.42:1;
+ if(o.t==='acacia'){ctx.fillStyle='#4b6628';ell(x+2,y-50,46,11);ctx.fillStyle='#62803a';ell(x,y-54,40,8)}
+ else{const c1=o.t==='nuttree'?'#36562a':'#294722',c2=o.t==='nuttree'?'#4a7036':'#365d2a',r=26+o.v*8;ctx.fillStyle=c1;circ(x-14,y-48,r*0.7);circ(x+14,y-50,r*0.75);circ(x,y-60,r);ctx.fillStyle=c2;circ(x-6,y-66,r*0.55);circ(x+10,y-60,r*0.45)}
+ ctx.globalAlpha=1}
+function render(){
+ const vw=VW/ZOOM,vh=VH/ZOOM,P=PL;
+ if(state==='title'||!P){cam.x=clamp(WPX/2-vw/2+Math.sin(clock/14)*700,0,WPX-vw);cam.y=clamp(HPX/2-vh/2+Math.cos(clock/17)*300,0,HPX-vh)}
+ else{const tx=P.x-vw/2,ty=(P.climb?P.y-40:P.y-10)-vh/2,k=Math.min(1,rdt*6);cam.x+=(tx-cam.x)*k;cam.y+=(ty-cam.y)*k;cam.x=clamp(cam.x,0,Math.max(0,WPX-vw));cam.y=clamp(cam.y,0,Math.max(0,HPX-vh))}
+ const sx=(Math.random()-.5)*shake,sy=(Math.random()-.5)*shake;
+ ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#0d0b08';ctx.fillRect(0,0,VW,VH);
+ ctx.setTransform(DPR*ZOOM,0,0,DPR*ZOOM,(-cam.x*ZOOM+sx)*DPR,(-cam.y*ZOOM+sy)*DPR);
+ const S=CH*TS,c0=Math.floor(cam.x/S),c1=Math.floor((cam.x+vw)/S),r0=Math.floor(cam.y/S),r1=Math.floor((cam.y+vh)/S);
+ for(let cy=r0;cy<=r1;cy++)for(let cx=c0;cx<=c1;cx++){if(cx<0||cy<0||cx*CH>=W||cy*CH>=H)continue;ctx.drawImage(chunkCanvas(cx,cy),cx*S,cy*S,S+0.8,S+0.8)}
+ // water shimmer
+ const t0=Math.max(0,Math.floor(cam.x/TS)),t1=Math.min(W-1,Math.floor((cam.x+vw)/TS)),u0=Math.max(0,Math.floor(cam.y/TS)),u1=Math.min(H-1,Math.floor((cam.y+vh)/TS));
+ ctx.lineWidth=1.2;for(let ty=u0;ty<=u1;ty++)for(let tx=t0;tx<=t1;tx++){if(world.tiles[ty*W+tx]!==T.WAT)continue;const a=0.1+0.09*Math.sin(clock*1.6+tx*0.8+ty*1.3);ctx.strokeStyle=`rgba(190,225,230,${a})`;const ox=((clock*6+tx*7)%TS);seg(tx*TS+ox*0.4,ty*TS+8+(tx%3)*4,tx*TS+ox*0.4+8,ty*TS+8+(tx%3)*4)}
+ // entities
+ const L=[],x0=cam.x-60,x1=cam.x+vw+60,y0=cam.y-20,y1=cam.y+vh+110;const trees=[];
+ for(const o of world.objs){if(o.x<x0||o.x>x1||o.y<y0||o.y>y1)continue;if(o.t==='nest'){L.push({y:-1e9,o});continue}L.push({y:o.y,o});if(isTree(o))trees.push(o)}
+ if(G){for(const a of apes){if(a.ride||a.climb)continue;if(a.x<x0||a.x>x1||a.y<y0||a.y>y1)continue;L.push({y:a.y,a})}
+  for(const p of preds){if(p.x<x0||p.x>x1||p.y<y0||p.y>y1)continue;L.push({y:p.y,p})}}
+ L.sort((a,b)=>a.y-b.y);
+ for(const e of L){if(e.o)drawObj(e.o);else if(e.a){drawApe(e.a,e.a.x,e.a.y);if(e.a===PL)drawRider(PL,PL.x,PL.y)}else drawPred(e.p)}
+ for(const o of trees){const near=G&&P&&Math.abs(P.x-o.x)<44&&P.y<o.y+8&&P.y>o.y-90&&!P.climb;drawCanopy(o,near)}
+ if(G)for(const a of apes){if(!a.climb||a.ride)continue;drawApe(a,a.climb.x+(a===PL?0:(a.id%3-1)*10),a.climb.y-46);if(a===PL)drawRider(PL,a.climb.x,a.climb.y-46)}
+ for(const pr of projs){const t=pr.t,x=lerp(pr.sx,pr.tx,t),y=lerp(pr.sy,pr.ty,t)-Math.sin(t*Math.PI)*40;drawItem('stone',x,y,1)}
+ for(const f of fx){ctx.globalAlpha=Math.min(1,f.life);ctx.fillStyle='rgba(0,0,0,.6)';ctx.font=`700 13px 'Zen Kaku Gothic New',sans-serif`;ctx.textAlign='center';ctx.fillText(f.t,f.x+1,f.y+1);ctx.fillStyle=f.col;ctx.fillText(f.t,f.x,f.y)}ctx.globalAlpha=1;
+ if(state!=='title'&&P){
+  const py=P.climb?P.climb.y-46:P.y;
+  if(P.act){const k=P.act.t/P.act.dur;ctx.strokeStyle='rgba(0,0,0,.4)';ctx.lineWidth=4;ctx.beginPath();ctx.arc(P.x,py-62,10,0,6.284);ctx.stroke();ctx.strokeStyle='#d9a03f';ctx.lineWidth=3;ctx.beginPath();ctx.arc(P.x,py-62,10,-1.57,-1.57+k*6.284);ctx.stroke()}
+  if(QTE){const k=QTE.t/QTE.dur,R=r=>lerp(92,12,r),cy=py-18;ctx.lineWidth=10;ctx.strokeStyle='rgba(217,160,63,.45)';ctx.beginPath();ctx.arc(P.x,cy,(R(QTE.w[0])+R(QTE.w[1]))/2,0,6.284);ctx.lineWidth=R(QTE.w[0])-R(QTE.w[1]);ctx.stroke();
+   ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.beginPath();ctx.arc(P.x,cy,R(k),0,6.284);ctx.stroke()}
+ }
+ // screen space overlays
+ ctx.setTransform(DPR,0,0,DPR,0,0);
+ if(!G)return;
+ const t=G.time;const N=0.86;let dark=t<0.03?N:t<0.09?N*(1-(t-0.03)/0.06):t<0.68?0:t<0.8?N*(t-0.68)/0.12:N;
+ if(state==='title')dark=0.25;
+ const tint=t<0.12?(1-Math.abs(t-0.07)/0.05):(t>0.62&&t<0.8)?(1-Math.abs(t-0.72)/0.1):0;
+ if(tint>0){ctx.fillStyle=`rgba(230,120,50,${clamp(tint,0,1)*0.16})`;ctx.fillRect(0,0,VW,VH)}
+ const psx=P?(P.x-cam.x)*ZOOM:VW/2,psy=P?((P.climb?P.climb.y-46:P.y)-cam.y-20)*ZOOM:VH/2;
+ if(dark>0.01){const lw=lc.width,lh=lc.height;lx.globalCompositeOperation='source-over';lx.clearRect(0,0,lw,lh);lx.fillStyle=`rgba(4,8,22,${dark})`;lx.fillRect(0,0,lw,lh);
+  if(P&&state!=='title'){lx.globalCompositeOperation='destination-out';
+   const vr=200*ZOOM*(hasMut('eyes')?1.15:1)*(has('s4')?1.6:1)*(P.up?1.2:1)*(P.climb?1.3:1)*(1-P.fear/250);
+   const hole=(x,y,r)=>{const g=lx.createRadialGradient(x/2,y/2,r*0.15,x/2,y/2,r/2);g.addColorStop(0,'rgba(0,0,0,1)');g.addColorStop(1,'rgba(0,0,0,0)');lx.fillStyle=g;lx.beginPath();lx.arc(x/2,y/2,r/2,0,6.284);lx.fill()};
+   hole(psx,psy,vr);for(const a of apes)if(a!==P&&!a.ride)hole((a.x-cam.x)*ZOOM,(a.y-cam.y-20)*ZOOM,70*ZOOM);
+   lx.globalCompositeOperation='source-over'}
+  ctx.drawImage(lc,0,0,VW,VH)}
+ if(state==='title'||!P)return;
+ // sense mode
+ if(sensing){ctx.fillStyle='rgba(16,24,48,.42)';ctx.fillRect(0,0,VW,VH);const R=200*(has('s1')?1.6:1)*(has('s3')?1.3:1);const pr=((clock*0.8)%1)*R*ZOOM;
+  ctx.strokeStyle=`rgba(180,138,214,${0.5*(1-pr/(R*ZOOM))})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(psx,psy,pr,0,6.284);ctx.stroke();
+  ctx.font=`700 12px 'Zen Kaku Gothic New',sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const o of world.objs){if(o.t==='nest'||o.t==='tree'||o.t==='acacia')continue;const d=dist(o,P);if(d>R)continue;const x=(o.x-cam.x)*ZOOM,y=(o.y-cam.y-8)*ZOOM;const k=kk(o);const known=G.know[k];
+   const g=known?GLYPH[k]:'？';if(!g)continue;const pulse=known?1:1+Math.sin(clock*5+o.x)*0.15;
+   if(known){ctx.fillStyle='rgba(239,229,207,.35)';ctx.beginPath();ctx.arc(x,y,4+Math.sin(clock*3+o.y)*1.2,0,6.284);ctx.fill();continue}ctx.fillStyle='rgba(239,229,207,.16)';ctx.beginPath();ctx.arc(x,y,11*pulse,0,6.284);ctx.fill();ctx.fillStyle='rgba(239,229,207,.9)';ctx.fillText(g,x,y+0.5)}
+  const hr=260*(has('s2')?1.6:1);for(const p of preds){if(p.state==='flee'||dist(p,P)>hr)continue;const x=(p.x-cam.x)*ZOOM,y=(p.y-cam.y-12)*ZOOM;ctx.strokeStyle='rgba(208,80,61,.9)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,14+Math.sin(clock*8)*2,0,6.284);ctx.stroke()}
+  ctx.textBaseline='alphabetic'}
+ // clan call echoes (the only "landmark" there is)
+ for(const e of echoes){const x=(e.x-cam.x)*ZOOM,y=(e.y-cam.y-20)*ZOOM,k=1-e.life/2,on=x>0&&y>0&&x<VW&&y<VH;
+  if(on){ctx.strokeStyle=`rgba(239,229,207,${e.life/2*0.6})`;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,10+k*40,0,6.284);ctx.stroke()}
+  else{const a=Math.atan2(y-psy,x-psx),r=Math.min(VW,VH)*0.42,ex=psx+Math.cos(a)*r,ey=psy+Math.sin(a)*r;ctx.strokeStyle=`rgba(239,229,207,${e.life/2*(e.faint?0.3:0.6)})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(ex,ey,8+k*30,a-0.9,a+0.9);ctx.stroke()}}
+ // fear / poison vignette
+ const fear=P.fear/100;if(fear>0.15||P.poison>0||P.bleed>0.2){const g=ctx.createRadialGradient(VW/2,VH/2,Math.min(VW,VH)*0.25,VW/2,VH/2,Math.max(VW,VH)*0.7);
+  const col=P.poison>0?'40,70,20':'60,0,20';g.addColorStop(0,`rgba(${col},0)`);g.addColorStop(1,`rgba(${col},${Math.max(fear*0.75,P.poison>0?0.45:0,P.bleed>0.2?0.4:0)})`);ctx.fillStyle=g;ctx.fillRect(0,0,VW,VH)}
+ if(P.panicT>0){ctx.fillStyle=`rgba(80,0,30,${0.2+0.1*Math.sin(clock*12)})`;ctx.fillRect(0,0,VW,VH)}
+}
+let lastHud='';
+function bar(id,v){const el=$('#'+id);el.firstElementChild.style.width=clamp(v,0,100)+'%';el.classList.toggle('low',id==='bFe'?v>75:v<20)}
+function updateHUD(force){if(!G||!PL)return;const P=PL;
+ $('#maNum').textContent=G.ma.toFixed(2);const st=STAGES[G.stage];$('#spName').textContent=st.name;$('#spSci').textContent=st.sci;
+ const t=G.time,tod=t<0.09?'夜明け':t<0.35?'朝':t<0.62?'昼':t<0.8?'夕方':'夜';
+ $('#genTxt').innerHTML=`第${G.gen}世代 · ${G.dayInGen+1}日目 <span class="tod">${tod}</span>`;
+ $('#neuNum').textContent=Math.floor(G.neu);
+ $('#neuBtn').classList.toggle('glow',SKILLS.some(s=>skStatus(s)==='avail'&&G.neu>=s.cost));
+ $('#leapBtn').classList.toggle('ready',G.dayInGen>=1&&apes.some(a=>a.role==='baby'));
+ $('#meName').innerHTML=`${P.name}<span>${ROLE[P.role]}${P.up?' · 直立':''}${P.climb?' · 樹上':''}</span>`;
+ bar('bHp',P.hp/maxHp(P)*100);bar('bHu',P.hun);bar('bTh',P.thi);bar('bEn',P.ene);bar('bFe',P.fear);
+ for(let i=0;i<2;i++){const el=$('#h'+i),lock=i===1&&!has('i1');el.className='slot'+(P.hands[i]?' full':'')+(lock?' lock':'');el.textContent=lock?'（片手のみ）':P.hands[i]?ITEM[P.hands[i]]:i?'左手':'右手'}
+ const sts=[];if(P.bleed>0.05)sts.push('出血');if(P.poison>0)sts.push('毒');if(P.hun<15)sts.push('飢え');if(P.thi<15)sts.push('渇き');if(P.ene<15)sts.push('疲労');if(P.panicT>0)sts.push('パニック');$('#status').textContent=sts.join(' · ');
+ // prompt
+ let ph='';if(QTE)ph=`<div class="qte">${PRED[QTE.p.k].n}の攻撃！ 輪が金の帯に重なったら <kbd>Space</kbd></div>`;
+ else if(P.act)ph=`<div class="tn">${P.act.label}</div>`;
+ else{const A=CUR;const acts=[];if(A.e&&A.e.l)acts.push(`<span><kbd>E</kbd>${A.e.l}</span>`);if(A.f)acts.push(`<span><kbd>F</kbd>${A.f.l}</span>`);if(A.z)acts.push(`<span><kbd>Z</kbd>${A.z.l}</span>`);
+  if(P.hands[0]&&P.hands[1])acts.push(`<span><kbd>R</kbd>作る</span>`);
+  ph=(A.name?`<div class="tn">${A.name}</div>`:'')+(acts.length?`<div class="acts">${acts.join('')}</div>`:'')+(A.note?`<div class="acts"><span style="color:var(--dim)">${A.note}</span></div>`:'')}
+ if(ph!==lastHud){$('#prompt').innerHTML=ph;lastHud=ph}
+ const li=apes.map(a=>`<li class="${a===PL?'me':''}"><span class="nm">${a===PL?'▶ ':''}${a.name}</span><span class="tag">${ROLE[a.role]}${a===PL?'':a.ride?' · 背中':a.follow?' · 同行':' · 巣'}</span><span class="hb"><i style="width:${clamp(a.hp/maxHp(a)*100,0,100)}%"></i></span></li>`).join('');
+ const head=`<li id="clanHead"><span>一族 ${apes.length}人</span><span>蓄え ${G.store}</span></li>`;
+ const html=head+li;const cl=$('#clan');if(cl._h!==html){cl.innerHTML=html;cl._h=html}}
+
+// ================= loop =================
+let last=performance.now();
+genWorld((Math.random()*1e9)|0,0.3);G=null;
+function frame(now){rdt=Math.min(0.05,(now-last)/1000);last=now;
+ if(state==='play'&&!anyModal())update(rdt);else clock+=rdt;
+ for(const f of fx){f.life-=rdt;f.y-=rdt*18}fx=fx.filter(f=>f.life>0);for(const e of echoes)e.life-=rdt;echoes=echoes.filter(e=>e.life>0);
+ try{render()}catch(e){console.error(e)}
+ requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
