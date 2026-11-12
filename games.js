@@ -25,4 +25,7 @@ window.GAMES = [
   // ---- komasauna ----
   // { id: "komasauna", title: "ゲームの名前", author: "komasauna", description: "ひとこと説明" },
 
+  // ---- stevenfridley42-tech ----
+  // { id: "stevenfridley42-tech", title: "ゲームの名前", author: "stevenfridley42-tech", description: "ひとこと説明" },
+
 ];
