@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>夜のビリヤード</title>
+<style>
+  :root { --ink: #e9dfc8; --dim: #9a8c72; --gold: #c2a15a; --bg: #0b0806; }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden;
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; }
+  .screen {
+    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    gap: 20px; padding: 24px 16px; box-sizing: border-box; text-align: center; background: rgba(8, 6, 4, .86); overflow-y: auto;
+  }
+  .screen > :first-child { margin-top: auto; }
+  .screen > :last-child { margin-bottom: auto; }
+  .screen[hidden] { display: none; }
+  h1 { font-size: clamp(32px, 7vw, 62px); margin: 0; font-weight: 600; letter-spacing: .32em; text-indent: .32em; }
+  h2 { font-size: clamp(26px, 5vw, 44px); margin: 0; font-weight: 600; letter-spacing: .3em; text-indent: .3em; }
+  .rule { width: min(340px, 60vw); height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); flex: none; }
+  p { margin: 0; line-height: 2; font-size: 16px; letter-spacing: .08em; }
+  .sub { color: var(--gold); letter-spacing: .5em; text-indent: .5em; font-size: 15px; }
+  .dim { color: var(--dim); font-size: 13px; }
+  .how { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 1040px; }
+  .card {
+    width: 248px; padding: 12px 14px 14px; border: 1px solid rgba(194, 161, 90, .38); background: rgba(255, 240, 210, .035);
+    text-align: left; font-size: 14px; line-height: 1.95; box-sizing: border-box; letter-spacing: .04em;
+  }
+  .card b.t { display: block; font-size: 16px; text-align: center; letter-spacing: .3em; color: var(--gold); font-weight: 600; }
+  .card svg { display: block; margin: 6px auto 8px; width: 100%; height: auto; }
+  kbd {
+    font: 600 12px ui-monospace, Menlo, monospace; min-width: 22px; height: 22px; padding: 0 5px; display: inline-grid; place-items: center;
+    border: 1px solid var(--ink); border-bottom-width: 2.5px; border-radius: 4px; margin: 0 1px; box-sizing: border-box; vertical-align: middle;
+  }
+  button.big {
+    font: inherit; font-size: 17px; letter-spacing: .24em; text-indent: .24em; color: var(--ink); background: transparent;
+    border: 1px solid var(--gold); padding: 13px 36px; cursor: pointer;
+  }
+  button.big:hover, button.big:focus-visible { background: rgba(194, 161, 90, .18); outline: none; }
+  #say { font-size: 18px; }
+  #back { position: fixed; left: 14px; top: 12px; z-index: 5; color: var(--dim); text-decoration: none; font-size: 13px; }
+  #back:hover { color: var(--ink); }
+  #back[hidden] { display: none; }
+  #pad { position: fixed; left: 0; right: 0; bottom: 10px; display: flex; justify-content: space-between; padding: 0 10px; pointer-events: none; z-index: 3; }
+  #pad[hidden] { display: none; }
+  #pad div { display: flex; gap: 8px; }
+  #pad button {
+    pointer-events: auto; width: 62px; height: 62px; font: inherit; font-size: 17px; color: var(--ink);
+    background: rgba(20, 14, 10, .7); border: 1px solid var(--gold); touch-action: none;
+  }
+  #test {
+    position: fixed; right: 8px; top: 8px; z-index: 9; margin: 0; padding: 10px 12px; max-width: 70vw; max-height: 92vh; overflow: auto;
+    background: rgba(0, 0, 0, .86); color: #dfe; font: 12px/1.6 ui-monospace, Menlo, monospace; white-space: pre-wrap; text-align: left;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="back" href="../../" hidden>← ゲーム一覧にもどる</a>
+
+<div id="title" class="screen">
+  <p class="sub">ナインボール　三番勝負</p>
+  <h1>夜のビリヤード</h1>
+  <div class="rule"></div>
+  <p>閉店まぎわの撞球場。<br>相手は三人。最後のひとりは、奥の間にいる。</p>
+  <button class="big" id="go">はじめる</button>
+  <p class="dim">Space キーでも進みます。キーボードだけで遊べます。<br>小さな音が出ます（M で消音）。</p>
+</div>
+
+<div id="howto" class="screen" hidden>
+  <h2>あそびかた</h2>
+  <div class="rule"></div>
+  <div class="how">
+    <div class="card">
+      <b class="t">ねらう</b>
+      <svg width="250" height="92" viewBox="0 0 250 92"><rect width="250" height="92" fill="#1d5a3d"/>
+        <line x1="52" y1="62" x2="150" y2="38" stroke="#efe6cf" stroke-opacity=".6" stroke-dasharray="1 0"/><circle cx="150" cy="38" r="11" fill="none" stroke="#efe6cf" stroke-opacity=".7"/>
+        <line x1="171" y1="28" x2="226" y2="6" stroke="#efe6cf" stroke-opacity=".6"/>
+        <circle cx="42" cy="64.5" r="11" fill="#eee8d6"/><circle cx="170" cy="28.5" r="11" fill="#e2b022"/><circle cx="170" cy="28.5" r="5" fill="#eee8d6"/>
+        <text x="170" y="31.5" font-size="8" text-anchor="middle" fill="#111" font-family="serif">1</text>
+        <path d="M64 80 q14 6 28 -2" fill="none" stroke="#c2a15a"/><path d="M92 78 l-6 -1 l3 5z" fill="#c2a15a"/></svg>
+      <kbd>←</kbd> <kbd>→</kbd> で、ねらいの線を回す。押しつづけると速くなり、ちょんと押すと少しだけ動く。<br>
+      <kbd>Shift</kbd> を押しながらだと、ごくゆっくり。<br>線の先の輪が、手球の当たる場所。
+    </div>
+    <div class="card">
+      <b class="t">撞く</b>
+      <svg width="250" height="92" viewBox="0 0 250 92"><rect width="250" height="92" fill="#1d5a3d"/>
+        <polygon points="24,49 150,45 150,51 24,57" fill="#d8bd8c"/><polygon points="150,45 158,45.3 158,50.7 150,51" fill="#eee8d6"/><polygon points="158,45.3 161,45.4 161,50.6 158,50.7" fill="#4f6f8a"/>
+        <polygon points="0,48 24,49 24,57 0,58" fill="#3a1c10"/><circle cx="184" cy="48" r="11" fill="#eee8d6"/>
+        <rect x="60" y="74" width="130" height="7" fill="none" stroke="#c2a15a"/><rect x="60" y="74" width="80" height="7" fill="#c2a15a"/>
+        <text x="52" y="81.5" font-size="10" text-anchor="end" fill="#efe6cf" font-family="serif">強さ</text></svg>
+      <kbd>↑</kbd> <kbd>↓</kbd> で強さを決める。<br><kbd>Space</kbd> で撞く。<br>
+      玉がすべて止まるまで、静かに待つ。<br><span class="dim">A D W S と Enter でも同じ。</span>
+    </div>
+    <div class="card">
+      <b class="t">きまり</b>
+      <svg width="250" height="92" viewBox="0 0 250 92"><rect width="250" height="92" fill="#1d5a3d"/>
+        <circle cx="30" cy="46" r="11" fill="#eee8d6"/><path d="M46 46 h22" stroke="#efe6cf" stroke-opacity=".7"/><path d="M68 46 l-6 -3 v6z" fill="#efe6cf"/>
+        <circle cx="86" cy="46" r="11" fill="#e2b022"/><circle cx="86" cy="46" r="5" fill="#eee8d6"/><text x="86" y="49" font-size="8" text-anchor="middle" fill="#111" font-family="serif">1</text>
+        <circle cx="86" cy="46" r="15" fill="none" stroke="#c2a15a"/>
+        <circle cx="130" cy="30" r="9" fill="#2454c4"/><circle cx="152" cy="62" r="9" fill="#c42824"/>
+        <circle cx="212" cy="46" r="11" fill="#eee8d6"/><rect x="201.5" y="40" width="21" height="12" fill="#e2b022"/><circle cx="212" cy="46" r="5" fill="#eee8d6"/><text x="212" y="49" font-size="8" text-anchor="middle" fill="#111" font-family="serif">9</text>
+        <text x="212" y="78" font-size="10" text-anchor="middle" fill="#c2a15a" font-family="serif">落とせば勝ち</text></svg>
+      手球（白）を、台の上で<b>いちばん小さい番号の玉</b>に最初に当てる。<br>玉を落とせば、続けて撞ける。落とせなければ交代。<br>
+      <b>9番を落としたほうの勝ち。</b>
+    </div>
+    <div class="card">
+      <b class="t">ファウル</b>
+      <svg width="250" height="92" viewBox="0 0 250 92"><rect width="250" height="92" fill="#1d5a3d"/>
+        <circle cx="125" cy="46" r="11" fill="#eee8d6" fill-opacity=".8"/><circle cx="125" cy="46" r="16" fill="none" stroke="#efe6cf" stroke-opacity=".6" stroke-dasharray="3 3"/>
+        <g fill="#c2a15a"><path d="M125 14 l-5 8 h10z"/><path d="M125 78 l-5 -8 h10z"/><path d="M83 46 l8 -5 v10z"/><path d="M167 46 l-8 -5 v10z"/></g></svg>
+      小さい番号の玉に先に当たらなかったとき、手球を落としたときはファウル。<br>
+      相手は、手球を好きな場所に置ける。<br>置くとき：<kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> で動かし、<kbd>Space</kbd> で決める。
+    </div>
+  </div>
+  <button class="big" id="go2">席につく</button>
+  <p class="dim">Space キーでも進みます</p>
+</div>
+
+<div id="intro" class="screen" hidden>
+  <p class="sub" id="ino">一人目</p>
+  <h2 id="iname">学生</h2>
+  <div class="rule"></div>
+  <p id="say"></p>
+  <p class="dim" id="inote"></p>
+  <button class="big" id="go3">撞きはじめる</button>
+  <p class="dim">先に撞くのは、あなた。</p>
+</div>
+
+<div id="result" class="screen" hidden>
+  <h2 id="verdict">勝ち</h2>
+  <div class="rule"></div>
+  <p id="story"></p>
+  <p class="dim" id="stats"></p>
+  <button class="big" id="go4">次の相手へ</button>
+</div>
+
+<div id="pad" hidden>
+  <div><button data-k="l">◀</button><button data-k="r">▶</button></div>
+  <div><button data-k="d">弱</button><button data-k="u">強</button><button data-k="shoot">撞く</button></div>
+</div>
+<pre id="test" hidden></pre>
+
+<script>
+'use strict';
+/*
+  夜のビリヤード。ナインボールを、三人の相手と順に一番ずつ。キーボードだけで遊べる。
+  ?test       自己テスト
+  ?seed=3     玉の並びと相手の手を固定
+  ?stage=3    その相手から始める（確認用。3 は主人）
+  ?auto       自分の番も自動で撞く（確認用）
+  ?skip=20    自動で20秒進めたところから始める（確認用）
+  ?touch      画面のボタンを出す
+*/
+
+// ---------- 道具 ----------
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const smooth = t => t * t * (3 - 2 * t);
+function rng32(seed) {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const gauss = R => Math.sqrt(-2 * Math.log(1 - R())) * Math.cos(TAU * R());
+const angDiff = (a, b) => { let d = (b - a) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; };
+
+// ---------- 台と玉（長さの単位は、台の内のりを 1000 × 500 としたもの） ----------
+const TW = 1000, TH = 500, R = 13, CG = 38, SG = 30, H = 1 / 120;
+const FR0 = 80, FR1 = .4, E_BALL = .95, E_RAIL = .76, E_JAW = .5;
+const POCKETS = [[-9, -9, 31], [TW / 2, -19, 28], [TW + 9, -9, 31], [-9, TH + 9, 31], [TW / 2, TH + 19, 28], [TW + 9, TH + 9, 31]].map(([x, y, r]) => ({ x, y, r }));
+const AIMS = [[4, 4], [TW / 2, -3], [TW - 4, 4], [4, TH - 4], [TW / 2, TH + 3], [TW - 4, TH - 4]].map(([x, y]) => ({ x, y }));
+// クッション。h: 横向きか、c: 線の位置、a〜b: 線の範囲、s: 台の内側の向き
+const RAILS = [
+  { h: 1, c: 0, a: CG, b: TW / 2 - SG, s: 1 }, { h: 1, c: 0, a: TW / 2 + SG, b: TW - CG, s: 1 },
+  { h: 1, c: TH, a: CG, b: TW / 2 - SG, s: -1 }, { h: 1, c: TH, a: TW / 2 + SG, b: TW - CG, s: -1 },
+  { h: 0, c: 0, a: CG, b: TH - CG, s: 1 }, { h: 0, c: TW, a: CG, b: TH - CG, s: -1 },
+];
+const JAWS = [];
+for (const r of RAILS) for (const e of [r.a, r.b]) JAWS.push(r.h ? [e, r.c] : [r.c, e]);
+const FOOT = { x: 750, y: 250 }, HEAD = { x: 250, y: 250 };
+const speedOf = p => 150 + 2250 * p;
+const OPP = [
+  { no: '一人目', name: '学生', say: '「習いはじめて、三月です。お手やわらかに」', note: '', sig: .55, pw: .08 },
+  { no: '二人目', name: '常連', say: '「一番だけ、お付き合いしましょう」', note: '', sig: .32, pw: .06 },
+  { no: '三人目', name: '主人', say: '「……奥の台を、開けましょう」', note: '奥の間。青い羅紗の台に、灯りはひとつ。', sig: .07, pw: .03 },
+];
+const AUTO_SKILL = { sig: .22, pw: .05 };
+
+// 玉の向きを転がす（絵のためだけ。動きには関わらない）
+function spin(b, dx, dy) {
+  const d = Math.hypot(dx, dy); if (d < 1e-9) return;
+  const kx = -dy / d, ky = dx / d, th = d / R, c = Math.cos(th), s = Math.sin(th), m = b.m;
+  for (let i = 0; i < 3; i++) {
+    const x = m[i], y = m[i + 3], z = m[i + 6], kv = (kx * x + ky * y) * (1 - c);
+    m[i] = x * c + ky * z * s + kx * kv; m[i + 3] = y * c - kx * z * s + ky * kv; m[i + 6] = z * c + (kx * y - ky * x) * s;
+  }
+}
+
+// 玉を dt だけ進める。動いている玉があれば true
+function physStep(bs, dt, ev) {
+  let vmax = 0;
+  for (const b of bs) if (b.on) { const s = Math.hypot(b.vx, b.vy); if (s > vmax) vmax = s; }
+  if (vmax === 0) return false;
+  const n = Math.max(1, Math.ceil(vmax * dt / 4)), h = dt / n;
+  for (let q = 0; q < n; q++) {
+    for (const b of bs) {
+      if (!b.on) continue;
+      const sp = Math.hypot(b.vx, b.vy); if (sp === 0) continue;
+      const dec = (FR0 + FR1 * sp) * h;
+      if (sp <= dec) { b.vx = b.vy = 0; continue; }
+      const k = (sp - dec) / sp; b.vx *= k; b.vy *= k;
+      const dx = b.vx * h, dy = b.vy * h; b.x += dx; b.y += dy;
+      if (b.m) spin(b, dx, dy);
+    }
+    for (let i = 0; i < bs.length; i++) {
+      const a = bs[i]; if (!a.on) continue;
+      for (let j = i + 1; j < bs.length; j++) {
+        const b = bs[j]; if (!b.on) continue;
+        if (a.vx === 0 && a.vy === 0 && b.vx === 0 && b.vy === 0) continue;
+        const dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy;
+        if (d2 >= 4 * R * R) continue;
+        const d = Math.sqrt(d2) || 1e-6, nx = dx / d, ny = dy / d, vn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny, ov = (2 * R - d) / 2;
+        a.x -= nx * ov; a.y -= ny * ov; b.x += nx * ov; b.y += ny * ov;
+        if (vn > 0) {
+          const p = (1 + E_BALL) / 2 * vn;
+          a.vx -= p * nx; a.vy -= p * ny; b.vx += p * nx; b.vy += p * ny;
+          if (i === 0 && ev.first == null) ev.first = b.n;
+          if (ev.snd && vn > 25) ev.snd.push({ k: 'hit', v: vn });
+        }
+      }
+    }
+    for (const b of bs) {
+      if (!b.on) continue;
+      let pk = -1;
+      if (b.x < 0 || b.x > TW || b.y < 0 || b.y > TH) {
+        let best = 1e9;
+        POCKETS.forEach((p, i) => { const d = Math.hypot(b.x - p.x, b.y - p.y); if (d < best) { best = d; pk = i; } });
+      } else {
+        for (let i = 0; i < 6; i++) { const p = POCKETS[i], dx = b.x - p.x, dy = b.y - p.y; if (dx * dx + dy * dy < p.r * p.r) { pk = i; break; } }
+      }
+      if (pk >= 0) {
+        if (ev.drops) ev.drops.push({ n: b.n, x: b.x, y: b.y, px: POCKETS[pk].x, py: POCKETS[pk].y, t: 0 });
+        if (ev.snd) ev.snd.push({ k: 'pot' });
+        b.on = false; b.vx = b.vy = 0; ev.pot.push(b.n); continue;
+      }
+      for (const j of JAWS) { // ポケットの角
+        const dx = b.x - j[0], dy = b.y - j[1], d2 = dx * dx + dy * dy;
+        if (d2 >= R * R) continue;
+        const d = Math.sqrt(d2) || 1e-6, nx = dx / d, ny = dy / d, vn = b.vx * nx + b.vy * ny;
+        if (vn < 0) { b.vx -= (1 + E_JAW) * vn * nx; b.vy -= (1 + E_JAW) * vn * ny; if (ev.snd && vn < -40) ev.snd.push({ k: 'rail', v: -vn }); }
+        b.x = j[0] + nx * R; b.y = j[1] + ny * R;
+      }
+      for (const r of RAILS) {
+        if (r.h) {
+          if (b.x < r.a || b.x > r.b) continue;
+          const pen = R - (b.y - r.c) * r.s; if (pen <= 0) continue;
+          b.y += r.s * pen;
+          if (b.vy * r.s < 0) { if (ev.snd && Math.abs(b.vy) > 40) ev.snd.push({ k: 'rail', v: Math.abs(b.vy) }); b.vy = -b.vy * E_RAIL; b.vx *= .97; }
+        } else {
+          if (b.y < r.a || b.y > r.b) continue;
+          const pen = R - (b.x - r.c) * r.s; if (pen <= 0) continue;
+          b.x += r.s * pen;
+          if (b.vx * r.s < 0) { if (ev.snd && Math.abs(b.vx) > 40) ev.snd.push({ k: 'rail', v: Math.abs(b.vx) }); b.vx = -b.vx * E_RAIL; b.vy *= .97; }
+        }
+      }
+    }
+  }
+  for (const b of bs) if (b.on && (b.vx !== 0 || b.vy !== 0)) return true;
+  return false;
+}
+
+const lowest = bs => { for (let n = 1; n <= 9; n++) if (bs[n].on) return bs[n]; return null; };
+function freeAt(bs, x, y, self) {
+  for (const b of bs) if (b.on && b.n !== self && Math.hypot(b.x - x, b.y - y) < 2 * R + .5) return false;
+  return true;
+}
+function spot(bs, b, at) { // at の近くの空いた場所に置く
+  b.on = true; b.vx = b.vy = 0;
+  for (let i = 0; i < 80; i++) for (const s of [1, -1]) {
+    const x = at.x + s * i * 6;
+    if (x > R + 1 && x < TW - R - 1 && freeAt(bs, x, at.y, b.n)) { b.x = x; b.y = at.y; return; }
+  }
+  b.x = at.x; b.y = at.y;
+}
+function clearSeg(bs, ax, ay, bx, by, ig1, ig2) { // 線分 a→b を玉が通れるか
+  const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1e-9;
+  for (const b of bs) {
+    if (!b.on || b.n === ig1 || b.n === ig2) continue;
+    const t = clamp(((b.x - ax) * dx + (b.y - ay) * dy) / l2, 0, 1);
+    if (Math.hypot(b.x - ax - dx * t, b.y - ay - dy * t) < 2 * R - .5) return false;
+  }
+  return true;
+}
+// ねらいの線が最初に当たるもの
+function castAim(bs, ang) {
+  const c = bs[0], dx = Math.cos(ang), dy = Math.sin(ang);
+  let best = 1e9, hit = null;
+  for (const b of bs) {
+    if (!b.on || b.n === 0) continue;
+    const ox = b.x - c.x, oy = b.y - c.y, pr = ox * dx + oy * dy; if (pr <= 0) continue;
+    const pp = ox * ox + oy * oy - pr * pr; if (pp >= 4 * R * R) continue;
+    const t = pr - Math.sqrt(4 * R * R - pp); if (t < best) { best = t; hit = b; }
+  }
+  const tx = dx > 0 ? (TW - R - c.x) / dx : dx < 0 ? (R - c.x) / dx : 1e9, ty = dy > 0 ? (TH - R - c.y) / dy : dy < 0 ? (R - c.y) / dy : 1e9;
+  const tc = Math.min(tx, ty);
+  if (tc < best) { best = tc; hit = null; }
+  return { t: best, ball: hit, gx: c.x + dx * best, gy: c.y + dy * best, dx, dy };
+}
+
+// ---------- 相手の考え ----------
+function simShot(bs, ang, pow, low) {
+  const cp = bs.map(b => ({ n: b.n, x: b.x, y: b.y, vx: 0, vy: 0, on: b.on })), ev = { first: null, pot: [] }, sp = speedOf(pow);
+  cp[0].vx = Math.cos(ang) * sp; cp[0].vy = Math.sin(ang) * sp;
+  let i = 0, foul = false;
+  while (physStep(cp, H, ev) && i++ < 4000) {
+    if ((ev.first != null && ev.first !== low) || !cp[0].on) { foul = true; break; }
+  }
+  if (ev.first == null || !cp[0].on) foul = true;
+  return { bs: cp, first: ev.first, pot: ev.pot, foul };
+}
+const pocketOk = (i, uy) => (i !== 1 && i !== 4) || Math.abs(uy) > .5; // 横のポケットは浅い角度では入らない
+function easeOf(bs) { // いちばん小さい番号の玉の、落としやすさ（0〜1）
+  const c = bs[0], L = lowest(bs); if (!L) return 0;
+  let best = 0;
+  AIMS.forEach((p, i) => {
+    const pd = Math.hypot(p.x - L.x, p.y - L.y), ux = (p.x - L.x) / pd, uy = (p.y - L.y) / pd;
+    if (!pocketOk(i, uy)) return;
+    const gx = L.x - ux * 2 * R, gy = L.y - uy * 2 * R, cd = Math.hypot(gx - c.x, gy - c.y) || 1e-6, cut = ((gx - c.x) * ux + (gy - c.y) * uy) / cd;
+    if (cut < .3 || !clearSeg(bs, c.x, c.y, gx, gy, 0, L.n) || !clearSeg(bs, L.x, L.y, p.x, p.y, 0, L.n)) return;
+    best = Math.max(best, cut * cut * (1 - pd / 1500) * (1 - cd / 2600));
+  });
+  return best;
+}
+function pickShot(bs, low, cands) {
+  let best = { s: -1e9, ang: 0, pow: .3 };
+  for (const [ang, pow] of cands) {
+    const r = simShot(bs, ang, pow, low);
+    const s = r.foul ? -500 : r.pot.includes(9) ? 1000 : r.pot.length ? 200 + 100 * easeOf(r.bs) : 20 - 100 * easeOf(r.bs);
+    if (s > best.s) best = { s, ang, pow };
+  }
+  return best;
+}
+// lv は読みの深さ。0: 強さを2通りしか試さない、1: ふつう、2: 細かく試し、落とせないときは相手が困る残し方を探す
+const AI_OFFS = [[0], [0, -.002, .002], [0, -.0015, .0015, -.003, .003]], AI_POWS = [[.3, .5], [.2, .32, .46, .62], [.14, .2, .27, .34, .42, .5, .6, .72]];
+function aiPlan(bs, lv) {
+  if (lv == null) lv = 1;
+  const c = bs[0], L = lowest(bs), cands = [];
+  AIMS.forEach((p, i) => {
+    const pd = Math.hypot(p.x - L.x, p.y - L.y), ux = (p.x - L.x) / pd, uy = (p.y - L.y) / pd;
+    if (!pocketOk(i, uy)) return;
+    const gx = L.x - ux * 2 * R, gy = L.y - uy * 2 * R, cd = Math.hypot(gx - c.x, gy - c.y) || 1e-6;
+    if (((gx - c.x) * ux + (gy - c.y) * uy) / cd < .15 || !clearSeg(bs, c.x, c.y, gx, gy, 0, L.n)) return;
+    const a = Math.atan2(gy - c.y, gx - c.x);
+    for (const off of AI_OFFS[lv]) for (const pw of AI_POWS[lv]) cands.push([a + off, pw]);
+  });
+  const a0 = Math.atan2(L.y - c.y, L.x - c.x);
+  for (const pw of [.16, .3]) cands.push([a0, pw]);
+  let best = pickShot(bs, L.n, cands);
+  if (best.s < (lv === 2 ? 200 : 0)) { // まっすぐには当てられない（落とせない）。ぐるりと試して、いちばんましな向きを探す
+    const sw = [], n = lv === 2 ? 360 : 240;
+    for (let i = 0; i < n; i++) for (const pw of lv === 2 ? [.25, .45, .7] : [.35, .6]) sw.push([i / n * TAU, pw]);
+    const b2 = pickShot(bs, L.n, sw); if (b2.s > best.s) best = b2;
+  }
+  return best;
+}
+function aiPlace(bs) { // 手球を自由に置けるとき
+  const c = bs[0], L = lowest(bs); let best = null, bv = -1e9;
+  AIMS.forEach((p, i) => {
+    const pd = Math.hypot(p.x - L.x, p.y - L.y), ux = (p.x - L.x) / pd, uy = (p.y - L.y) / pd;
+    if (!pocketOk(i, uy) || !clearSeg(bs, L.x, L.y, p.x, p.y, 0, L.n)) return;
+    for (const d of [120, 190, 270]) {
+      const x = L.x - ux * (2 * R + d), y = L.y - uy * (2 * R + d);
+      if (x < R + 2 || x > TW - R - 2 || y < R + 2 || y > TH - R - 2 || !freeAt(bs, x, y, 0)) continue;
+      if (!clearSeg(bs, x, y, L.x - ux * 2 * R, L.y - uy * 2 * R, 0, L.n)) continue;
+      const v = -pd - d * .4; if (v > bv) { bv = v; best = [x, y]; }
+    }
+  });
+  if (best) { c.x = best[0]; c.y = best[1]; } else if (!freeAt(bs, c.x, c.y, 0)) spot(bs, c, HEAD);
+}
+
+// ---------- 勝負 ----------
+function makeWorld(seed, opts) {
+  opts = opts || {};
+  return {
+    R: rng32(seed), seed, auto: !!opts.auto, fast: !!opts.fast, stage: 0, t: 0, balls: [], turn: 0, state: 'aim', hand: false, placeOk: true,
+    aim: 0, power: .9, dispPow: .4, cueAng: 0, hold: 0, sk: 0, tt: 0, plan: null, rest: 0, shotAng: 0, shotPow: 0, lowBefore: 1, isBreak: true,
+    ev: { first: null, pot: [] }, sfx: [], drops: [], msg: '', msgT: 0, winner: null, shots: [0, 0], pots: [0, 0], focus: 0,
+  };
+}
+function rack(w) {
+  const rest = [2, 3, 4, 5, 6, 7, 8];
+  for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(w.R() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+  const dx = 2 * R * Math.cos(Math.PI / 6) + .3, dy = R + .15, slots = [];
+  [1, 2, 3, 2, 1].forEach((n, i) => { for (let k = 0; k < n; k++) slots.push([FOOT.x + i * dx, FOOT.y + (k - (n - 1) / 2) * 2 * dy]); });
+  const mk = (n, x, y) => {
+    const b = { n, x, y, vx: 0, vy: 0, on: true, m: [0, 0, 1, 0, -1, 0, 1, 0, 0] };
+    spin(b, (w.R() - .5) * (n ? 16 : 60), (w.R() - .5) * (n ? 16 : 60)); return b;
+  };
+  w.balls = [mk(0, HEAD.x, HEAD.y)];
+  let q = 0;
+  slots.forEach((s, i) => { const n = i === 0 ? 1 : i === 4 ? 9 : rest[q++]; w.balls[n] = mk(n, s[0], s[1]); });
+}
+function beginTurn(w) {
+  const L = lowest(w.balls), c = w.balls[0];
+  w.plan = null; w.hold = 0;
+  if (w.turn === 0 && !w.auto) {
+    w.state = w.hand ? 'place' : 'aim';
+    w.aim = w.cueAng = Math.atan2(L.y - c.y, L.x - c.x);
+  } else { w.state = 'think'; w.tt = 0; w.cueAng = Math.atan2(L.y - c.y, L.x - c.x) + .35; w.dispPow = .3; }
+}
+function startMatch(w, stage) {
+  w.stage = stage; rack(w);
+  Object.assign(w, { turn: 0, hand: false, power: .9, isBreak: true, winner: null, shots: [0, 0], pots: [0, 0], msg: '', msgT: 0, focus: 0, t: 0 });
+  w.sfx.length = 0; w.drops.length = 0;
+  beginTurn(w);
+}
+const SKB = .36, SKF = .07;
+function launch(w) {
+  const c = w.balls[0], sp = speedOf(w.shotPow);
+  c.vx = Math.cos(w.shotAng) * sp; c.vy = Math.sin(w.shotAng) * sp;
+  w.lowBefore = lowest(w.balls).n; w.ev = { first: null, pot: [], snd: w.sfx, drops: w.drops };
+  w.state = 'roll'; w.rest = 0; w.shots[w.turn]++; w.sfx.push({ k: 'cue', v: w.shotPow });
+  if (w.isBreak) { w.isBreak = false; if (w.turn === 0) w.power = .4; }
+}
+function resolve(w) {
+  const pot = w.ev.pot, scratch = pot.includes(0), nine = pot.includes(9), c = w.balls[0];
+  const foul = scratch ? '手球が落ちました' : w.ev.first == null ? 'どの玉にも当たりませんでした' : w.ev.first !== w.lowBefore ? `${w.lowBefore}番に先に当たりませんでした` : null;
+  if (nine && !foul) { w.pots[w.turn] += pot.length; w.winner = w.turn; w.state = 'over'; w.msg = ''; return; }
+  if (nine) spot(w.balls, w.balls[9], FOOT);
+  if (scratch) spot(w.balls, c, HEAD);
+  if (foul) {
+    w.turn ^= 1; w.hand = true;
+    w.msg = 'ファウル　' + foul + (w.turn === 0 && !w.auto ? '。手球を好きな場所に置けます' : ''); w.msgT = 7;
+  } else if (pot.length) { w.pots[w.turn] += pot.length; w.msg = ''; }
+  else { w.turn ^= 1; w.msg = ''; }
+  beginTurn(w);
+}
+function step(w, dt, inp) {
+  w.t += dt; if (w.msgT > 0) w.msgT -= dt;
+  const L = lowest(w.balls);
+  w.focus += ((L && L.n === 9 && w.winner == null ? 1 : 0) - w.focus) * Math.min(1, dt * 1.2);
+  for (const d of w.drops) d.t += dt;
+  if (w.drops.length && w.drops[0].t > .4) w.drops.shift();
+  const lr = (inp.r ? 1 : 0) - (inp.l ? 1 : 0), ud = (inp.u ? 1 : 0) - (inp.d ? 1 : 0);
+  if (w.state === 'place') {
+    const c = w.balls[0], sp = (inp.fine ? 60 : 260) * dt;
+    c.x = clamp(c.x + lr * sp, R, TW - R); c.y = clamp(c.y - ud * sp, R, TH - R);
+    w.placeOk = freeAt(w.balls, c.x, c.y, 0);
+    if (inp.shoot) {
+      if (w.placeOk) { w.hand = false; w.state = 'aim'; w.aim = w.cueAng = Math.atan2(L.y - c.y, L.x - c.x); w.msgT = Math.min(w.msgT, .6); }
+      else w.sfx.push({ k: 'no' });
+    }
+  } else if (w.state === 'aim') {
+    if (lr) { w.hold += dt; w.aim += lr * (inp.fine ? .8 : 2 + 140 * Math.pow(Math.min(1, w.hold / 1.5), 2)) * dt * Math.PI / 180; } else w.hold = 0;
+    w.power = clamp(w.power + ud * (inp.fine ? .12 : .5) * dt, .04, 1);
+    w.cueAng = w.aim; w.dispPow = w.power;
+    if (inp.shoot) { w.state = 'stroke'; w.sk = 0; w.shotAng = w.aim; w.shotPow = w.power; }
+  } else if (w.state === 'think') {
+    if (!w.plan) {
+      if (w.hand) { aiPlace(w.balls); w.hand = false; }
+      const sk = w.turn === 0 ? AUTO_SKILL : OPP[w.stage], p = aiPlan(w.balls, w.turn === 0 ? 1 : w.stage);
+      w.plan = { ang: p.ang + gauss(w.R) * sk.sig * Math.PI / 180, pow: clamp(p.pow * (1 + gauss(w.R) * sk.pw), .05, 1), a0: w.cueAng };
+    }
+    w.tt += dt;
+    w.cueAng = w.plan.a0 + angDiff(w.plan.a0, w.plan.ang) * smooth(clamp(w.tt / 1.1, 0, 1));
+    w.dispPow += (w.plan.pow - w.dispPow) * Math.min(1, dt * 3);
+    if (w.tt > 2.1 || w.fast) { w.state = 'stroke'; w.sk = 0; w.shotAng = w.cueAng = w.plan.ang; w.shotPow = w.dispPow = w.plan.pow; w.plan = null; }
+  } else if (w.state === 'stroke') {
+    w.sk += dt; if (w.sk >= SKB + SKF || w.fast) launch(w);
+  } else if (w.state === 'roll') {
+    if (physStep(w.balls, dt, w.ev)) w.rest = 0;
+    else { w.rest += dt; if (w.rest > .6 || w.fast) resolve(w); }
+  }
+}
+
+// ---------- 絵 ----------
+const VX0 = -150, VY0 = -150, VW = 1300, VH = 805;
+const COL = [[238, 232, 214], [226, 176, 34], [36, 84, 196], [196, 40, 36], [104, 50, 152], [226, 112, 30], [26, 122, 72], [124, 36, 36], [26, 26, 28], [226, 176, 34]];
+const PAL = [
+  { cloth: '#1d5a3d', cush: ['#1a5137', '#113726'], wood: ['#5e2e19', '#3f1d10', '#291209'], rug: '#2a0d0c', floor: [26, 18, 12] },
+  { cloth: '#17305c', cush: ['#142a52', '#0c1b38'], wood: ['#2b221d', '#18120f', '#0c0908'], rug: '#0f211d', floor: [16, 13, 12] },
+];
+const CUES = [
+  { shaft: '#d8bd8c', butt: '#3a1c10', wrap: '#15120f' },
+  { shaft: '#d2b98e', butt: '#7a4a22', wrap: '#27382b' },
+  { shaft: '#d6bc8e', butt: '#5a1a1a', wrap: '#191514' },
+  { shaft: '#cdb68a', butt: '#0d0b0a', wrap: '#d8cfb8' },
+];
+const SERIF = '"Hiragino Mincho ProN","Yu Mincho","YuMincho",serif';
+
+function paintStatic(g, V, pal) {
+  const k = V.s * V.dpr, rnd = rng32(7);
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#0b0806'; g.fillRect(0, 0, V.W * V.dpr, V.H * V.dpr);
+  g.setTransform(k, 0, 0, k, V.ox * V.dpr, V.oy * V.dpr);
+  const x0 = -V.ox / V.s, x1 = x0 + V.W / V.s, y0 = -V.oy / V.s, y1 = y0 + V.H / V.s, f = pal.floor;
+  for (let y = Math.floor(y0 / 44) * 44; y < y1; y += 44) { // 床板
+    let x = x0 - rnd() * 300;
+    while (x < x1) { const len = 240 + rnd() * 280, c = rnd() * 9; g.fillStyle = `rgb(${f[0] + c | 0},${f[1] + c | 0},${f[2] + c | 0})`; g.fillRect(x, y, len - 1.4, 42.6); x += len; }
+  }
+  // 絨毯
+  g.fillStyle = pal.rug; g.fillRect(-196, -180, TW + 392, TH + 360);
+  g.strokeStyle = 'rgba(194,161,90,.4)'; g.lineWidth = 2; g.strokeRect(-182, -166, TW + 364, TH + 332);
+  g.lineWidth = .8; g.strokeRect(-160, -144, TW + 320, TH + 288);
+  g.fillStyle = 'rgba(194,161,90,.3)';
+  const dia = (x, y) => { g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 8, y); g.lineTo(x, y + 6); g.lineTo(x - 8, y); g.fill(); };
+  for (let x = -160; x <= TW + 160; x += 30) { dia(x, -155); dia(x, TH + 155); }
+  for (let y = -125; y <= TH + 125; y += 30) { dia(-171, y); dia(TW + 171, y); }
+  // 台の影と木の枠
+  g.save(); g.shadowColor = 'rgba(0,0,0,.85)'; g.shadowBlur = 46 * k; g.shadowOffsetY = 14 * k;
+  g.fillStyle = '#000'; g.beginPath(); g.roundRect(-62, -62, TW + 124, TH + 124, 30); g.fill(); g.restore();
+  const wg = g.createLinearGradient(0, -62, 0, TH + 62);
+  wg.addColorStop(0, pal.wood[0]); wg.addColorStop(.5, pal.wood[1]); wg.addColorStop(1, pal.wood[2]);
+  g.fillStyle = wg; g.beginPath(); g.roundRect(-62, -62, TW + 124, TH + 124, 30); g.fill();
+  g.save(); g.clip(); g.lineWidth = .7;
+  for (let i = 0; i < 150; i++) { // 木目
+    const hz = i % 3 > 0, u = rnd(), v = rnd(), len = 80 + rnd() * 320, wob = (rnd() - .5) * 5;
+    g.strokeStyle = rnd() < .5 ? `rgba(0,0,0,${.08 + rnd() * .14})` : `rgba(255,200,150,${.02 + rnd() * .05})`;
+    g.beginPath();
+    if (hz) { const x = -62 + u * (TW + 124), y = v < .5 ? -62 + v * 2 * 42 : TH + 20 + (v - .5) * 2 * 42; g.moveTo(x, y); g.quadraticCurveTo(x + len / 2, y + wob, x + len, y); }
+    else { const y = -62 + u * (TH + 124), x = v < .5 ? -62 + v * 2 * 42 : TW + 20 + (v - .5) * 2 * 42; g.moveTo(x, y); g.quadraticCurveTo(x + wob, y + len / 2, x, y + len); }
+    g.stroke();
+  }
+  g.restore();
+  g.strokeStyle = 'rgba(255,215,165,.14)'; g.lineWidth = 1.2; g.beginPath(); g.roundRect(-61, -61, TW + 122, TH + 122, 29); g.stroke();
+  // 羅紗
+  g.fillStyle = pal.cloth; g.fillRect(-20, -20, TW + 40, TH + 40);
+  const nz = document.createElement('canvas'); nz.width = 320; nz.height = 160;
+  const ng = nz.getContext('2d'), ni = ng.createImageData(320, 160);
+  for (let i = 0; i < ni.data.length; i += 4) { const v = rnd(); ni.data[i] = ni.data[i + 1] = ni.data[i + 2] = v > .5 ? 255 : 0; ni.data[i + 3] = Math.abs(v - .5) * 34; }
+  ng.putImageData(ni, 0, 0); g.drawImage(nz, -20, -20, TW + 40, TH + 40);
+  g.save(); g.beginPath(); g.rect(-20, -20, TW + 40, TH + 40); g.clip(); g.translate(TW / 2, TH / 2); g.scale(1.75, 1);
+  let lg = g.createRadialGradient(0, 0, 0, 0, 0, 400);
+  lg.addColorStop(0, 'rgba(255,238,196,.17)'); lg.addColorStop(.6, 'rgba(255,238,196,.05)'); lg.addColorStop(1, 'rgba(0,0,0,.26)');
+  g.fillStyle = lg; g.fillRect(-400, -400, 800, 800); g.restore();
+  g.fillStyle = 'rgba(255,255,255,.13)';
+  for (const p of [FOOT, HEAD]) { g.beginPath(); g.arc(p.x, p.y, 2.2, 0, TAU); g.fill(); }
+  // ポケット
+  for (const p of POCKETS) {
+    const a = Math.atan2(p.y - TH / 2, p.x - TW / 2);
+    g.strokeStyle = '#1c110a'; g.lineWidth = 9; g.beginPath(); g.arc(p.x, p.y, p.r + 1, a - 1.9, a + 1.9); g.stroke();
+    g.strokeStyle = 'rgba(194,161,90,.55)'; g.lineWidth = 1.2; g.beginPath(); g.arc(p.x, p.y, p.r + 6, a - 1.7, a + 1.7); g.stroke();
+    const pg = g.createRadialGradient(p.x, p.y, 2, p.x, p.y, p.r - 2); pg.addColorStop(0, '#000'); pg.addColorStop(1, '#0a0605');
+    g.fillStyle = pg; g.beginPath(); g.arc(p.x, p.y, p.r - 3, 0, TAU); g.fill();
+  }
+  // クッション
+  for (const r of RAILS) {
+    const len = r.h ? TW : TH, ea = r.a === CG ? 17 : 5, eb = r.b === len - CG ? 17 : 5;
+    const P = (u, v) => r.h ? [u, r.c - r.s * v] : [r.c - r.s * v, u];
+    const pts = [P(r.a, 0), P(r.b, 0), P(r.b + eb, 19), P(r.a - ea, 19)], q0 = P(0, 0), q1 = P(0, 19);
+    const cg = g.createLinearGradient(q0[0], q0[1], q1[0], q1[1]); cg.addColorStop(0, pal.cush[0]); cg.addColorStop(1, pal.cush[1]);
+    g.fillStyle = cg; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.1)'; g.lineWidth = 1; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); g.lineTo(pts[1][0], pts[1][1]); g.stroke();
+    g.strokeStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.moveTo(pts[2][0], pts[2][1]); g.lineTo(pts[3][0], pts[3][1]); g.stroke();
+  }
+  // 枠の目印（貝のひし形）
+  g.fillStyle = 'rgba(236,228,206,.72)';
+  const mark = (x, y) => { g.beginPath(); g.moveTo(x, y - 4.5); g.lineTo(x + 3, y); g.lineTo(x, y + 4.5); g.lineTo(x - 3, y); g.fill(); };
+  for (let i = 1; i < 8; i++) if (i !== 4) { mark(i * 125, -41); mark(i * 125, TH + 41); }
+  for (let i = 1; i < 4; i++) { mark(-41, i * 125); mark(TW + 41, i * 125); }
+}
+
+const SP = { c: null, g: null, img: null, S: 0 };
+function drawBall(ctx, b, px, py, pr) { // 画素ごとに、球として塗る
+  const S = 2 * Math.ceil(pr) + 4;
+  if (SP.S !== S) { SP.c = document.createElement('canvas'); SP.c.width = SP.c.height = S; SP.g = SP.c.getContext('2d'); SP.img = SP.g.createImageData(S, S); SP.S = S; }
+  const d = SP.img.data, m = b.m, col = COL[b.n], lampx = clamp(b.x, 300, 700);
+  let Lx = lampx - b.x, Ly = TH / 2 - b.y, Lz = 420; const ll = Math.hypot(Lx, Ly, Lz); Lx /= ll; Ly /= ll; Lz /= ll;
+  let Hx = Lx, Hy = Ly, Hz = Lz + 1; const hl = Math.hypot(Hx, Hy, Hz); Hx /= hl; Hy /= hl; Hz /= hl;
+  const att = 1 - .3 * clamp(Math.hypot(b.x - lampx, b.y - TH / 2) / 420, 0, 1);
+  let q = 0;
+  for (let iy = 0; iy < S; iy++) {
+    const ny = (iy + .5 - S / 2) / pr;
+    for (let ix = 0; ix < S; ix++, q += 4) {
+      const nx = (ix + .5 - S / 2) / pr, d2 = nx * nx + ny * ny, al = clamp((1 - Math.sqrt(d2)) * pr + .5, 0, 1);
+      if (al <= 0) { d[q + 3] = 0; continue; }
+      const nz = d2 < 1 ? Math.sqrt(1 - d2) : 0;
+      const lx = m[0] * nx + m[3] * ny + m[6] * nz, ly = m[1] * nx + m[4] * ny + m[7] * nz, lz = m[2] * nx + m[5] * ny + m[8] * nz;
+      let r = col[0], g = col[1], bl = col[2];
+      if (b.n === 0) { if (Math.max(Math.abs(lx), Math.abs(ly), Math.abs(lz)) > .988) { r = 168; g = 44; bl = 40; } }
+      else if (Math.abs(lx) > .8 || (b.n === 9 && Math.abs(lz) > .5)) { r = 236; g = 230; bl = 212; }
+      const sh = (.3 + .9 * Math.max(0, nx * Lx + ny * Ly + nz * Lz)) * att * (.62 + .38 * nz);
+      const sp = Math.pow(Math.max(0, nx * Hx + ny * Hy + nz * Hz), 80) * 230;
+      d[q] = r * sh + sp; d[q + 1] = g * sh + sp; d[q + 2] = bl * sh + sp; d[q + 3] = al * 255;
+    }
+  }
+  SP.g.putImageData(SP.img, 0, 0); ctx.drawImage(SP.c, px - S / 2, py - S / 2);
+  if (b.n > 0) { // 番号
+    const sg = m[6] > 0 ? 1 : -1, z = Math.abs(m[6]);
+    if (z > .4) {
+      ctx.save(); ctx.translate(px + sg * m[0] * pr, py + sg * m[3] * pr); ctx.rotate(Math.atan2(m[1], -m[4]));
+      ctx.globalAlpha = clamp((z - .4) * 4, 0, 1) * .9; ctx.fillStyle = '#15120f';
+      ctx.font = `700 ${pr * .78 * z}px Georgia,serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(b.n, 0, pr * .04); ctx.restore();
+    }
+  }
+}
+function drawCue(ctx, x, y, ang, pull, st, shadow) {
+  const LEN = 600, hw = u => 3 + 4.6 * u;
+  ctx.save(); ctx.translate(x + (shadow ? 6 : 0), y + (shadow ? 9 : 0)); ctx.rotate(ang); ctx.translate(-(R + pull), 0);
+  const seg = (u0, u1, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-u0 * LEN, -hw(u0)); ctx.lineTo(-u1 * LEN, -hw(u1)); ctx.lineTo(-u1 * LEN, hw(u1)); ctx.lineTo(-u0 * LEN, hw(u0)); ctx.fill(); };
+  if (shadow) seg(0, 1, 'rgba(0,0,0,.34)');
+  else {
+    seg(0, .008, '#4f6f8a'); seg(.008, .03, '#e9e2cf'); seg(.03, .52, st.shaft); seg(.52, .7, st.butt); seg(.7, .92, st.wrap); seg(.92, .985, st.butt); seg(.985, 1, '#0c0a09');
+    const g = ctx.createLinearGradient(0, -7.6, 0, 7.6); g.addColorStop(0, 'rgba(0,0,0,.5)'); g.addColorStop(.38, 'rgba(255,255,255,.17)'); g.addColorStop(1, 'rgba(0,0,0,.55)');
+    seg(0, 1, g);
+  }
+  ctx.restore();
+}
+function icon(ctx, n, x, y, r) {
+  const c = COL[n], rgb = `rgb(${c[0]},${c[1]},${c[2]})`;
+  ctx.fillStyle = n === 9 ? '#ece6d4' : rgb; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  if (n === 9) { ctx.save(); ctx.clip(); ctx.fillStyle = rgb; ctx.fillRect(x - r, y - r * .55, 2 * r, r * 1.1); ctx.restore(); }
+  ctx.fillStyle = '#ece6d4'; ctx.beginPath(); ctx.arc(x, y, r * .52, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#15120f'; ctx.font = `700 ${r * .9}px Georgia,serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(n, x, y + r * .06);
+}
+function render(ctx, w, V, hud) {
+  const k = V.s * V.dpr, tx = V.ox * V.dpr, ty = V.oy * V.dpr, fin = w.stage === 2, key = `${V.W}x${V.H}x${V.dpr}x${fin}`;
+  if (V.key !== key) { V.bg.width = Math.round(V.W * V.dpr); V.bg.height = Math.round(V.H * V.dpr); paintStatic(V.bg.getContext('2d'), V, PAL[fin ? 1 : 0]); V.key = key; }
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.drawImage(V.bg, 0, 0);
+  ctx.setTransform(k, 0, 0, k, tx, ty);
+  const human = w.turn === 0 && !w.auto, L = lowest(w.balls), cb = w.balls[0];
+  for (const d of w.drops) { // ポケットに落ちていく玉
+    const u = clamp(d.t / .25, 0, 1), c = COL[d.n];
+    ctx.globalAlpha = 1 - u; ctx.fillStyle = `rgb(${c[0] * .5 | 0},${c[1] * .5 | 0},${c[2] * .5 | 0})`;
+    ctx.beginPath(); ctx.arc(d.x + (d.px - d.x) * u, d.y + (d.py - d.y) * u, R * (1 - .35 * u), 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  for (const b of w.balls) { // 影
+    if (!b.on) continue;
+    const sx = b.x + (b.x - clamp(b.x, 300, 700)) * .03 + 1, sy = b.y + (b.y - TH / 2) * .035 + 2.5;
+    const g = ctx.createRadialGradient(sx, sy, R * .3, sx, sy, R * 1.45); g.addColorStop(0, 'rgba(0,0,0,.62)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, R * 1.5, 0, TAU); ctx.fill();
+  }
+  if (hud && human && L && (w.state === 'aim' || w.state === 'place')) { // 的玉の印
+    ctx.strokeStyle = `rgba(194,161,90,${.5 + .25 * Math.sin(w.t * 2.4)})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(L.x, L.y, R + 5, 0, TAU); ctx.stroke();
+  }
+  if (hud && human && w.state === 'aim') { // ねらいの線
+    const c = castAim(w.balls, w.aim), wrong = c.ball && c.ball !== L;
+    ctx.strokeStyle = 'rgba(240,232,210,.45)'; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(cb.x + c.dx * R, cb.y + c.dy * R); ctx.lineTo(c.gx, c.gy); ctx.stroke();
+    ctx.strokeStyle = wrong ? 'rgba(214,96,70,.8)' : 'rgba(240,232,210,.6)'; ctx.beginPath(); ctx.arc(c.gx, c.gy, R, 0, TAU); ctx.stroke();
+    if (c.ball) {
+      const nx = (c.ball.x - c.gx) / (2 * R), ny = (c.ball.y - c.gy) / (2 * R), dn = c.dx * nx + c.dy * ny, tx2 = c.dx - dn * nx, ty2 = c.dy - dn * ny;
+      ctx.strokeStyle = wrong ? 'rgba(214,96,70,.55)' : 'rgba(240,232,210,.45)';
+      ctx.beginPath(); ctx.moveTo(c.ball.x + nx * R, c.ball.y + ny * R); ctx.lineTo(c.ball.x + nx * (R + 30 + 150 * dn), c.ball.y + ny * (R + 30 + 150 * dn));
+      ctx.moveTo(c.gx, c.gy); ctx.lineTo(c.gx + tx2 * 70, c.gy + ty2 * 70); ctx.stroke();
+    }
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (const b of w.balls) if (b.on) {
+    if (b.n === 0 && w.state === 'place' && human) ctx.globalAlpha = .78;
+    drawBall(ctx, b, b.x * k + tx, b.y * k + ty, R * k); ctx.globalAlpha = 1;
+  }
+  ctx.setTransform(k, 0, 0, k, tx, ty);
+  if (hud && w.state === 'place' && human) {
+    ctx.strokeStyle = w.placeOk ? 'rgba(240,232,210,.7)' : 'rgba(214,96,70,.9)'; ctx.lineWidth = 1.2; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.arc(cb.x, cb.y, R + 6, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (hud && cb.on && (w.state === 'aim' || w.state === 'think' || w.state === 'stroke')) { // キュー
+    const base = 9 + w.dispPow * 64; let pull = base;
+    if (w.state === 'aim') pull += Math.sin(w.t * 1.7) * 1.4;
+    else if (w.state === 'think' && w.tt > 1.15) pull = base * (.45 + .55 * Math.abs(Math.cos((w.tt - 1.15) * 5)));
+    else if (w.state === 'stroke') pull = w.sk < SKB ? base + 22 * smooth(w.sk / SKB) : (base + 22) * clamp(1 - (w.sk - SKB) / SKF, 0, 1);
+    const st = CUES[w.turn === 0 ? 0 : w.stage + 1];
+    drawCue(ctx, cb.x, cb.y, w.cueAng, pull, st, true); drawCue(ctx, cb.x, cb.y, w.cueAng, pull, st, false);
+  }
+  // 灯りの外の暗がり。9番だけになると、さらに絞る
+  const fo = w.focus, r0 = (fin ? 250 : 310) - fo * 60, r1 = (fin ? 600 : 740) - fo * 110;
+  ctx.save(); ctx.translate(TW / 2, TH / 2); ctx.scale(1.5, 1);
+  const vg = ctx.createRadialGradient(0, 0, r0, 0, 0, r1);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, `rgba(0,0,0,${(fin ? .93 : .84) + fo * .05})`);
+  ctx.fillStyle = vg; ctx.fillRect(-3000, -3000, 6000, 6000); ctx.restore();
+  if (!hud) return;
+  // 文字
+  const o = OPP[w.stage];
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.fillStyle = '#9a8c72'; ctx.font = `600 19px ${SERIF}`;
+  ctx.fillText(`${o.no}　${o.name}`, -56, -106);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#e9dfc8'; ctx.font = `600 25px ${SERIF}`;
+  const label = w.state === 'over' ? (w.winner === 0 ? '九番が、落ちた' : `${o.name}が、九番を落とした`) : w.turn === 0 ? (w.auto ? 'あなたの番（自動）' : w.state === 'place' ? '手球を置く' : 'あなたの番') : `${o.name}の番`;
+  ctx.fillText(label, TW / 2, -114);
+  if (w.msg && w.msgT > 0) { ctx.globalAlpha = clamp(w.msgT, 0, 1); ctx.fillStyle = '#d9b46a'; ctx.font = `500 17px ${SERIF}`; ctx.fillText(w.msg, TW / 2, -84); ctx.globalAlpha = 1; }
+  let x = TW + 44;
+  for (let n = 9; n >= 1; n--) if (w.balls[n].on) {
+    const low = L && L.n === n;
+    icon(ctx, n, x, -108, low ? 13 : 10);
+    if (low) { ctx.strokeStyle = '#c2a15a'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(x, -108, 17, 0, TAU); ctx.stroke(); }
+    x -= low ? 36 : 27;
+  }
+  if (human && (w.state === 'aim' || w.state === 'stroke')) {
+    ctx.fillStyle = '#9a8c72'; ctx.font = `500 16px ${SERIF}`; ctx.textAlign = 'right'; ctx.fillText('強さ', 366, 596);
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(380, 590, 240, 11);
+    const gg = ctx.createLinearGradient(380, 0, 620, 0); gg.addColorStop(0, '#7d6638'); gg.addColorStop(1, '#e2c178');
+    ctx.fillStyle = gg; ctx.fillRect(380, 590, 240 * w.power, 11);
+    ctx.strokeStyle = 'rgba(194,161,90,.8)'; ctx.lineWidth = 1; ctx.strokeRect(380, 590, 240, 11);
+    for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(380 + i * 60, 590); ctx.lineTo(380 + i * 60, 594); ctx.stroke(); }
+  }
+  ctx.textAlign = 'center'; ctx.fillStyle = '#8a7d66'; ctx.font = `500 15px ${SERIF}`;
+  const hint = !human ? '' : w.state === 'place' ? '← → ↑ ↓　手球を動かす　　　Space　ここに置く' : w.state === 'aim' ? '← →　ねらう（Shift でごくゆっくり）　　　↑ ↓　強さ　　　Space　撞く' : '';
+  if (hint) ctx.fillText(hint, TW / 2, 632);
+}
+
+// ---------- 自己テスト ----------
+function runTests() {
+  const out = [];
+  const check = (name, fn) => { let r; try { r = fn(); } catch (e) { r = '例外 ' + e.message; } out.push({ ok: r === true, text: (r === true ? 'o ' : 'x ') + name + (r === true ? '' : ' … ' + r) }); };
+  const mk = pos => {
+    const w = makeWorld(5); startMatch(w, 0); w.isBreak = false;
+    w.balls.forEach(b => { b.on = false; });
+    for (const n in pos) { const b = w.balls[n]; b.on = true; b.x = pos[n][0]; b.y = pos[n][1]; }
+    return w;
+  };
+  const fire = (w, ang, pow) => {
+    w.state = 'aim'; w.turn = 0; w.aim = ang; w.power = pow; step(w, H, { shoot: true });
+    let i = 0; while ((w.state === 'stroke' || w.state === 'roll') && i++ < 9000) step(w, H, {});
+    return w;
+  };
+  const Q4 = Math.PI / 4;
+  check('ラックは10個。重ならない。先頭は1番、まん中は9番', () => {
+    const w = makeWorld(3); startMatch(w, 0); const bs = w.balls;
+    if (bs.length !== 10 || !bs.every((b, i) => b && b.n === i && b.on)) return '数';
+    for (let i = 0; i < 10; i++) for (let j = i + 1; j < 10; j++) if (Math.hypot(bs[i].x - bs[j].x, bs[i].y - bs[j].y) < 2 * R) return `${i} と ${j} が重なる`;
+    return (bs[1].x === FOOT.x && bs[1].y === FOOT.y && Math.abs(bs[9].y - 250) < 1e-9 && bs.slice(1).every(b => b.x >= bs[1].x)) || '並び';
+  });
+  check('正面から当てると、手球は止まり、的玉が進む', () => {
+    const w = mk({ 0: [300, 250], 1: [500, 250] }), c = w.balls[0], ev = { first: null, pot: [] };
+    c.vx = 900; let i = 0; while (ev.first == null && i++ < 2000) physStep(w.balls, H, ev);
+    return (ev.first === 1 && Math.hypot(c.vx, c.vy) < 40 && w.balls[1].vx > 600 && Math.abs(w.balls[1].vy) < 1) || `手球 ${c.vx.toFixed(1)} 的玉 ${w.balls[1].vx.toFixed(1)}`;
+  });
+  check('いちばん強いブレイクでも、玉は止まり、台の外に残らない（種5つ）', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const w = makeWorld(seed); startMatch(w, 0); fire(w, (seed - 3) * .01, 1);
+      if (w.state === 'roll' || w.state === 'stroke') return `種 ${seed} で止まらない`;
+      for (const b of w.balls) {
+        if (![b.x, b.y, b.vx, b.vy].every(Number.isFinite)) return `種 ${seed} で数が壊れた`;
+        if (b.on && (b.x < R - .01 || b.x > TW - R + .01 || b.y < R - .01 || b.y > TH - R + .01)) return `種 ${seed} で ${b.n} 番が枠にめりこむ`;
+      }
+    }
+    return true;
+  });
+  check('まっすぐの玉は、隅にも横にも落ちる', () => {
+    const a = simShot(mk({ 0: [700, 200], 1: [900, 400] }).balls, Q4, .4, 1), b = simShot(mk({ 0: [500, 420], 1: [500, 160] }).balls, -Math.PI / 2, .4, 1);
+    return (a.pot.join() === '1' && !a.foul && b.pot.join() === '1' && !b.foul) || `隅 [${a.pot}] 横 [${b.pot}]`;
+  });
+  check('クッションで跳ね返る。枠ぞいの玉は隅に落ち、横のポケットは通りすぎる', () => {
+    const w = mk({ 0: [500, 250] }), c = w.balls[0], ev = { first: null, pot: [] };
+    c.vx = 1200; let back = false, i = 0; while (physStep(w.balls, H, ev) && i++ < 5000) if (c.vx < 0) back = true;
+    if (!back || !c.on || c.x > TW - R) return '跳ね返らない';
+    const w2 = mk({ 0: [800, R] }), c2 = w2.balls[0], ev2 = { first: null, pot: [] };
+    c2.vx = -1500; i = 0; let passed = false; while (physStep(w2.balls, H, ev2) && i++ < 5000) if (c2.on && c2.x < 440) passed = true;
+    return (passed && ev2.pot.join() === '0') || `通過 ${passed} 落ちた [${ev2.pot}]`;
+  });
+  check('きまり：ちがう玉に先に当てるとファウルで交代、相手は手球を置ける', () => {
+    const w = fire(mk({ 0: [300, 250], 2: [500, 250], 1: [800, 100], 9: [800, 400] }), 0, .2);
+    return (w.turn === 1 && w.state === 'think' && w.hand && w.msg.includes('1番')) || `${w.turn} ${w.state} ${w.msg}`;
+  });
+  check('きまり：手球が落ちるとファウル。手球は台に戻る', () => {
+    const w = fire(mk({ 0: [800, 300], 1: [200, 100], 9: [300, 400] }), Q4, .5);
+    return (w.turn === 1 && w.hand && w.balls[0].on && w.msg.includes('手球が落ち')) || `${w.turn} ${w.msg}`;
+  });
+  check('きまり：的玉を落とせば続けて撞ける。外せば交代', () => {
+    const a = fire(mk({ 0: [700, 200], 1: [900, 400], 9: [200, 100] }), Q4, .4), b = fire(mk({ 0: [300, 250], 1: [500, 250], 9: [200, 100] }), 0, .15);
+    return (a.turn === 0 && a.state === 'aim' && !a.hand && a.pots[0] === 1 && b.turn === 1 && !b.hand) || `${a.turn} ${a.state} / ${b.turn} ${b.hand}`;
+  });
+  check('きまり：9番を落とせば勝ち。ファウルで落ちた9番は台に戻る', () => {
+    const a = fire(mk({ 0: [700, 200], 9: [900, 400] }), Q4, .4), b = fire(mk({ 0: [700, 200], 9: [900, 400], 1: [200, 100] }), Q4, .4);
+    return (a.state === 'over' && a.winner === 0 && b.winner == null && b.balls[9].on && b.balls[9].x === FOOT.x && b.turn === 1 && b.hand) || `${a.state} ${a.winner} / ${b.balls[9].on} ${b.turn}`;
+  });
+  check('ねらいの線が示す玉に、実際に最初に当たる', () => {
+    const w = makeWorld(9); startMatch(w, 0); fire(w, 0, .8);
+    for (let i = 0; i < 24; i++) {
+      const ang = i / 24 * TAU + .01, c = castAim(w.balls, ang), r = simShot(w.balls, ang, .5, c.ball ? c.ball.n : -1);
+      if (c.ball && r.first !== c.ball.n) return `角度 ${i} で線は ${c.ball.n}、実際は ${r.first}`;
+    }
+    return true;
+  });
+  check('相手は、落とせる玉を落とす手を選ぶ。手球を置けるときは、落とせる場所に置く', () => {
+    const w = mk({ 0: [700, 200], 1: [900, 400], 9: [200, 100] }), p = aiPlan(w.balls), r = simShot(w.balls, p.ang, p.pow, 1);
+    if (r.foul || !r.pot.includes(1)) return `落とさない [${r.pot}]`;
+    const w2 = mk({ 0: [60, 60], 1: [520, 260], 5: [300, 160], 9: [200, 400] }); aiPlace(w2.balls);
+    const p2 = aiPlan(w2.balls), r2 = simShot(w2.balls, p2.ang, p2.pow, 1);
+    return (!r2.foul && (r2.pot.includes(1) || r2.pot.includes(9))) || `置いても落とさない [${r2.pot}]`;
+  });
+  check('直接は当てられないときも、当たる向きを探す', () => {
+    const w = mk({ 0: [300, 250], 5: [330, 250], 1: [700, 250], 9: [100, 100] }), p = aiPlan(w.balls), r = simShot(w.balls, p.ang, p.pow, 1);
+    return !r.foul || 'ファウルになる手しか選べない';
+  });
+  const games = [];
+  const autoGame = (seed, stage) => {
+    const w = makeWorld(seed, { auto: true, fast: true }); startMatch(w, stage);
+    let i = 0; while (w.state !== 'over' && i++ < 400000) step(w, H, {});
+    return w;
+  };
+  check('自動どうしで最後まで進む（相手3人、それぞれ1番）', () => {
+    for (let st = 0; st < 3; st++) {
+      const w = autoGame(40 + st, st); games.push(w);
+      if (w.state !== 'over' || w.winner == null) return `${OPP[st].name}戦が終わらない（${w.shots}）`;
+      if (!w.balls.every(b => [b.x, b.y].every(Number.isFinite))) return '数が壊れた';
+    }
+    return true;
+  });
+  check('同じ種なら、同じ結果になる', () => {
+    const a = games[1], b = autoGame(41, 1);
+    return (a && a.winner === b.winner && a.shots.join() === b.shots.join() && a.balls[0].x === b.balls[0].x) || `${a && a.shots} / ${b.shots}`;
+  });
+  check('相手の強さ：主人は学生より多く落とす（同じ配置から20回ずつ、落とせる玉を撞く）', () => {
+    const rate = st => {
+      const R_ = rng32(77); let n = 0;
+      for (let i = 0; i < 20; i++) {
+        const w = mk({ 0: [250 + i * 9, 120 + i * 5], 1: [640, 300], 9: [120, 420] }), p = aiPlan(w.balls);
+        if (simShot(w.balls, p.ang + gauss(R_) * OPP[st].sig * Math.PI / 180, p.pow, 1).pot.includes(1)) n++;
+      }
+      return n;
+    };
+    const s = rate(0), m = rate(2);
+    return m >= s + 6 || `学生 ${s}/20 主人 ${m}/20`;
+  });
+  out.info = games.map((w, i) => `  ${OPP[i].name}戦：勝ち ${w.winner === 0 ? '自分側' : OPP[i].name}、撞いた数 ${w.shots.join(' / ')}`).join('\n');
+  return { out, check };
+}
+
+// ---------- 音（どれも小さく、短く） ----------
+function makeAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  const ctx = new AC(), master = ctx.createGain();
+  master.gain.value = .7; master.connect(ctx.destination);
+  const noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), nd = noise.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  const tone = (f, t, dur, vol, f2) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + .02);
+  };
+  const hiss = (t, dur, vol, type, freq) => {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noise; f.type = type; f.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * .5); s.stop(t + dur + .02);
+  };
+  const bell = (f, t, vol) => { for (const [m, a, d] of [[1, 1, 3.4], [2.01, .5, 2.3], [2.99, .26, 1.4], [4.2, .1, .8]]) tone(f * m, t, d, vol * a); }; // 柱時計
+  return {
+    ctx, muted: false,
+    play(k, v) {
+      if (this.muted) return;
+      const t = ctx.currentTime; v = v == null ? 1 : v;
+      if (k === 'hit') { tone(2400, t, .035, .22 * v, 1700); hiss(t, .02, .25 * v, 'highpass', 2600); }
+      else if (k === 'rail') { hiss(t, .11, .3 * v, 'lowpass', 380); tone(130, t, .09, .18 * v, 70); }
+      else if (k === 'pot') { hiss(t, .4, .3, 'lowpass', 260); tone(95, t + .07, .12, .3, 60); tone(75, t + .2, .16, .22, 50); }
+      else if (k === 'cue') { tone(1000, t, .03, .1 + .2 * v, 520); hiss(t, .02, .08 + .15 * v, 'bandpass', 1800); }
+      else if (k === 'tick') tone(v ? 3100 : 2500, t, .012, .018);
+      else if (k === 'no') tone(180, t, .1, .08);
+      else if (k === 'bell') bell(196, t, .1);
+      else if (k === 'win') { bell(196, t, .09); bell(246.9, t + .9, .08); bell(293.7, t + 1.8, .09); }
+      else if (k === 'lose') bell(146.8, t, .1);
+    },
+    setMute(m) { this.muted = m; master.gain.value = m ? 0 : .7; },
+  };
+}
+
+// ---------- 動かす ----------
+(function main() {
+  const Q = new URLSearchParams(location.search);
+  const $ = id => document.getElementById(id);
+  const canvas = $('c'), ctx = canvas.getContext('2d');
+  const seed = Q.has('seed') ? (parseInt(Q.get('seed'), 10) || 0) : (Date.now() & 0xffff);
+  const w = makeWorld(seed, { auto: Q.has('auto') });
+  const V = { s: 1, ox: 0, oy: 0, W: 0, H: 0, dpr: 1, bg: document.createElement('canvas'), key: '' };
+  const keys = { l: false, r: false, u: false, d: false, fine: false, shoot: false };
+  const touch = Q.has('touch') || matchMedia('(pointer: coarse)').matches;
+  let audio = null, ui = 'title', overT = 0, tickT = 0, tickN = 0, last = 0, acc = 0;
+  startMatch(w, clamp((parseInt(Q.get('stage'), 10) || 1) - 1, 0, 2));
+  window.tamatsuki = w; // 確認用に、外から見えるようにしておく
+
+  const onSite = /\/games\/[^/]+\/(index\.html)?$/.test(location.pathname);
+  function show(name) {
+    ui = name;
+    for (const id of ['title', 'howto', 'intro', 'result']) $(id).hidden = id !== name;
+    $('back').hidden = !(onSite && name !== 'play');
+    $('pad').hidden = !(touch && name === 'play');
+  }
+  function intro() {
+    const o = OPP[w.stage];
+    $('ino').textContent = o.no; $('iname').textContent = o.name; $('say').textContent = o.say; $('inote').textContent = o.note;
+    startMatch(w, w.stage); show('intro');
+  }
+  function finish() {
+    const won = w.winner === 0, o = OPP[w.stage], last3 = w.stage === 2;
+    $('verdict').textContent = won ? (last3 ? '三番、勝ち抜き' : '勝ち') : '負け';
+    $('story').innerHTML = won
+      ? ['学生は深く礼をして、キューを壁に戻した。', '常連は小さく笑って、奥の扉に目をやった。', '主人は何も言わず、チョークを台の縁に置いた。<br>柱時計が、ひとつ鳴った。'][w.stage]
+      : `九番は、${o.name}の手で落ちた。<br>台の上は、もう静かだ。`;
+    $('stats').textContent = `撞いた数　あなた ${w.shots[0]}　${o.name} ${w.shots[1]}　／　落とした玉　あなた ${w.pots[0]}　${o.name} ${w.pots[1]}`;
+    $('go4').textContent = won ? (last3 ? 'はじめに戻る' : '次の相手へ') : 'もう一番';
+    if (audio) audio.play(won ? (last3 ? 'win' : 'bell') : 'lose');
+    show('result');
+  }
+  function advance() {
+    if (!audio) audio = makeAudio();
+    if (audio && audio.ctx.state === 'suspended') audio.ctx.resume();
+    if (ui === 'title') show('howto');
+    else if (ui === 'howto') intro();
+    else if (ui === 'intro') { show('play'); overT = 0; if (audio) audio.play('bell'); }
+    else if (ui === 'result') {
+      if (w.winner === 0 && w.stage === 2) { startMatch(w, 0); show('title'); }
+      else { if (w.winner === 0) w.stage++; intro(); }
+    }
+  }
+  for (const id of ['go', 'go2', 'go3', 'go4']) $(id).addEventListener('click', e => { e.currentTarget.blur(); advance(); });
+
+  const KEYMAP = { arrowleft: 'l', a: 'l', arrowright: 'r', d: 'r', arrowup: 'u', w: 'u', arrowdown: 'd', s: 'd' };
+  window.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase(); keys.fine = e.shiftKey;
+    if (k === ' ' || k === 'enter' || k === 'z') {
+      e.preventDefault(); if (e.repeat) return;
+      if (ui === 'play') keys.shoot = true; else advance();
+    } else if (KEYMAP[k]) { e.preventDefault(); keys[KEYMAP[k]] = true; }
+    else if (k === 'm' && audio) audio.setMute(!audio.muted);
+  });
+  window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys.fine = e.shiftKey; if (KEYMAP[k]) keys[KEYMAP[k]] = false; });
+  window.addEventListener('blur', () => { keys.l = keys.r = keys.u = keys.d = keys.fine = false; });
+  for (const b of document.querySelectorAll('#pad button')) {
+    const k = b.dataset.k;
+    b.addEventListener('pointerdown', e => { e.preventDefault(); if (!audio) audio = makeAudio(); keys[k] = true; });
+    for (const t of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(t, () => { if (k !== 'shoot') keys[k] = false; });
+  }
+
+  function resize() {
+    V.W = window.innerWidth; V.H = window.innerHeight;
+    if (!V.W || !V.H) return;
+    V.dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(V.W * V.dpr); canvas.height = Math.round(V.H * V.dpr);
+    const padH = touch ? 80 : 0;
+    V.s = Math.min(V.W / VW, (V.H - padH) / VH);
+    V.ox = (V.W - VW * V.s) / 2 - VX0 * V.s; V.oy = (V.H - padH - VH * V.s) / 2 - VY0 * V.s;
+  }
+  window.addEventListener('resize', resize); resize();
+
+  function frame(now) {
+    const dt = Math.min(.1, (now - last) / 1000 || 0); last = now;
+    if (ui === 'play') {
+      acc += dt; let ran = false;
+      while (acc >= H) { step(w, H, keys); keys.shoot = false; acc -= H; ran = true; }
+      if (!ran && keys.shoot) acc = H; // 押したことを取りこぼさない
+      if (audio) {
+        for (const e of w.sfx.splice(0).slice(0, 8)) audio.play(e.k, e.k === 'hit' || e.k === 'rail' ? clamp(e.v / 1300, .04, 1) : e.v);
+        tickT += dt; if (tickT >= 1) { tickT -= 1; if (w.focus < .5) audio.play('tick', tickN++ & 1); } // 9番だけになると、時計の音が消える
+      } else w.sfx.length = 0;
+      if (w.state === 'over') { overT += dt; if (overT > 2) finish(); }
+    }
+    if (V.W && V.H) render(ctx, w, V, ui === 'play');
+    requestAnimationFrame(frame);
+  }
+
+  if (Q.has('test')) {
+    const { out, check } = runTests();
+    check('キーで ねらう・強さ・撞く・手球を置く。画面が順に進む（合成したイベントで確認）', () => {
+      const res = [], send = (type, key, shiftKey) => window.dispatchEvent(new KeyboardEvent(type, { key, shiftKey: !!shiftKey }));
+      const run = n => { for (let i = 0; i < n; i++) { step(w, H, keys); keys.shoot = false; } };
+      show('title'); send('keydown', ' '); res.push(ui === 'howto' ? 'o' : '説明が出ない');
+      send('keydown', 'Enter'); res.push(ui === 'intro' ? 'o' : '相手の紹介が出ない');
+      send('keydown', ' '); res.push(ui === 'play' && w.state === 'aim' ? 'o' : '始まらない');
+      for (const [key, f] of [['ArrowRight', (a, p) => w.aim > a], ['ArrowLeft', (a, p) => w.aim < a], ['d', a => w.aim > a], ['a', a => w.aim < a],
+        ['ArrowUp', (a, p) => w.power > p], ['ArrowDown', (a, p) => w.power < p], ['w', (a, p) => w.power > p], ['s', (a, p) => w.power < p]]) {
+        w.power = .5; const a = w.aim; send('keydown', key); run(12); send('keyup', key); res.push(f(a, .5) ? 'o' : key);
+      }
+      const a1 = w.aim; send('keydown', 'ArrowRight', true); run(12); send('keyup', 'ArrowRight'); const fineStep = w.aim - a1;
+      const a2 = w.aim; send('keydown', 'ArrowRight'); run(120); send('keyup', 'ArrowRight');
+      res.push(fineStep > 0 && fineStep < .003 && w.aim - a2 > .3 ? 'o' : `細かさ ${fineStep.toFixed(5)} / ${(w.aim - a2).toFixed(3)}`);
+      w.state = 'place'; w.hand = true; const c = w.balls[0], x = c.x, y = c.y;
+      send('keydown', 'ArrowLeft'); send('keydown', 'ArrowUp'); run(30); send('keyup', 'ArrowLeft'); send('keyup', 'ArrowUp');
+      res.push(c.x < x && c.y < y ? 'o' : '手球が動かない');
+      send('keydown', ' '); run(1); res.push(w.state === 'aim' ? 'o' : '置けない');
+      send('keydown', ' '); run(1); res.push(w.state === 'stroke' ? 'o' : '撞けない');
+      run(120); res.push(w.shots[0] === 1 ? 'o' : '玉が出ない');
+      startMatch(w, 0); show('title');
+      return res.every(r => r === 'o') || res.join(' ');
+    });
+    const pass = out.filter(o => o.ok).length;
+    $('test').textContent = `自己テスト ${pass}/${out.length}\n` + out.map(o => o.text).join('\n') + '\n' + out.info;
+    $('test').hidden = false;
+    document.title = `夜のビリヤード テスト ${pass}/${out.length}`;
+  } else show('title');
+
+  if (Q.has('skip') || Q.has('auto')) { // 確認用
+    show('play');
+    const n = Math.min(1200, parseFloat(Q.get('skip')) || 0) * 120, keep = w.auto;
+    w.auto = true; if (w.state !== 'think') beginTurn(w);
+    for (let i = 0; i < n && w.state !== 'over'; i++) step(w, H, {});
+    w.sfx.length = 0; w.auto = keep;
+    if (!keep && w.turn === 0 && w.state === 'think') beginTurn(w);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
