@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>パブ・ダーツ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style>
+/* Layout: the board is the stage on the left; a chalk-style scoreboard sits to its right and stacks under it on phones. Single dark "pub" look by choice. */
+:root {
+  --bg: #101412;
+  --panel: #181e1b;
+  --panel-2: #1f2723;
+  --line: #2c3631;
+  --fg: #eee7d6;
+  --muted: #929d95;
+  --brass: #d3aa52;
+  --red: #d8463c;
+  --green: #36a063;
+  --blue: #5fb3d9;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--bg); color: var(--fg); }
+body { margin: 0; }
+.back { color: var(--muted); font-size: 13px; text-decoration: none; }
+.back:hover, .back:focus-visible { color: var(--brass); text-decoration: underline; }
+body {
+  font-family: var(--body);
+  font-size: 14px;
+  line-height: 1.6;
+  padding-block: max(20px, env(safe-area-inset-top, 0px)) max(40px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 20px 28px;
+  align-items: start;
+}
+header { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--display); font-weight: 800; font-size: 44px; line-height: 1; letter-spacing: 0.02em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--brass); }
+.tag { color: var(--muted); font-size: 13px; }
+
+.stage { position: relative; min-width: 0; }
+.shake { animation: shake 0.35s; }
+@keyframes shake { 20% { transform: translate(-5px, 2px); } 40% { transform: translate(4px, -3px); } 60% { transform: translate(-3px, 1px); } 80% { transform: translate(2px, -1px); } }
+canvas#board { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; touch-action: none; cursor: none; border-radius: 50%; outline: none; }
+canvas#board:focus-visible { box-shadow: 0 0 0 3px var(--brass); }
+.hud { position: absolute; top: 2px; left: 2px; right: 2px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+.hud .l, .hud .r { display: grid; gap: 2px; }
+.hud .r { justify-items: end; }
+.hud .k { font-family: var(--display); font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.hud .k b { color: var(--fg); font-size: 22px; font-weight: 700; letter-spacing: 0.02em; margin-left: 4px; }
+.turnTag { font-size: 13px; font-weight: 700; color: var(--brass); }
+.gauge { width: 120px; height: 8px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; }
+.gauge i { display: block; height: 100%; width: 100%; background: var(--brass); }
+.gauge.empty i { background: var(--red); }
+.pressure { font-size: 12px; font-weight: 700; color: var(--red); letter-spacing: 0.06em; }
+.banner {
+  position: absolute; left: 50%; bottom: 5%; transform: translateX(-50%);
+  background: rgba(16, 20, 18, 0.92); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 18px; text-align: center; pointer-events: none; min-width: 200px; max-width: 90%;
+}
+.banner .big { font-family: var(--display); font-size: 34px; font-weight: 700; line-height: 1.05; }
+.banner .big.bust { color: var(--red); }
+.banner .big.win { color: var(--brass); }
+.banner .small { color: var(--muted); font-size: 12px; }
+.award {
+  position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%);
+  text-align: center; pointer-events: none; width: 90%;
+}
+.award .name {
+  font-family: var(--display); font-weight: 800; font-style: italic;
+  font-size: clamp(40px, 9vw, 88px); line-height: 0.95; letter-spacing: 0.01em;
+  color: var(--brass);
+  text-shadow: 0 3px 0 #5a4113, 0 0 30px rgba(211, 170, 82, 0.55), 0 0 2px #000;
+}
+.award .jp { font-weight: 700; font-size: 15px; color: var(--fg); text-shadow: 0 1px 4px #000; }
+.award.go { animation: pop 2.2s cubic-bezier(.2,.9,.3,1.2) forwards; }
+@keyframes pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(-6deg); }
+  14% { opacity: 1; transform: translate(-50%, -50%) scale(1.08) rotate(-3deg); }
+  22% { transform: translate(-50%, -50%) scale(1) rotate(-3deg); }
+  80% { opacity: 1; transform: translate(-50%, -50%) scale(1.02) rotate(-3deg); }
+  100% { opacity: 0; transform: translate(-50%, -60%) scale(1.05) rotate(-3deg); }
+}
+
+.panel { display: grid; gap: 16px; min-width: 0; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 12px; min-width: 0; }
+.label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.seg { display: inline-flex; flex-wrap: wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+.seg button { font: inherit; font-size: 13px; color: var(--muted); background: transparent; border: 0; border-radius: 6px; padding: 5px 11px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--fg); box-shadow: inset 0 0 0 1px var(--line); }
+.seg button:focus-visible, .btn:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.btn { font: inherit; font-weight: 500; background: var(--brass); color: #1a1408; border: 0; border-radius: 8px; padding: 9px 14px; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+
+.players { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.player { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg); display: grid; gap: 2px; }
+.player.active { border-color: var(--pc, var(--brass)); }
+.player .name { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--muted); }
+.player .name span:first-child { color: var(--pc); font-weight: 700; }
+.player .score { font-family: var(--display); font-size: 58px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.player .meta { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.chip { font-family: var(--display); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; color: var(--brass); }
+
+table.cricket { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table.cricket th { font-size: 12px; font-weight: 700; padding: 2px 4px; }
+table.cricket td { text-align: center; padding: 1px 4px; border-top: 1px solid var(--line); height: 30px; }
+table.cricket td.num { font-family: var(--display); font-size: 22px; font-weight: 700; width: 34%; }
+table.cricket td.num.dead { color: var(--muted); text-decoration: line-through; opacity: 0.6; }
+table.cricket td.mk { font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--pc); line-height: 1; }
+
+.slots { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 8px; align-items: stretch; }
+.slot { border: 1px dashed var(--line); border-radius: 8px; padding: 6px 4px; text-align: center; font-family: var(--display); font-size: 24px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.slot.filled { border-style: solid; color: var(--fg); background: var(--panel-2); }
+.slot.t { color: var(--green); }
+.slot.d { color: var(--red); }
+.slot.b { color: var(--brass); }
+.slot small { display: block; font-family: var(--body); font-size: 11px; font-weight: 400; color: var(--muted); }
+.total { display: grid; place-items: center; padding: 0 6px; font-family: var(--display); font-size: 28px; font-weight: 700; min-width: 56px; font-variant-numeric: tabular-nums; }
+.checkout { font-family: var(--display); font-size: 22px; font-weight: 600; letter-spacing: 0.04em; }
+.checkout.none { font-family: var(--body); font-size: 13px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+.help { color: var(--muted); font-size: 13px; margin: 0; }
+.help b { color: var(--fg); font-weight: 500; }
+.help kbd { font-family: var(--display); font-size: 13px; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; color: var(--fg); }
+.foot { display: flex; gap: 8px; flex-wrap: wrap; }
+
+@media (max-width: 820px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); }
+  h1 { font-size: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .award.go { animation-duration: 2.2s; animation-timing-function: steps(1); }
+  .shake { animation: none; }
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>パブ・<span>ダーツ</span></h1>
+    <div class="tag">501 · クリケット · カウントアップ / CPU対戦 / アワード</div>
+    <a class="back" href="../../">← ゲーム一覧にもどる</a>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="board" tabindex="0" aria-label="ダーツボード。矢印キーで狙い、Shiftで集中、スペースで投げます"></canvas>
+    <div class="hud">
+      <div class="l">
+        <div class="turnTag" id="turnTag"></div>
+        <div class="k">狙い<b id="aimLabel">—</b></div>
+      </div>
+      <div class="r">
+        <div class="k">集中</div>
+        <div class="gauge" id="gauge"><i id="gaugeFill"></i></div>
+        <div class="pressure" id="pressure" hidden>ダブル圏内 · 手が震える</div>
+      </div>
+    </div>
+    <div class="award" id="award" hidden>
+      <div class="name" id="awardName"></div>
+      <div class="jp" id="awardJp"></div>
+    </div>
+    <div class="banner" id="banner" hidden>
+      <div class="big" id="bannerBig"></div>
+      <div class="small" id="bannerSmall"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="box">
+      <div class="row">
+        <span class="label" id="roundLabel">ラウンド 1</span>
+        <span class="label" id="bestLabel"></span>
+      </div>
+      <div class="players" id="players"></div>
+      <div id="cricketWrap" hidden></div>
+    </div>
+
+    <div class="box">
+      <div class="label">このターン</div>
+      <div class="slots" id="slots"></div>
+      <div id="checkoutWrap" hidden>
+        <div class="label">上がり目</div>
+        <div class="checkout" id="checkout"></div>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="row"><span class="label">ゲーム</span>
+        <div class="seg" data-key="mode">
+          <button type="button" id="m501" data-v="501">501</button>
+          <button type="button" id="mcr" data-v="cricket">クリケット</button>
+          <button type="button" id="mcu" data-v="countup">カウントアップ</button>
+        </div>
+      </div>
+      <div class="row"><span class="label">対戦</span>
+        <div class="seg" data-key="opp">
+          <button type="button" id="os" data-v="solo">ひとり</button>
+          <button type="button" id="oc" data-v="cpu">vs CPU</button>
+          <button type="button" id="od" data-v="duo">2人</button>
+        </div>
+      </div>
+      <div class="row" id="cpuRow"><span class="label">CPUの腕前</span>
+        <div class="seg" data-key="cpu">
+          <button type="button" id="cr" data-v="rookie">ルーキー</button>
+          <button type="button" id="cc" data-v="club">常連</button>
+          <button type="button" id="cp" data-v="pro">プロ</button>
+        </div>
+      </div>
+      <div class="row"><span class="label">自分の手ぶれ</span>
+        <div class="seg" data-key="diff">
+          <button type="button" id="de" data-v="easy">小</button>
+          <button type="button" id="dn" data-v="normal">中</button>
+          <button type="button" id="dh" data-v="hard">大</button>
+        </div>
+      </div>
+      <div class="row" id="doRow"><span class="label">ダブルアウト</span>
+        <div class="seg" data-key="doubleOut">
+          <button type="button" id="do1" data-v="true">あり</button>
+          <button type="button" id="do0" data-v="false">なし</button>
+        </div>
+      </div>
+      <div class="foot">
+        <button type="button" class="btn" id="newGame">新しいゲーム</button>
+        <button type="button" class="btn ghost" id="sound">音: オン</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <p class="help"><b>投げ方</b>: 押している間は<b>集中</b>して照準の揺れが小さくなり、離した瞬間に投げます。集中ゲージは1ターンぶんしかなく、切れると逆に大きく震えます。3本にどう配分するかが腕の見せどころです。</p>
+      <p class="help"><b>501</b>: 501点から減らして、ぴったり0で上がり。ダブルで上がれる点数になると緊張で手が震えます。<br><b>クリケット</b>: 15〜20とブルだけが有効。同じ数字に3マーク入れると陣地になり、相手がまだ閉じていなければ追加の得点になります。全部閉じて点数で上回れば勝ち(20ラウンドまで)。<br><b>カウントアップ</b>: 8ラウンドの合計点。</p>
+      <p class="help">キーボード: <kbd>←↑↓→</kbd> 照準、<kbd>Shift</kbd> 長押しで集中、<kbd>Space</kbd> で投げる。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---- Board geometry (mm, regulation bristle board) ----
+  const ORDER = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+  const R_BULL = 6.35, R_OBULL = 15.9, R_T1 = 99, R_T2 = 107, R_D1 = 162, R_D2 = 170, R_VIEW = 228;
+  const CR = [20, 19, 18, 17, 16, 15, 25];
+  const DIFF = {
+    easy:   { sway: 6,  sigma: 2.6, speed: 0.85 },
+    normal: { sway: 12, sigma: 4.2, speed: 1.0 },
+    hard:   { sway: 19, sigma: 6.5, speed: 1.2 },
+  };
+  const CPU = { rookie: 15, club: 8.5, pro: 4.6 };
+  const CPU_NAME = { rookie: 'ルーキー', club: '常連', pro: 'プロ' };
+  const LIMIT = { countup: 8, cricket: 20, '501': 0 };
+  const COLORS = ['#d3aa52', '#5fb3d9'];
+  const FOCUS_DRAIN = 0.5; // gauge per second while holding
+  const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  };
+  let cfg = Object.assign({ mode: '501', opp: 'cpu', cpu: 'club', diff: 'normal', doubleOut: true, sound: true }, store.get('pubdarts.cfg2', {}));
+
+  // ---- Scoring ----
+  function scoreAt(x, y) {
+    const r = Math.hypot(x, y);
+    if (r <= R_BULL) return { base: 25, mult: 2, value: 50, label: 'BULL', kind: 'b' };
+    if (r <= R_OBULL) return { base: 25, mult: 1, value: 25, label: '25', kind: 'b' };
+    if (r > R_D2) return { base: 0, mult: 0, value: 0, label: 'MISS', kind: '' };
+    let deg = Math.atan2(x, -y) * 180 / Math.PI;
+    deg = ((deg + 9) % 360 + 360) % 360;
+    const base = ORDER[Math.floor(deg / 18)];
+    let mult = 1;
+    if (r >= R_T1 && r <= R_T2) mult = 3; else if (r >= R_D1) mult = 2;
+    return { base, mult, value: base * mult, label: (mult === 3 ? 'T' : mult === 2 ? 'D' : 'S') + base, kind: mult === 3 ? 't' : mult === 2 ? 'd' : '' };
+  }
+  function labelToPos(l) {
+    if (l === 'BULL') return { x: 0, y: 0 };
+    if (l === '25') return { x: 0, y: -11 };
+    const t = l[0], n = +l.slice(1), r = t === 'T' ? 103 : t === 'D' ? 166 : 135;
+    const a = (-90 + ORDER.indexOf(n) * 18) * Math.PI / 180;
+    return { x: Math.cos(a) * r, y: Math.sin(a) * r };
+  }
+
+  // ---- Checkout suggestions (501) ----
+  const ALL = [];
+  for (let b = 1; b <= 20; b++) ALL.push({ v: b * 3, l: 'T' + b }, { v: b * 2, l: 'D' + b }, { v: b, l: 'S' + b });
+  ALL.push({ v: 25, l: '25' }, { v: 50, l: 'BULL' });
+  ALL.sort((a, b) => b.v - a.v || (a.l[0] === 'T' ? -1 : 1));
+  const PREF_D = [20, 16, 18, 12, 10, 8, 14, 6, 4, 2, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1];
+  const FIN_D = new Map(); for (const b of PREF_D) FIN_D.set(b * 2, 'D' + b); FIN_D.set(50, 'BULL');
+  const FIN_S = new Map(); for (const d of ALL) if (!FIN_S.has(d.v)) FIN_S.set(d.v, d.l);
+  const ONE = new Map();
+  for (let b = 20; b >= 1; b--) ONE.set(b, 'S' + b);
+  ONE.set(25, '25'); ONE.set(50, 'BULL');
+  for (let b = 20; b >= 1; b--) { if (!ONE.has(b * 3)) ONE.set(b * 3, 'T' + b); }
+  for (let b = 20; b >= 1; b--) { if (!ONE.has(b * 2)) ONE.set(b * 2, 'D' + b); }
+  function checkout(score, darts, dbl) {
+    if (score <= 0 || score > 180 || darts < 1) return null;
+    const fin = dbl ? FIN_D : FIN_S;
+    if (fin.has(score)) return [fin.get(score)];
+    // try favourite finishing doubles first, then the most natural setup dart
+    if (darts >= 2) for (const [v, l] of fin) { const r = score - v; if (ONE.has(r)) return [ONE.get(r), l]; }
+    if (darts >= 3) for (const [v, l] of fin) for (const a of ALL) { const r = score - v - a.v; if (r > 0 && ONE.has(r)) return [a.l, ONE.get(r), l]; }
+    return null;
+  }
+
+  // ---- Game state ----
+  let G, gid = 0;
+  const cur = () => G.players[G.cur];
+  const isCpuTurn = () => !!cur().isCpu;
+
+  function makePlayer(name, i, isCpu) {
+    return { name, isCpu, color: COLORS[i], score: cfg.mode === '501' ? 501 : 0, darts: 0, points: 0, totalMarks: 0,
+      marks: { 15: 0, 16: 0, 17: 0, 18: 0, 19: 0, 20: 0, 25: 0 }, awards: {} };
+  }
+  function newGame() {
+    const ps = cfg.opp === 'solo' ? [makePlayer('あなた', 0)]
+      : cfg.opp === 'cpu' ? [makePlayer('あなた', 0), makePlayer('CPU ' + CPU_NAME[cfg.cpu], 1, true)]
+      : [makePlayer('P1', 0), makePlayer('P2', 1)];
+    G = { id: ++gid, players: ps, cur: 0, round: 1, turn: [], marks: [], turnStart: ps[0].score,
+      phase: 'aim', banner: null, flying: null, focus: 1, particles: [] };
+    boardImg = null;
+    hideAward();
+    renderPanel();
+    maybeCpu();
+  }
+  function bestKey() { return cfg.mode + '_' + cfg.diff + (cfg.mode === '501' ? (cfg.doubleOut ? '_do' : '_so') : ''); }
+  const turnTotal = () => G.turn.reduce((s, h) => s + h.value, 0);
+  const turnMarks = () => G.turn.reduce((s, h) => s + (h.cm || 0), 0);
+  const closedAll = n => G.players.every(p => p.marks[n] >= 3);
+
+  function applyCricket(p, hit) {
+    hit.cm = 0;
+    if (!CR.includes(hit.base) || !hit.mult) return;
+    const n = hit.base, add = Math.min(3 - p.marks[n], hit.mult), extra = hit.mult - add;
+    p.marks[n] += add;
+    const others = G.players.filter(o => o !== p);
+    let scored = 0;
+    if (extra > 0 && (others.length === 0 || others.some(o => o.marks[n] < 3))) { scored = extra; p.points += n * extra; }
+    hit.cm = add + scored;
+    p.totalMarks += hit.cm;
+  }
+  const cricketWon = p => CR.every(n => p.marks[n] >= 3) && G.players.every(o => o === p || p.points >= o.points);
+
+  function registerThrow(hit, pos) {
+    const p = cur();
+    G.turn.push(hit);
+    G.marks.push({ x: pos.x, y: pos.y, color: p.color });
+    p.darts++;
+    if (cfg.mode === 'countup') {
+      p.score += hit.value;
+    } else if (cfg.mode === '501') {
+      const rem = p.score - hit.value;
+      const bust = rem < 0 || (cfg.doubleOut && rem === 1) || (rem === 0 && cfg.doubleOut && hit.mult !== 2);
+      if (bust) {
+        p.score = G.turnStart;
+        return endTurn({ bust: true, why: cfg.doubleOut && rem === 0 ? '最後はダブルで上がる必要があります' : '点数は' + G.turnStart + 'に戻ります' });
+      }
+      p.score = rem;
+      if (rem === 0) return gameOver(p);
+    } else {
+      applyCricket(p, hit);
+      if (cricketWon(p)) return gameOver(p);
+    }
+    if (G.turn.length === 3) endTurn({});
+    else { renderPanel(); maybeCpu(); }
+  }
+
+  function detectAward() {
+    const t = G.turn;
+    if (t.length < 3) return null;
+    const sum = turnTotal(), bases = t.map(h => h.base);
+    if (cfg.mode !== 'cricket' && sum === 180) return { name: 'TON 80', jp: '3本すべてトリプル20', big: true };
+    if (t.every(h => h.mult === 3 && h.base === t[0].base)) return { name: 'THREE IN A BED', jp: '同じトリプルに3本', big: true };
+    if (t.every(h => h.base === 25)) return { name: 'HAT TRICK', jp: 'ブルに3本', big: true };
+    if (cfg.mode === 'cricket') {
+      if (t.every(h => h.mult === 3 && CR.includes(h.base)) && new Set(bases).size === 3) return { name: 'WHITE HORSE', jp: '3つの数字にトリプル', big: true };
+      const m = turnMarks();
+      if (m >= 5) return { name: m + ' MARKS', jp: '1ターンで' + m + 'マーク', big: m >= 7 };
+      return null;
+    }
+    if (sum >= 151) return { name: 'HIGH TON', jp: '1ターン' + sum + '点', big: true };
+    if (sum >= 100) return { name: 'LOW TON', jp: '1ターン' + sum + '点', big: false };
+    return null;
+  }
+
+  function endTurn({ bust, why }) {
+    G.phase = 'review';
+    const p = cur();
+    const aw = bust ? null : detectAward();
+    if (aw) { p.awards[aw.name] = (p.awards[aw.name] || 0) + 1; showAward(aw); }
+    const last = LIMIT[cfg.mode] && G.round === LIMIT[cfg.mode] && G.cur === G.players.length - 1;
+    const next = p.isCpu ? '' : (last ? 'ボードを押して結果へ' : 'ボードを押して次へ');
+    if (bust) G.banner = { big: 'バースト', cls: 'bust', small: why + (next ? ' · ' + next : '') };
+    else if (cfg.mode === 'cricket') G.banner = { big: turnMarks() + ' マーク', cls: '', small: next };
+    else G.banner = { big: turnTotal() + '点', cls: turnTotal() >= 100 ? 'win' : '', small: next };
+    if (bust) { thud(); shake(); }
+    renderPanel();
+    if (p.isCpu) later(advance, aw ? 2100 : 1400);
+  }
+
+  function gameOver(winner) {
+    G.phase = 'over';
+    const aw = detectAward();
+    if (aw) { winner.awards[aw.name] = (winner.awards[aw.name] || 0) + 1; }
+    const humanWon = !winner.isCpu;
+    let note = winner.darts + '本で上がり';
+    if (G.players.length === 1) note += recordBest(cfg.mode === 'countup' ? winner.score : winner.darts, cfg.mode !== 'countup');
+    showAward(aw && aw.big ? aw : { name: 'GAME SHOT', jp: cfg.mode === 'cricket' ? '全ナンバーを制圧' : 'ぴったり上がり', big: true });
+    G.banner = {
+      big: G.players.length === 1 ? 'ゲームショット!' : humanWon && cfg.opp === 'cpu' ? 'あなたの勝ち!' : winner.name + ' の勝ち',
+      cls: humanWon || cfg.opp !== 'cpu' ? 'win' : 'bust', small: note + ' · ボードを押して再戦',
+    };
+    renderPanel();
+  }
+
+  function recordBest(val, lowerIsBetter) {
+    const best = store.get('pubdarts.best2', {}), k = bestKey(), b = best[k];
+    if (b == null || (lowerIsBetter ? val < b : val > b)) { best[k] = val; store.set('pubdarts.best2', best); return ' · 自己ベスト更新'; }
+    return '';
+  }
+
+  function finishByLimit() {
+    G.phase = 'over';
+    const ps = G.players;
+    const key = p => cfg.mode === 'cricket' ? p.points * 1000 + p.totalMarks : p.score;
+    if (ps.length === 1) {
+      const p = ps[0];
+      if (cfg.mode === 'countup') G.banner = { big: p.score + '点', cls: 'win', small: '8ラウンド合計' + recordBest(p.score, false) + ' · ボードを押して再戦' };
+      else G.banner = { big: '時間切れ', cls: 'bust', small: '20ラウンドで閉じきれませんでした · ボードを押して再戦' };
+    } else {
+      const [a, b] = ps, ka = key(a), kb = key(b);
+      const w = ka === kb ? null : ka > kb ? a : b;
+      const sc = cfg.mode === 'cricket' ? a.points + ' 対 ' + b.points : a.score + ' 対 ' + b.score;
+      G.banner = { big: !w ? '引き分け' : w.isCpu ? 'CPU の勝ち' : cfg.opp === 'cpu' ? 'あなたの勝ち!' : w.name + ' の勝ち', cls: w && w.isCpu ? 'bust' : 'win', small: sc + ' · ボードを押して再戦' };
+      if (w && !w.isCpu) showAward({ name: 'WINNER', jp: sc, big: true });
+    }
+    renderPanel();
+  }
+
+  function advance() {
+    if (G.phase === 'over') { newGame(); return; }
+    if (G.phase !== 'review') return;
+    G.turn = []; G.marks = []; G.banner = null;
+    G.cur = (G.cur + 1) % G.players.length;
+    if (G.cur === 0) G.round++;
+    if (LIMIT[cfg.mode] && G.round > LIMIT[cfg.mode]) { G.round = LIMIT[cfg.mode]; finishByLimit(); return; }
+    G.turnStart = cur().score;
+    G.focus = 1;
+    G.phase = 'aim';
+    renderPanel();
+    maybeCpu();
+  }
+
+  function later(fn, ms) { const id = G.id; setTimeout(() => { if (G.id === id) fn(); }, ms); }
+
+  // ---- CPU ----
+  function cpuTarget() {
+    const p = cur(), left = 3 - G.turn.length;
+    if (cfg.mode === 'countup') return 'T20';
+    if (cfg.mode === '501') {
+      const co = checkout(p.score, left, cfg.doubleOut);
+      if (co) return co[0];
+      if (p.score > 100) return 'T20';
+      for (let s = 20; s >= 1; s--) {
+        const r = p.score - s;
+        if (cfg.doubleOut ? (r > 1 && r <= 40 && r % 2 === 0) : (r > 0 && r <= 60)) return 'S' + s;
+      }
+      return 'T20';
+    }
+    const others = G.players.filter(o => o !== p);
+    const t = n => n === 25 ? 'BULL' : 'T' + n;
+    const scoreable = CR.filter(n => p.marks[n] >= 3 && others.some(o => o.marks[n] < 3));
+    const behind = others.some(o => o.points >= p.points);
+    // block numbers the opponent is scoring on first, then take the highest open one
+    const danger = CR.filter(n => p.marks[n] < 3 && others.some(o => o.marks[n] >= 3));
+    const open = CR.filter(n => p.marks[n] < 3);
+    if (behind && scoreable.length && !danger.length) return t(scoreable[0]);
+    if (danger.length) return t(danger[0]);
+    if (open.length) return t(open[0]);
+    return scoreable.length ? t(scoreable[0]) : 'BULL';
+  }
+  function maybeCpu() {
+    if (G.phase !== 'aim' || !isCpuTurn() || G.flying) return;
+    later(cpuAimAndThrow, G.turn.length === 0 ? 800 : 500);
+  }
+  function cpuAimAndThrow() {
+    if (G.phase !== 'aim' || !isCpuTurn() || G.flying) return;
+    const tl = cpuTarget(), tp = labelToPos(tl);
+    aim.anim = { fx: aim.x, fy: aim.y, tx: tp.x, ty: tp.y, t0: performance.now(), dur: reduceMotion ? 0 : 420 };
+    aim.visible = true;
+    later(() => {
+      if (G.phase !== 'aim' || !isCpuTurn()) return;
+      const sg = CPU[cfg.cpu];
+      launch({ x: tp.x + gauss() * sg, y: tp.y + gauss() * sg });
+    }, reduceMotion ? 150 : 600);
+  }
+
+  // ---- Aim, focus & throw ----
+  const aim = { x: 0, y: -103, visible: true, anim: null };
+  let holding = false;
+  function swayBase(t) {
+    const d = DIFF[cfg.diff], s = t * d.speed;
+    return {
+      x: d.sway * (0.72 * Math.sin(s * 1.3) + 0.28 * Math.sin(s * 3.1 + 1.2)),
+      y: d.sway * (0.62 * Math.cos(s * 1.07) + 0.38 * Math.sin(s * 2.6 + 0.4)),
+    };
+  }
+  function underPressure() {
+    if (cfg.mode !== '501' || isCpuTurn() || G.phase !== 'aim') return false;
+    return !!checkout(cur().score, 1, cfg.doubleOut);
+  }
+  function swayMult() {
+    let m = 1;
+    if (holding) m = G.focus > 0 ? 0.28 : 1.9;
+    if (underPressure()) m *= 1.35;
+    return m;
+  }
+  function currentOffset(now) {
+    if (isCpuTurn()) return { x: 0, y: 0 };
+    const b = swayBase(now / 1000), m = swayMult();
+    // exhausted: add a fast tremor on top
+    if (holding && G.focus <= 0) { b.x += 3 * Math.sin(now / 37); b.y += 3 * Math.cos(now / 29); }
+    return { x: b.x * m, y: b.y * m };
+  }
+  function gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+  function humanThrow() {
+    if (G.phase !== 'aim' || G.flying || isCpuTurn()) return;
+    const o = currentOffset(performance.now()), sg = DIFF[cfg.diff].sigma;
+    launch({ x: aim.x + o.x + gauss() * sg, y: aim.y + o.y + gauss() * sg });
+  }
+  function launch(pos) {
+    G.flying = { pos, t0: performance.now(), dur: reduceMotion ? 0 : 230, color: cur().color };
+    whoosh();
+  }
+
+  // ---- Effects ----
+  function showAward(aw) {
+    if (!aw) return;
+    const el = document.getElementById('award');
+    document.getElementById('awardName').textContent = aw.name;
+    document.getElementById('awardJp').textContent = aw.jp;
+    el.hidden = false; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+    clearTimeout(showAward.t); showAward.t = setTimeout(hideAward, 2300);
+    fanfare(aw.big);
+    if (!reduceMotion) {
+      const n = aw.big ? 90 : 45;
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, sp = 80 + Math.random() * (aw.big ? 260 : 160);
+        G.particles.push({ x: 0, y: -40, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 120, life: 1, c: Math.random() < 0.5 ? '#d3aa52' : Math.random() < 0.5 ? '#f3ecd9' : '#d8463c', s: 2 + Math.random() * 3 });
+      }
+    }
+  }
+  function hideAward() { const el = document.getElementById('award'); el.hidden = true; el.classList.remove('go'); }
+  function shake() {
+    if (reduceMotion) return;
+    const st = document.getElementById('stage'); st.classList.remove('shake'); void st.offsetWidth; st.classList.add('shake');
+  }
+
+  // ---- Sound ----
+  let actx = null;
+  function ac() { if (!cfg.sound) return null; try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); return actx; } catch { return null; } }
+  function noise(dur, freq, gain) {
+    const a = ac(); if (!a) return;
+    const n = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, n, a.sampleRate), ch = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 4);
+    const src = a.createBufferSource(); src.buffer = buf;
+    const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq;
+    const g = a.createGain(); g.gain.value = gain;
+    src.connect(f).connect(g).connect(a.destination); src.start();
+  }
+  const thunk = miss => noise(0.09, miss ? 500 : 1500, miss ? 0.35 : 0.6);
+  const whoosh = () => noise(0.18, 3000, 0.08);
+  function thud() {
+    const a = ac(); if (!a) return;
+    const o = a.createOscillator(), g = a.createGain(), t = a.currentTime;
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(60, t + 0.4);
+    g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + 0.5);
+  }
+  function fanfare(big) {
+    const a = ac(); if (!a) return;
+    const notes = big ? [523, 659, 784, 1047, 784, 1047] : [659, 784, 988];
+    notes.forEach((f, i) => {
+      const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + i * 0.09;
+      o.type = 'triangle'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      o.connect(g).connect(a.destination); o.start(t); o.stop(t + 0.32);
+    });
+  }
+
+  // ---- Canvas ----
+  const cv = document.getElementById('board'), ctx = cv.getContext('2d');
+  let boardImg = null, W = 0, S = 1;
+  const rad = d => d * Math.PI / 180;
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = Math.round(cv.clientWidth * dpr);
+    if (!W) return;
+    cv.width = cv.height = W;
+    S = (W / 2) / R_VIEW;
+    boardImg = drawBoard();
+  }
+  function wedgePath(c, m, i, r0, r1) {
+    const a0 = rad(-99 + i * 18), a1 = a0 + rad(18);
+    c.beginPath(); c.arc(m, m, r1 * S, a0, a1); c.arc(m, m, r0 * S, a1, a0, true); c.closePath();
+  }
+  function drawBoard() {
+    const oc = document.createElement('canvas'); oc.width = oc.height = W;
+    const c = oc.getContext('2d'), m = W / 2;
+    c.beginPath(); c.arc(m, m, (R_VIEW - 1) * S, 0, Math.PI * 2); c.fillStyle = '#151515'; c.fill();
+    c.lineWidth = Math.max(1, 2 * S); c.strokeStyle = '#3a3226'; c.stroke();
+    for (let i = 0; i < 20; i++) {
+      const single = i % 2 === 0 ? '#1b1b1b' : '#efe2c2', band = i % 2 === 0 ? '#c8352e' : '#1f8048';
+      for (const [r0, r1, col] of [[R_OBULL, R_T1, single], [R_T1, R_T2, band], [R_T2, R_D1, single], [R_D1, R_D2, band]]) {
+        wedgePath(c, m, i, r0, r1); c.fillStyle = col; c.fill();
+      }
+    }
+    c.beginPath(); c.arc(m, m, R_OBULL * S, 0, Math.PI * 2); c.fillStyle = '#1f8048'; c.fill();
+    c.beginPath(); c.arc(m, m, R_BULL * S, 0, Math.PI * 2); c.fillStyle = '#c8352e'; c.fill();
+    if (cfg.mode === 'cricket') {
+      for (let i = 0; i < 20; i++) if (!CR.includes(ORDER[i])) { wedgePath(c, m, i, R_OBULL, R_D2); c.fillStyle = 'rgba(8,10,9,0.62)'; c.fill(); }
+    }
+    c.strokeStyle = 'rgba(205, 205, 200, 0.6)'; c.lineWidth = Math.max(0.8, 0.9 * S);
+    for (const r of [R_BULL, R_OBULL, R_T1, R_T2, R_D1, R_D2]) { c.beginPath(); c.arc(m, m, r * S, 0, Math.PI * 2); c.stroke(); }
+    for (let i = 0; i < 20; i++) {
+      const a = rad(-99 + i * 18);
+      c.beginPath(); c.moveTo(m + Math.cos(a) * R_OBULL * S, m + Math.sin(a) * R_OBULL * S); c.lineTo(m + Math.cos(a) * R_D2 * S, m + Math.sin(a) * R_D2 * S); c.stroke();
+    }
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = `600 ${Math.round(26 * S)}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+    for (let i = 0; i < 20; i++) {
+      const a = rad(-90 + i * 18), x = m + Math.cos(a) * 197 * S, y = m + Math.sin(a) * 197 * S;
+      c.fillStyle = cfg.mode === 'cricket' && !CR.includes(ORDER[i]) ? '#55595a' : '#f2efe6';
+      c.save(); c.translate(x, y);
+      let rot = a + Math.PI / 2; if (Math.sin(a) > 0.2) rot += Math.PI;
+      c.rotate(rot); c.fillText(String(ORDER[i]), 0, 0); c.restore();
+    }
+    return oc;
+  }
+  const toPx = (x, y) => [W / 2 + x * S, W / 2 + y * S];
+
+  function drawDart(x, y, color, scale, alpha) {
+    const [px, py] = toPx(x, y), k = S * scale;
+    ctx.save(); ctx.globalAlpha = alpha;
+    ctx.beginPath(); ctx.arc(px, py, 2.2 * S, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fill();
+    ctx.translate(px, py); ctx.rotate(-0.55);
+    ctx.fillStyle = '#c9c4b8'; ctx.fillRect(-1.6 * k, 2 * k, 3.2 * k, 9 * k);
+    ctx.fillStyle = '#8b8678'; for (let i = 0; i < 4; i++) ctx.fillRect(-1.6 * k, (3 + i * 2) * k, 3.2 * k, 0.7 * k);
+    ctx.fillStyle = '#2a2a2a'; ctx.fillRect(-0.8 * k, 11 * k, 1.6 * k, 7 * k);
+    ctx.beginPath(); ctx.moveTo(0, 15 * k); ctx.lineTo(-6 * k, 26 * k); ctx.lineTo(0, 23 * k); ctx.lineTo(6 * k, 26 * k); ctx.closePath();
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = Math.max(1, 0.5 * S); ctx.stroke();
+    ctx.restore();
+  }
+
+  const $ = id => document.getElementById(id);
+  let last = performance.now(), lastGauge = -1, lastPressure = null;
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (!boardImg) resize();
+    if (!W) { requestAnimationFrame(frame); return; }
+
+    if (holding && G.phase === 'aim' && !isCpuTurn()) G.focus = Math.max(0, G.focus - dt * FOCUS_DRAIN);
+
+    ctx.clearRect(0, 0, W, W);
+    ctx.drawImage(boardImg, 0, 0);
+    if (cfg.mode === 'cricket') {
+      const m = W / 2;
+      ctx.fillStyle = 'rgba(8,10,9,0.55)';
+      for (let i = 0; i < 20; i++) if (CR.includes(ORDER[i]) && closedAll(ORDER[i])) { wedgePath(ctx, m, i, R_OBULL, R_D2); ctx.fill(); }
+      if (closedAll(25)) { ctx.beginPath(); ctx.arc(m, m, R_OBULL * S, 0, Math.PI * 2); ctx.fill(); }
+    }
+    for (const mk of G.marks) drawDart(mk.x, mk.y, mk.color, 1, 1);
+
+    if (G.flying) {
+      const f = G.flying, p = f.dur ? Math.min(1, (now - f.t0) / f.dur) : 1, e = 1 - Math.pow(1 - p, 3);
+      drawDart(f.pos.x, f.pos.y + (1 - e) * 40, f.color, 1 + (1 - e) * 2.2, 0.4 + 0.6 * e);
+      if (p >= 1) { G.flying = null; const hit = scoreAt(f.pos.x, f.pos.y); thunk(hit.value === 0); registerThrow(hit, f.pos); }
+    }
+
+    if (aim.anim) {
+      const a = aim.anim, p = a.dur ? Math.min(1, (now - a.t0) / a.dur) : 1, e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      aim.x = a.fx + (a.tx - a.fx) * e; aim.y = a.fy + (a.ty - a.fy) * e;
+      if (p >= 1) aim.anim = null;
+    }
+
+    if (G.phase === 'aim' && aim.visible && !G.flying) {
+      const o = currentOffset(now), ax = aim.x + o.x, ay = aim.y + o.y, [px, py] = toPx(ax, ay);
+      const r = Math.max(10, (isCpuTurn() ? CPU[cfg.cpu] : DIFF[cfg.diff].sigma) * 2 * S);
+      ctx.save();
+      ctx.strokeStyle = isCpuTurn() ? COLORS[1] : holding ? (G.focus > 0 ? '#d3aa52' : '#d8463c') : 'rgba(255,255,255,0.95)';
+      ctx.lineWidth = Math.max(1.5, W / 400); ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
+      ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath();
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { ctx.moveTo(px + dx * r * 0.5, py + dy * r * 0.5); ctx.lineTo(px + dx * r * 1.7, py + dy * r * 1.7); }
+      ctx.stroke();
+      ctx.beginPath(); ctx.arc(px, py, Math.max(1.5, W / 500), 0, Math.PI * 2); ctx.fillStyle = ctx.strokeStyle; ctx.fill();
+      ctx.restore();
+      $('aimLabel').textContent = scoreAt(ax, ay).label;
+    } else $('aimLabel').textContent = '—';
+
+    if (G.particles.length) {
+      for (const pt of G.particles) {
+        pt.vy += 420 * dt; pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.life -= dt * 0.7;
+        const [px, py] = toPx(pt.x, pt.y);
+        ctx.globalAlpha = Math.max(0, pt.life); ctx.fillStyle = pt.c;
+        ctx.fillRect(px, py, pt.s * S, pt.s * S * 0.6);
+      }
+      ctx.globalAlpha = 1;
+      G.particles = G.particles.filter(pt => pt.life > 0);
+    }
+
+    const gv = Math.round(G.focus * 100);
+    if (gv !== lastGauge) { lastGauge = gv; $('gaugeFill').style.width = gv + '%'; $('gauge').classList.toggle('empty', gv === 0); }
+    const pr = underPressure();
+    if (pr !== lastPressure) { lastPressure = pr; $('pressure').hidden = !pr; }
+
+    requestAnimationFrame(frame);
+  }
+
+  // ---- Input ----
+  function setAimFromEvent(e) {
+    if (isCpuTurn()) return;
+    const r = cv.getBoundingClientRect();
+    aim.x = ((e.clientX - r.left) / r.width * 2 - 1) * R_VIEW;
+    aim.y = ((e.clientY - r.top) / r.height * 2 - 1) * R_VIEW;
+    aim.visible = true;
+  }
+  cv.addEventListener('pointermove', setAimFromEvent);
+  cv.addEventListener('pointerdown', e => {
+    try { cv.setPointerCapture(e.pointerId); } catch {}
+    setAimFromEvent(e);
+    if (G.phase === 'aim' && !isCpuTurn()) holding = true;
+    e.preventDefault();
+  });
+  cv.addEventListener('pointerup', e => {
+    setAimFromEvent(e);
+    if (G.phase === 'aim') { if (holding) humanThrow(); }
+    else if (!G.flying && (G.phase === 'over' || !isCpuTurn())) advance();
+    holding = false;
+  });
+  cv.addEventListener('pointercancel', () => { holding = false; });
+  cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !holding && !isCpuTurn()) aim.visible = false; });
+  cv.addEventListener('keydown', e => {
+    if (e.key === 'Shift') { if (G.phase === 'aim' && !isCpuTurn()) holding = true; return; }
+    if (isCpuTurn() && G.phase !== 'over') return;
+    const step = 5, mv = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (mv) { aim.x += mv[0]; aim.y += mv[1]; aim.visible = true; e.preventDefault(); }
+    else if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault(); if (e.repeat) return;
+      if (G.phase === 'aim') humanThrow(); else if (!G.flying) advance();
+    }
+  });
+  cv.addEventListener('keyup', e => { if (e.key === 'Shift') holding = false; });
+  cv.addEventListener('blur', () => { holding = false; });
+
+  // ---- Panel ----
+  const MK = ['', '/', '✕', 'Ⓧ'];
+  function renderPanel() {
+    const cr = cfg.mode === 'cricket';
+    $('players').innerHTML = G.players.map((p, i) => {
+      const act = i === G.cur && G.phase !== 'over';
+      const stat = cr ? 'MPR ' + (p.darts ? (p.totalMarks / p.darts * 3).toFixed(2) : '0.00')
+        : '3ダーツ平均 ' + (p.darts ? ((cfg.mode === '501' ? 501 - p.score : p.score) / p.darts * 3).toFixed(1) : '0.0');
+      const chips = Object.entries(p.awards).map(([k, v]) => `<span class="chip">${k}${v > 1 ? ' ×' + v : ''}</span>`).join('');
+      return `<div class="player${act ? ' active' : ''}" style="--pc:${p.color}">
+        <div class="name"><span>${p.name}</span><span>${act ? (p.isCpu ? '思考中' : '投てき中') : ''} ${p.darts}本</span></div>
+        <div class="score">${cr ? p.points : p.score}</div>
+        <div class="meta">${stat}</div>${chips ? `<div class="chips">${chips}</div>` : ''}</div>`;
+    }).join('');
+
+    $('cricketWrap').hidden = !cr;
+    if (cr) {
+      const ps = G.players;
+      const rows = CR.map(n => {
+        const mk = p => `<td class="mk" style="--pc:${p.color}">${MK[Math.min(3, p.marks[n])]}</td>`;
+        const num = `<td class="num${closedAll(n) && ps.length > 1 ? ' dead' : ''}">${n === 25 ? 'BULL' : n}</td>`;
+        return '<tr>' + (ps.length === 1 ? num + mk(ps[0]) : mk(ps[0]) + num + mk(ps[1])) + '</tr>';
+      }).join('');
+      const head = ps.length === 1 ? `<th></th><th style="color:${ps[0].color}">${ps[0].name}</th>`
+        : `<th style="color:${ps[0].color}">${ps[0].name}</th><th></th><th style="color:${ps[1].color}">${ps[1].name}</th>`;
+      $('cricketWrap').innerHTML = `<table class="cricket"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    $('slots').innerHTML = [0, 1, 2].map(i => {
+      const h = G.turn[i];
+      if (!h) return `<div class="slot">—<small>${i + 1}投目</small></div>`;
+      const sub = cr ? (h.cm ? h.cm + 'マーク' : '無効') : h.value + '点';
+      return `<div class="slot filled ${h.kind}">${h.label}<small>${sub}</small></div>`;
+    }).join('') + `<div class="total">${cr ? turnMarks() + 'M' : turnTotal()}</div>`;
+
+    $('roundLabel').textContent = LIMIT[cfg.mode] ? `ラウンド ${G.round} / ${LIMIT[cfg.mode]}` : `ラウンド ${G.round}`;
+    const best = store.get('pubdarts.best2', {})[bestKey()];
+    $('bestLabel').textContent = best == null ? '' : cfg.mode === 'countup' ? `ひとり自己ベスト ${best}点` : `ひとり自己ベスト ${best}本`;
+
+    const p = cur();
+    $('turnTag').textContent = G.phase === 'over' ? 'ゲーム終了' : (p.isCpu ? 'CPU の番' : G.players.length > 1 ? p.name + ' の番' : '');
+    $('turnTag').style.color = p.color;
+
+    const showCo = cfg.mode === '501' && G.phase === 'aim' && p.score <= 170;
+    $('checkoutWrap').hidden = !showCo;
+    if (showCo) {
+      const co = checkout(p.score, 3 - G.turn.length, cfg.doubleOut), el = $('checkout');
+      el.className = 'checkout' + (co ? '' : ' none');
+      el.textContent = co ? co.join('  →  ') : 'このターンでは上がれません。次のターンに向けて点数を整えましょう。';
+    }
+
+    const b = $('banner');
+    if (G.banner) {
+      b.hidden = false;
+      $('bannerBig').textContent = G.banner.big;
+      $('bannerBig').className = 'big ' + (G.banner.cls || '');
+      $('bannerSmall').textContent = G.banner.small;
+      $('bannerSmall').hidden = !G.banner.small;
+    } else b.hidden = true;
+
+    document.querySelectorAll('.seg').forEach(seg => {
+      const k = seg.dataset.key;
+      seg.querySelectorAll('button').forEach(btn => btn.setAttribute('aria-pressed', String(String(cfg[k]) === btn.dataset.v)));
+    });
+    $('doRow').hidden = cfg.mode !== '501';
+    $('cpuRow').hidden = cfg.opp !== 'cpu';
+    $('sound').textContent = cfg.sound ? '音: オン' : '音: オフ';
+  }
+
+  document.querySelectorAll('.seg').forEach(seg => {
+    seg.addEventListener('click', e => {
+      const btn = e.target.closest('button'); if (!btn) return;
+      const k = seg.dataset.key, v = btn.dataset.v;
+      cfg[k] = k === 'doubleOut' ? v === 'true' : v;
+      store.set('pubdarts.cfg2', cfg);
+      newGame();
+    });
+  });
+  $('newGame').addEventListener('click', newGame);
+  $('sound').addEventListener('click', () => { cfg.sound = !cfg.sound; store.set('pubdarts.cfg2', cfg); renderPanel(); });
+  window.addEventListener('resize', () => { boardImg = null; });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { boardImg = null; });
+
+  newGame();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

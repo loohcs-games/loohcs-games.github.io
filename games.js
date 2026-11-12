@@ -32,6 +32,7 @@ window.GAMES = [
   { id: "stevenfridley42-tech-2", title: "VEGGIE SLASH", author: "stevenfridley42-tech", description: "飛び出す野菜をスワイプで切りまくる60秒のアーケードゲーム。1回で何個も切るとコンボ倍率。金のトマトと虹のキャベツも出る。スマホ・PC 両対応。音あり" },
   { id: "stevenfridley42-tech-3", title: "ナスっとドーナツ！🍆🍩", author: "stevenfridley42-tech", description: "左右に動くドーナツの穴をねらって、ナスを飛ばすタイミングゲーム。入るとハートがポンと出る。3回続けて入るとパーフェクト。スマホ・PC 両対応。音あり" },
   { id: "stevenfridley42-tech-4", title: "SWISH!", author: "stevenfridley42-tech", description: "手前のボールを上にスワイプして、リングに入れる一人称3Dバスケ。3回ミスで終わり。3回続けて入るとコンボで得点2倍、10点からリングが動く。スマホ・PC 両対応。音あり" },
+  { id: "stevenfridley42-tech-5", title: "パブ・ダーツ", author: "stevenfridley42-tech", description: "押して集中、はなして投げる本格ダーツ。501・クリケット・カウントアップ、CPU対戦（3段階）、TON 80 などのアワード演出つき。スマホ・PC 両対応。音あり" },
 
   // ---- mineiyuki ----
   // { id: "mineiyuki", title: "ゲームの名前", author: "mineiyuki", description: "ひとこと説明" },
