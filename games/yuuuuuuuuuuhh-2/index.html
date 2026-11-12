@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>てっぺん</title>
 <style>
   * { box-sizing: border-box; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
@@ -14,6 +14,9 @@
   #height small { font-size: 20px; margin-left: 3px; }
   #sub { font-size: 13px; margin-top: 6px; opacity: .9; }
   #toast { position: fixed; left: 50%; top: 20%; transform: translateX(-50%); color: #fff; font-size: 28px; font-weight: 800; letter-spacing: 4px; text-shadow: 0 2px 10px rgba(0,0,0,.55); opacity: 0; transition: opacity .6s; pointer-events: none; white-space: nowrap; }
+  #speed { position: fixed; inset: 0; pointer-events: none; opacity: 0;
+    background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,0) 0deg 5deg, rgba(255,255,255,.22) 5deg 5.6deg);
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 38%, black 80%); mask-image: radial-gradient(circle at 50% 50%, transparent 38%, black 80%); }
   #hint { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); color: #fff; font-size: 13px; text-shadow: 0 1px 4px rgba(0,0,0,.6); pointer-events: none; opacity: .85; }
   .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(10,20,40,.45); z-index: 10; }
   .card { background: rgba(255,255,255,.96); border-radius: 18px; padding: 26px 28px; max-width: 420px; width: calc(100% - 32px); text-align: center; color: #26303f; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
@@ -21,7 +24,6 @@
   .card p { margin: 8px 0; font-size: 14px; line-height: 1.6; }
   .card .keys { font-size: 13px; background: #eef2f7; border-radius: 10px; padding: 10px 12px; text-align: left; line-height: 1.7; }
   .btn { display: block; width: 100%; margin-top: 12px; padding: 14px; font-size: 18px; font-weight: 800; border: 0; border-radius: 12px; background: #2d6cdf; color: #fff; cursor: pointer; font-family: inherit; }
-  .back { display: block; margin-top: 12px; text-align: center; color: #26303f; font-weight: 800; }
   .btn.sub { background: #dde3ec; color: #26303f; font-size: 15px; padding: 10px; }
   .hidden { display: none !important; }
   #touch { position: fixed; inset: 0; pointer-events: none; }
@@ -38,8 +40,9 @@
   <div id="height">0<small>m</small></div>
   <div id="sub"></div>
 </div>
+<div id="speed"></div>
 <div id="toast"></div>
-<div id="hint" class="hidden">← → カメラ ・ R 背中側へ ・ P メニュー</div>
+<div id="hint" class="hidden">A D 向き ・ ← → 見回す ・ C カメラ切りかえ ・ P メニュー</div>
 
 <div id="touch" class="hidden">
   <div id="joyBase"><div id="joyKnob"></div></div>
@@ -55,7 +58,6 @@
     <div class="keys" id="howto"></div>
     <button class="btn" id="startBtn">はじめる</button>
     <button class="btn sub hidden" id="resetBtn">いちばん下からやりなおす</button>
-    <a class="back" href="../../">← ゲーム一覧にもどる</a>
   </div>
 </div>
 
@@ -405,6 +407,28 @@ function makeSpec(type, zone, t, h, o = {}) {
       S.parts.push(box(hx, hy, hz, h, 0, mats[zone], { tile: 2 }));
       break;
     }
+    case 'ladder': {
+      // はしごつきの高い壁（W で登る）
+      const hy = (o.height || 6) / 2, hx = rand(1.1, 1.5), hz = rand(1.0, 1.4);
+      const col = pick(CONT_COLORS);
+      const mats = [M('brick', 0xffffff, TEX.brick), M('cont' + col, col, TEX.corrugated), M('stone', 0xffffff, TEX.stone), M('module', 0xeef0f2, TEX.steel)];
+      S.parts.push(box(hx, hy, hz, h, 0, mats[zone], { tile: 2 }));
+      S.deco = (pl) => {
+        const p = pl[0];
+        const nx = -Math.sin(h), nz = -Math.cos(h);
+        p.ladder = { nx, nz, cx: p.pos.x + nx * hz, cz: p.pos.z + nz * hz, tx: Math.cos(h), tz: -Math.sin(h) };
+        const railM = M('rail', zone === 2 ? 0x8a6a4a : 0x3d4650, TEX.steel);
+        for (const sx of [-0.32, 0.32]) {
+          const r = new THREE.Mesh(new THREE.BoxGeometry(0.06, hy * 2, 0.06), railM);
+          r.position.set(sx, 0, -hz - 0.05); r.castShadow = true; p.mesh.add(r);
+        }
+        const rungTex = canvasTex(64, 64, (g2) => { g2.clearRect(0, 0, 64, 64); g2.fillStyle = zone === 2 ? '#8a6a4a' : '#59636e'; g2.fillRect(0, 28, 64, 8); });
+        rungTex.repeat.set(1, hy * 2 / 0.35);
+        const rungs = new THREE.Mesh(new THREE.PlaneGeometry(0.64, hy * 2), new THREE.MeshBasicMaterial({ map: rungTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
+        rungs.position.set(0, 0, -hz - 0.05); p.mesh.add(rungs);
+      };
+      break;
+    }
     case 'longpipe': {
       const r = zone === 3 ? 0.6 : rand(0.4, 0.5);
       S.parts.push({ shape: 'hcyl', r, hz: rand(4, 6), yaw: h, oy: -r, material: zone === 2 ? M('stone', 0xffffff, TEX.stone) : zone === 3 ? M('module', 0xeef0f2) : M('pipe', 0x9aa3ab, TEX.steel) });
@@ -428,6 +452,18 @@ function makeSpec(type, zone, t, h, o = {}) {
         }
         const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 3.2, 6), M('pivot', 0x77808a, TEX.steel));
         ant.position.set(-2.6, 0.45 + 1.6, 2.6); ant.castShadow = true; pl[0].mesh.add(ant);
+        // 高さの看板
+        const sign = new THREE.Group();
+        const tex = canvasTex(256, 128, (g2, w, hh) => {
+          g2.fillStyle = '#1d2a3a'; g2.fillRect(0, 0, w, hh);
+          g2.strokeStyle = '#ffd34d'; g2.lineWidth = 8; g2.strokeRect(6, 6, w - 12, hh - 12);
+          g2.fillStyle = '#ffffff'; g2.font = 'bold 72px sans-serif'; g2.textAlign = 'center'; g2.textBaseline = 'middle';
+          g2.fillText(Math.round(o.top || 0) + 'm', w / 2, hh / 2 + 4);
+        });
+        const board = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }));
+        board.position.y = 1.9; board.rotation.y = Math.PI; sign.add(board);
+        for (const px of [-0.7, 0.7]) { const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.6, 6), M('pivot', 0x77808a, TEX.steel)); pole.position.set(px, 0.8, 0.02); sign.add(pole); }
+        sign.position.set(-1.4, 0.45, 2.9); pl[0].mesh.add(sign);
         const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3030 }));
         lamp.position.y = 1.6; ant.add(lamp);
       };
@@ -487,7 +523,7 @@ function buildCourse() {
         : rng() * Math.PI * 2;
       const dc = Math.hypot(prev.x, prev.z);
       if (dc > 20) h += angDiff(h, Math.atan2(-prev.x, -prev.z)) * clamp((dc - 20) / 8, 0, 0.8);
-      const S = makeSpec(type, zone, t, h, { height: wallH });
+      const S = makeSpec(type, zone, t, h, { height: wallH, top: prev.top + dy });
       let gap = o.gap != null ? o.gap : rand(lerp(0.6, 1.3, t), lerp(1.5, 2.6, t)) * S.gapMul;
       if (o.gap == null && dy > 1.15) gap = Math.min(gap, 2.2);
       const outExt = extentAlong(prev.extOut, h);
@@ -555,12 +591,14 @@ function buildCourse() {
     bounce() { place('mattress', { dy: rand(-0.5, 0.2) }); place(pick(['slab', 'crate', 'container']), { dy: rand(2.9, 3.3), gap: rand(0.6, 1.1), jitter: 0.25 }); },
     // ひと休みの屋上
     rest() { place('roof', { dy: rand(0.4, 0.9), gap: rand(1.0, 1.8) }); lastRest = prev.top; },
+    // はしごで一気に高く
+    ladder() { place('ladder', { dy: rand(3.6, 5.6), gap: rand(0.25, 0.5), turn: rand(-0.4, 0.4), jitter: 0.3 }); place(basic()); },
   };
   const WEIGHTS = [
-    { run: 3, stairs: 2, climb: 2, walk: 1 },
-    { run: 3, stairs: 1, climb: 2.5, walk: 2, leap: 1, trick: 2, bounce: 1 },
-    { run: 3, stairs: 1.5, climb: 2.5, walk: 1.5, leap: 1, trick: 2, bounce: 0.7 },
-    { run: 3, stairs: 1, climb: 2, walk: 2, leap: 1.2, trick: 2.5 },
+    { run: 3, stairs: 2, climb: 2, walk: 1, ladder: 1.2 },
+    { run: 3, stairs: 1, climb: 2.5, walk: 2, leap: 1, trick: 2, bounce: 1, ladder: 1.5 },
+    { run: 3, stairs: 1.5, climb: 2.5, walk: 1.5, leap: 1, trick: 2, bounce: 0.7, ladder: 1 },
+    { run: 3, stairs: 1, climb: 2, walk: 2, leap: 1.2, trick: 2.5, ladder: 1 },
   ];
 
   place('crate'); place('container');
@@ -591,6 +629,79 @@ function buildCourse() {
 
 buildCity();
 buildCourse();
+
+// ===== 遠くに見える目印（さわれない飾り） =====
+const movers = [];
+function buildLandmarks() {
+  const latticeTex = canvasTex(64, 64, (g) => {
+    g.clearRect(0, 0, 64, 64); g.strokeStyle = '#f2b51d'; g.lineWidth = 6;
+    g.strokeRect(3, 3, 58, 58); g.beginPath(); g.moveTo(0, 0); g.lineTo(64, 64); g.moveTo(64, 0); g.lineTo(0, 64); g.stroke();
+  });
+  const lat = (w, h, d, rx, ry) => {
+    const t = latticeTex.clone(); t.needsUpdate = true; t.repeat.set(rx, ry);
+    return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ map: t, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
+  };
+  // 1) 街から生えている巨大クレーン
+  const ca = rng() * Math.PI * 2, cx = Math.cos(ca) * 58, cz = Math.sin(ca) * 58;
+  const mast = lat(3, 130, 3, 1, 43); mast.position.set(cx, 65, cz); scene.add(mast);
+  const jib = lat(60, 3, 3, 20, 1); jib.position.set(cx, 128, cz); jib.rotation.y = -ca + Math.PI; jib.translateX(18); scene.add(jib);
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 4), M('cab', 0xf2b51d)); cab.position.set(cx, 125, cz); scene.add(cab);
+  const hook = new THREE.Mesh(new THREE.BoxGeometry(0.2, 40, 0.2), M('pivot', 0x77808a)); hook.position.set(cx - Math.cos(ca) * 40, 108, cz - Math.sin(ca) * 40); scene.add(hook);
+  // 2) 雲の上の浮き島と遺跡
+  const ia = ca + 2.2, ix = Math.cos(ia) * 80, iz = Math.sin(ia) * 80;
+  const isl = new THREE.Group(); isl.position.set(ix, 150, iz); scene.add(isl);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(14, 14, 2, 24), M('grass', 0x7fbf5a)); isl.add(top);
+  const rock = new THREE.Mesh(new THREE.ConeGeometry(14, 26, 9), M('dirt', 0x8a6a4a, TEX.rock)); rock.rotation.x = Math.PI; rock.position.y = -14; isl.add(rock);
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * Math.PI * 2, hh = i % 3 === 0 ? 3 : 9;
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, hh, 10), M('stone', 0xffffff, TEX.stone));
+    col.position.set(Math.cos(a) * 9, 1 + hh / 2, Math.sin(a) * 9); isl.add(col);
+  }
+  const roofR = new THREE.Mesh(new THREE.CylinderGeometry(10.5, 10.5, 1.2, 24), M('stone', 0xffffff, TEX.stone)); roofR.position.y = 10.6; isl.add(roofR);
+  // 3) ゆっくり回る飛行船
+  const ship = new THREE.Group(); scene.add(ship);
+  const hull = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), M('hull', 0xd9dde3)); hull.scale.set(4, 4, 16); ship.add(hull);
+  const gond = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.6, 6), M('carT' + 0xd23b3b, 0xd23b3b)); gond.position.y = -4.5; ship.add(gond);
+  for (const [fx, fy] of [[0, 4], [4, 0], [-4, 0]]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(fx ? 4 : 0.3, fx ? 0.3 : 4, 4), M('carT' + 0xd23b3b, 0xd23b3b)); fin.position.set(fx, fy, -14); ship.add(fin); }
+  movers.push(t => { const a = t * 0.03 + 1; ship.position.set(Math.cos(a) * 95, 85 + Math.sin(t * 0.2) * 2, Math.sin(a) * 95); ship.rotation.y = -a; });
+  // 4) 成層圏の人工衛星
+  const sat = new THREE.Group(); sat.position.set(Math.cos(ca + 4) * 45, 225, Math.sin(ca + 4) * 45); scene.add(sat);
+  sat.add(new THREE.Mesh(new THREE.BoxGeometry(3, 3, 4), M('gold', 0xd9b34a)));
+  for (const sx of [-1, 1]) { const pn = new THREE.Mesh(new THREE.BoxGeometry(9, 0.1, 3), M('panel', 0xffffff, TEX.panel)); pn.position.x = sx * 6.5; sat.add(pn); }
+  const dish = new THREE.Mesh(new THREE.ConeGeometry(1.6, 1, 20, 1, true), M('module', 0xeef0f2)); dish.position.y = 2; sat.add(dish);
+  movers.push(t => { sat.rotation.y = t * 0.1; sat.rotation.z = Math.sin(t * 0.15) * 0.2; });
+  // 5) 月（てっぺんの先に見える）
+  const moon = new THREE.Mesh(new THREE.SphereGeometry(60, 32, 20), new THREE.MeshBasicMaterial({ color: 0xf3efe0, fog: false }));
+  moon.position.set(Math.cos(ca + 1) * 700, 520, Math.sin(ca + 1) * 700); scene.add(moon);
+}
+
+// ===== 土ぼこり =====
+const dustTex = canvasTex(64, 64, (g) => { const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); });
+const dust = [];
+for (let i = 0; i < 28; i++) {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: dustTex, color: 0xd8d2c8, transparent: true, depthWrite: false, opacity: 0 }));
+  sp.visible = false; scene.add(sp); dust.push({ sp, life: 0, vx: 0, vz: 0, vy: 0 });
+}
+let dustI = 0;
+function puff(x, y, z, n, power) {
+  for (let i = 0; i < n; i++) {
+    const d = dust[dustI++ % dust.length], a = Math.random() * Math.PI * 2, s = (0.8 + Math.random()) * power;
+    d.sp.position.set(x, y + 0.1, z); d.vx = Math.cos(a) * s; d.vz = Math.sin(a) * s; d.vy = 0.4 + Math.random() * 0.6;
+    d.life = 1; d.sp.visible = true;
+  }
+}
+function updateDust(dt) {
+  for (const d of dust) if (d.life > 0) {
+    d.life -= dt * 1.8;
+    d.sp.position.x += d.vx * dt; d.sp.position.z += d.vz * dt; d.sp.position.y += d.vy * dt;
+    d.vx *= 0.92; d.vz *= 0.92;
+    const sc = 0.4 + (1 - d.life) * 0.9; d.sp.scale.set(sc, sc, sc);
+    d.sp.material.opacity = Math.max(0, d.life) * 0.7;
+    if (d.life <= 0) d.sp.visible = false;
+  }
+}
+
+buildLandmarks();
 
 // ===== 主人公 =====
 function makeHuman() {
@@ -637,8 +748,12 @@ let faceYaw = startYaw + Math.PI;
 let best = 0, falls = 0, playTime = 0, cleared = false;
 let airStartY = P.y;
 let gameT = 0;
-let camYaw = startYaw, camPitch = 0.35, camDist = 6.5;
-let camManualT = 0, pitchManualT = 0, autoCam = true, snapT = 0;
+let camYaw = startYaw, camPitch = 0.3, camDist = 6;
+let camManualT = 0, pitchManualT = 0, snapT = 0, lookOff = 0;
+// カメラのモード：chase=いつも背中側（A/Dで向きを変える）, auto=自動で回りこむ, free=自分で回す
+let camMode = 'chase';
+let moveYaw = faceYaw;      // chase のときの進む向き
+let steer = 0;              // ハンドル（-1〜1）。じわっと切れて、じわっと戻る
 const camTarget = new THREE.Vector3(P.x, P.y + 1.2, P.z);
 let running = false, curZone = 0;
 
@@ -653,14 +768,14 @@ function load() {
     P.set(s.x, s.y + 0.05, s.z);
     best = s.best || 0; falls = s.falls || 0; playTime = s.playTime || 0; cleared = !!s.cleared;
     camYaw = s.camYaw ?? camYaw;
-    faceYaw = camYaw + Math.PI;
+    faceYaw = camYaw + Math.PI; moveYaw = faceYaw;
     airStartY = P.y;
     return true;
   } catch (e) { return false; }
 }
 function resetRun() {
   P.copy(START); V.set(0, 0, 0);
-  falls = 0; playTime = 0; ground = null; camYaw = startYaw; faceYaw = startYaw + Math.PI; airStartY = P.y;
+  falls = 0; playTime = 0; ground = null; camYaw = startYaw; faceYaw = startYaw + Math.PI; moveYaw = faceYaw; airStartY = P.y;
   camTarget.set(P.x, P.y + 1.2, P.z);
   save();
 }
@@ -678,7 +793,56 @@ function initAudio() {
   windGain = ac.createGain(); windGain.gain.value = 0;
   src.connect(lp).connect(windGain).connect(ac.destination);
   src.start();
+  startMusic();
 }
+// ===== BGM（その場で音を作る。高さで曲が変わる） =====
+// 和音は MIDI 番号。4小節でひとまわり
+const SONGS = [
+  { bpm: 84, chords: [[48, 55, 64, 71], [45, 52, 60, 67], [41, 48, 57, 64], [43, 50, 59, 62]] },   // 路地裏：Cmaj7 Am7 Fmaj7 G
+  { bpm: 92, chords: [[50, 57, 65, 72], [46, 53, 62, 69], [41, 48, 57, 64], [48, 55, 62, 67]] },   // ガラクタの塔：Dm9 B♭maj7 F C
+  { bpm: 76, chords: [[51, 58, 67, 74], [46, 53, 62, 70], [48, 55, 63, 70], [44, 51, 60, 67]] },   // 雲海：E♭maj7 B♭ Cm7 A♭
+  { bpm: 64, chords: [[45, 52, 59, 64], [41, 48, 55, 64], [45, 52, 59, 64], [43, 50, 57, 62]] },   // 成層圏：Am(add9) F G
+];
+let musicGain = null, nextBar = 0, barN = 0, muted = false;
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+function startMusic() {
+  musicGain = ac.createGain(); musicGain.gain.value = muted ? 0 : 0.5;
+  const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
+  musicGain.connect(lp).connect(ac.destination);
+  nextBar = ac.currentTime + 0.2;
+  setInterval(scheduleMusic, 200);
+}
+function note(m, t, dur, type, vol, attack) {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.value = mtof(m);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + attack);
+  g.gain.setTargetAtTime(0, t + dur, dur * 0.25 + 0.05);
+  o.connect(g).connect(musicGain);
+  o.start(t); o.stop(t + dur * 2 + 1);
+}
+function scheduleMusic() {
+  if (!ac || !musicGain) return;
+  while (nextBar < ac.currentTime + 1.2) {
+    const song = SONGS[zoneAt(P.y)];
+    const beat = 60 / song.bpm, bar = beat * 4;
+    const ch = song.chords[barN % 4];
+    // パッド（やわらかい和音）
+    for (const m of ch) { note(m, nextBar, bar, 'triangle', 0.035, bar * 0.35); note(m + 0.07, nextBar, bar, 'sine', 0.03, bar * 0.4); }
+    // ベース
+    note(ch[0] - 12, nextBar, beat * 1.8, 'sine', 0.09, 0.02);
+    note(ch[0] - 12, nextBar + beat * 2, beat * 1.8, 'sine', 0.07, 0.02);
+    // きらきらしたアルペジオ（ときどき休む）
+    for (let i = 0; i < 8; i++) {
+      if (Math.random() < 0.3) continue;
+      const m = ch[(i * 3 + barN) % 4] + 12 + (i % 4 === 3 ? 12 : 0);
+      note(m, nextBar + i * beat / 2, beat * 0.4, 'sine', 0.03, 0.01);
+    }
+    nextBar += bar; barN++;
+  }
+  if (musicGain) musicGain.gain.value += ((muted || !running ? (muted ? 0 : 0.2) : 0.5) - musicGain.gain.value) * 0.3;
+}
+
 function sfx(f, dur, type = 'sine', to = null, vol = 0.15) {
   if (!ac) return;
   const o = ac.createOscillator(), g = ac.createGain();
@@ -698,7 +862,12 @@ addEventListener('keydown', e => {
   if (e.code === 'Space') { if (!e.repeat) jumpBuf = 0.14; e.preventDefault(); }
   if (e.code === 'KeyP' && !e.repeat) { running ? pause() : start(); }
   if (e.code === 'KeyR' && !e.repeat) snapT = 0.35;
-  if (e.code === 'KeyC' && !e.repeat) { autoCam = !autoCam; toast(autoCam ? 'じどうカメラ ON' : 'じどうカメラ OFF'); }
+  if (e.code === 'KeyM' && !e.repeat) { muted = !muted; toast(muted ? 'BGM オフ' : 'BGM オン'); }
+  if (e.code === 'KeyC' && !e.repeat) {
+    camMode = { chase: 'auto', auto: 'free', free: 'chase' }[camMode];
+    if (camMode === 'chase') moveYaw = faceYaw;
+    toast({ chase: 'カメラ：いつも背中側', auto: 'カメラ：じどうで回りこむ', free: 'カメラ：じぶんで回す' }[camMode]);
+  }
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
@@ -713,7 +882,7 @@ canvas.addEventListener('mousedown', () => { if (running) lockPointer(); });
 addEventListener('mousemove', e => {
   if (!running) return;
   if (document.pointerLockElement === canvas || (e.buttons & 1)) {
-    camYaw -= e.movementX * 0.0024;
+    if (camMode === 'chase') moveYaw -= e.movementX * 0.0024; else camYaw -= e.movementX * 0.0024;
     camPitch = clamp(camPitch + e.movementY * 0.0024, -0.6, 1.25);
     camManualT = 1.5; pitchManualT = 3;
   }
@@ -755,7 +924,7 @@ canvas.addEventListener('touchmove', e => {
       joy.x = dx; joy.y = -dy;
       joyKnob.style.transform = `translate(${dx * 32}px,${dy * 32}px)`;
     } else if (t.identifier === look.id) {
-      camYaw -= (t.clientX - look.x) * 0.007;
+      if (camMode === 'chase') moveYaw -= (t.clientX - look.x) * 0.007; else camYaw -= (t.clientX - look.x) * 0.007;
       camPitch = clamp(camPitch + (t.clientY - look.y) * 0.006, -0.6, 1.25);
       camManualT = 1.5; pitchManualT = 3;
       look.x = t.clientX; look.y = t.clientY;
@@ -778,7 +947,9 @@ function getInput() {
   if (keys.KeyA) x -= 1;
   if (keys.KeyD) x += 1;
   x += joy.x; y += joy.y;
-  const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; }
+  // chase（ハンドル操作）のときは、前進とハンドルを別々に最大まで使う
+  if (camMode === 'chase') { x = clamp(x, -1, 1); y = clamp(y, -1, 1); }
+  else { const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } }
   return { x, y, dash: keys.ShiftLeft || keys.ShiftRight || touchDash };
 }
 
@@ -907,7 +1078,56 @@ function stepClimb(dt, ix, iz) {
   P.set(lerp(c.hang.x, c.stand.x, ex), lerp(c.hang.y, c.stand.y, ey), lerp(c.hang.z, c.stand.z, ex)).add(c.p.pos);
   if (u >= 1) {
     ground = c.p; wasGround = true; coyote = 0.1; airTime = 0; airStartY = P.y; V.set(0, 0, 0); landDip = 0.1;
+    moveYaw = Math.atan2(-c.nx, -c.nz);
     climb = null;
+  }
+}
+
+// ===== はしご =====
+let ladder = null, ladderPhase = 0, lastRung = 0;
+function grabLadder(p) {
+  const L = p.ladder;
+  ladder = { p, nx: L.nx, nz: L.nz, cx: L.cx, cz: L.cz, tx: L.tx, tz: L.tz };
+  V.set(0, 0, 0); ground = null; wasGround = false;
+  faceYaw = moveYaw = Math.atan2(-L.nx, -L.nz);
+  sfx(260, 0.05, 'square', 180, 0.04);
+}
+function stepLadder(dt, inp) {
+  const L = ladder, p = L.p;
+  const top = p.pos.y + p.hy;
+  // 左右は、はしごの真ん中へ寄せる
+  let off = (P.x - L.cx) * L.tx + (P.z - L.cz) * L.tz;
+  off -= off * Math.min(1, 8 * dt);
+  P.x = L.cx + L.tx * off + L.nx * (RAD + 0.05);
+  P.z = L.cz + L.tz * off + L.nz * (RAD + 0.05);
+  const up = clamp(inp.y, -1, 1);
+  P.y += up * 3.3 * dt;
+  V.set(0, up * 3.3, 0);
+  ladderPhase += up * dt * 7;
+  const rung = Math.floor(ladderPhase / Math.PI);
+  if (rung !== lastRung) { lastRung = rung; sfx(520 + Math.random() * 60, 0.03, 'square', 400, 0.025); }
+  // スペースで後ろへ跳びおりる
+  if (jumpBuf > 0) {
+    jumpBuf = 0; ladder = null; grabCool = 0.5;
+    V.set(L.nx * 4, 7, L.nz * 4); airTime = 0.1;
+    moveYaw = Math.atan2(L.nx, L.nz);
+    return;
+  }
+  // 上についたら、よじ登る
+  if (P.y - RAD > top - 1.4) {
+    ladder = null;
+    if (!tryGrab(p, L.nx, L.nz)) { P.y = top - 1.4 + RAD; ladder = L; }
+    return;
+  }
+  // 下へ降りて足が床についたら、はなれる
+  if (up < 0) {
+    if (P.y < p.pos.y - p.hy) { ladder = null; return; }
+    for (const q of plats) {
+      if (q === p) continue;
+      const ddx = P.x - q.pos.x, ddy = P.y - 0.05 - q.pos.y, ddz = P.z - q.pos.z, lim = q.br + RAD;
+      if (ddx * ddx + ddy * ddy + ddz * ddz > lim * lim) continue;
+      if (collide(q, P.x, P.y - 0.05, P.z) && nOut.y > 0.6) { ladder = null; return; }
+    }
   }
 }
 
@@ -935,7 +1155,7 @@ function step(dt) {
       const c = Math.cos(ground.dyaw), s = Math.sin(ground.dyaw);
       P.x = ground.pos.x + c * ox + s * oz;
       P.z = ground.pos.z - s * ox + c * oz;
-      faceYaw += ground.dyaw;
+      faceYaw += ground.dyaw; moveYaw += ground.dyaw;
     }
   }
 
@@ -944,10 +1164,23 @@ function step(dt) {
   const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
   const rx = Math.cos(camYaw), rz = -Math.sin(camYaw);
   const spd = inp.dash ? DASH : RUN;
-  const tx = (fx * inp.y + rx * inp.x) * spd, tz = (fz * inp.y + rz * inp.x) * spd;
+  let tx, tz;
+  if (camMode === 'chase') {
+    // A/D で向きを変えて、W/S で前後に動く
+    steer += (inp.x - steer) * Math.min(1, 9 * dt);
+    if (!climb) {
+      const sp = Math.min(1, Math.hypot(V.x, V.z) / RUN);
+      moveYaw -= steer * (ground ? lerp(2.1, 2.6, sp) : 1.6) * dt;
+    }
+    const f = inp.y * spd * (inp.y < 0 ? 0.6 : 1);
+    tx = Math.sin(moveYaw) * f; tz = Math.cos(moveYaw) * f;
+  } else {
+    tx = (fx * inp.y + rx * inp.x) * spd; tz = (fz * inp.y + rz * inp.x) * spd;
+  }
 
   coyote -= dt; jumpBuf -= dt; grabCool -= dt;
-  if (climb) { stepClimb(dt, inp.x || inp.y ? (fx * inp.y + rx * inp.x) : 0, inp.x || inp.y ? (fz * inp.y + rz * inp.x) : 0); return; }
+  if (climb) { stepClimb(dt, tx / spd, tz / spd); return; }
+  if (ladder) { stepLadder(dt, inp); return; }
   const k = ground ? 16 : 3.2;
   const a = Math.min(1, k * dt);
   V.x += (tx - V.x) * a;
@@ -956,13 +1189,14 @@ function step(dt) {
   if (V.y < -45) V.y = -45;
   if (jumpBuf > 0 && coyote > 0) {
     V.y = JUMP_V; coyote = 0; jumpBuf = 0; ground = null; wasGround = false; airTime = 0;
+    puff(P.x, P.y - RAD, P.z, 3, 0.5);
     sfx(220, 0.08, 'triangle', 300, 0.06);
   }
 
   P.addScaledVector(V, dt);
 
   const preVy = V.y;
-  let onGround = null, wallP = null, wallNx = 0, wallNz = 0;
+  let onGround = null, wallP = null, wallNx = 0, wallNz = 0, ladderP = null;
   for (let iter = 0; iter < 2; iter++) {
     for (let si = 0; si < 3; si++) {
       for (const p of plats) {
@@ -973,6 +1207,8 @@ function step(dt) {
         const depth = collide(p, P.x, sy, P.z);
         if (!depth) continue;
         if (si > 0 && nOut.y > 0.6) continue;     // 体の上の方が床に乗るのは無視（足で判定）
+        if (p.ladder && Math.abs(nOut.y) < 0.35 && nOut.x * p.ladder.nx + nOut.z * p.ladder.nz > 0.8 &&
+            Math.abs((P.x - p.ladder.cx) * p.ladder.tx + (P.z - p.ladder.cz) * p.ladder.tz) < 0.7) ladderP = p;
         if (Math.abs(nOut.y) < 0.35 && (!wallP || si > 0)) {
           const l = Math.hypot(nOut.x, nOut.z); wallP = p; wallNx = nOut.x / l; wallNz = nOut.z / l;
         }
@@ -992,7 +1228,7 @@ function step(dt) {
   if (onGround) {
     if (!wasGround) {
       const impact = -preVy;
-      if (impact > 4) { landDip = clamp(impact / 30, 0.12, 0.35); sfx(90, 0.1, 'sine', 50, clamp(impact / 60, 0.05, 0.25)); }
+      if (impact > 4) { landDip = clamp(impact / 30, 0.12, 0.35); sfx(90, 0.1, 'sine', 50, clamp(impact / 60, 0.05, 0.25)); puff(P.x, P.y - RAD, P.z, Math.min(10, 3 + impact / 3), 0.6 + impact / 25); }
       if (airStartY - P.y > 8) falls++;
     }
     ground = onGround; coyote = 0.1; airTime = 0;
@@ -1008,6 +1244,12 @@ function step(dt) {
     }
   }
 
+  // はしごに向かって進んだら、つかまる（地面からでも空中からでも）
+  if (ladderP && !climb && grabCool <= 0 && P.y - RAD < ladderP.pos.y + ladderP.hy - 0.5) {
+    const il = Math.hypot(tx, tz);
+    if (il > 0.1 && (tx * -ladderP.ladder.nx + tz * -ladderP.ladder.nz) / il > 0.5) grabLadder(ladderP);
+  }
+
   if (ground === goalPlat && !cleared) clear();
   if (P.y < -30) { P.copy(START); V.set(0, 0, 0); }
 }
@@ -1017,15 +1259,26 @@ function setJ(obj, axis, target, k) { obj.rotation[axis] += (target - obj.rotati
 function animate(dt) {
   const hv = Math.hypot(V.x, V.z);
   if (climb) faceYaw = Math.atan2(-climb.nx, -climb.nz);
+  else if (ladder) faceYaw = Math.atan2(-ladder.nx, -ladder.nz);
+  else if (camMode === 'chase') faceYaw += angDiff(faceYaw, moveYaw) * Math.min(1, 20 * dt);
   else if (hv > 0.4) faceYaw += angDiff(faceYaw, Math.atan2(V.x, V.z)) * Math.min(1, (ground ? 14 : 6) * dt);
   hero.root.position.set(P.x, P.y - RAD, P.z);
   hero.root.rotation.y = faceYaw;
-  const k = Math.min(1, (climb ? 26 : 16) * dt);
+  // 曲がるとき、内側に体を傾ける
+  const leanT = camMode === 'chase' && ground && !climb ? steer * 0.22 * Math.min(1, hv / RUN) : 0;
+  hero.root.rotation.z += (leanT - hero.root.rotation.z) * Math.min(1, 10 * dt);
+  const k = Math.min(1, (climb || ladder ? 26 : 16) * dt);
   const H = hero;
   landDip = Math.max(0, landDip - dt * 1.2);
   let hipY = 0.93 - landDip * 0.5;
   const t = { hipL: 0, hipR: 0, knL: 0, knR: 0, shL: 0, shR: 0, shLz: -0.08, shRz: 0.08, elL: -0.15, elR: -0.15, torso: 0, head: 0 };
-  if (climb && !climb.up) {
+  if (ladder) {
+    // はしご：手と足を交互に
+    const s1 = Math.sin(ladderPhase);
+    t.shL = -2.5 + s1 * 0.45; t.shR = -2.5 - s1 * 0.45; t.elL = -0.7 - s1 * 0.3; t.elR = -0.7 + s1 * 0.3;
+    t.hipL = -0.9 - s1 * 0.5; t.hipR = -0.9 + s1 * 0.5; t.knL = 1.3 + s1 * 0.4; t.knR = 1.3 - s1 * 0.4;
+    t.torso = 0.05; t.head = -0.25; t.shLz = -0.1; t.shRz = 0.1;
+  } else if (climb && !climb.up) {
     // ぶら下がり：両手を上に
     t.shL = t.shR = -2.9; t.shLz = -0.12; t.shRz = 0.12; t.elL = t.elR = -0.05;
     t.hipL = 0.15; t.hipR = -0.1; t.knL = 0.35; t.knR = 0.2; t.torso = -0.05;
@@ -1090,10 +1343,12 @@ function animate(dt) {
     p.mesh.scale.set(1 + w, 1 - w, 1 + w);
   }
   if (goalRing) { goalRing.rotation.y += dt; goalRing.rotation.x = Math.sin(gameT) * 0.3; }
+  for (const f of movers) f(performance.now() / 1000);
+  updateDust(dt);
 }
 
 // ===== 画面 =====
-const hHeight = $('height'), hSub = $('sub');
+const hHeight = $('height'), hSub = $('sub'), speedEl = $('speed');
 let toastT = 0;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.opacity = 1; toastT = 2.5; }
 function fmtTime(s) {
@@ -1102,6 +1357,7 @@ function fmtTime(s) {
   return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(ss).padStart(2, '0');
 }
 function updateHud(dt) {
+  speedEl.style.opacity = clamp((-V.y - 14) / 22, 0, 0.9) + (ground && Math.hypot(V.x, V.z) > RUN + 1 ? 0.12 : 0);
   const h = Math.max(0, P.y - RAD);
   best = Math.max(best, h);
   hHeight.innerHTML = Math.floor(h) + '<small>m</small>';
@@ -1138,25 +1394,41 @@ function updateSky() {
 
 const ray = new THREE.Raycaster(), camDir = new THREE.Vector3(), nearMeshes = [];
 let camCur = camDist;
-// キーボードだけで遊べるカメラ
-//  ← → で回す / ↑ ↓ で上下 / R で背中側へ / C で自動カメラの ON・OFF
-//  自動カメラ：前に進んでいるときは、ゆっくり背中側へ回りこむ。
-//  横移動だけのときは回らない（ぐるぐる回り続けないように）。
+// キーボードだけで遊べるカメラ（C でモード切りかえ）
 function autoCamera(dt) {
-  const rot = (keys.ArrowLeft || keys.KeyQ ? 1 : 0) - (keys.ArrowRight || keys.KeyE ? 1 : 0);
-  if (rot) { camYaw += rot * 2.4 * dt; camManualT = 1.2; }
   const tilt = (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0);
   if (tilt) { camPitch = clamp(camPitch - tilt * 1.3 * dt, -0.6, 1.25); pitchManualT = 3; }
-  camManualT -= dt; pitchManualT -= dt;
+  pitchManualT -= dt;
+  if (pitchManualT <= 0) {
+    // 落ちているときは下を、よじ登るときは少し上を見る
+    let pt = 0.3;
+    if (!ground && !climb && !ladder && V.y < -7) pt = 0.8;
+    if (climb) pt = 0.12;
+    if (ladder) pt = -0.15;
+    camPitch += (pt - camPitch) * Math.min(1, 1.6 * dt);
+  }
+  const look = (keys.ArrowLeft || keys.KeyQ ? 1 : 0) - (keys.ArrowRight || keys.KeyE ? 1 : 0);
 
+  if (camMode === 'chase') {
+    // いつも背中側。← → を押しているあいだだけ、横を見回す
+    lookOff += (look * 1.4 - lookOff) * Math.min(1, 6 * dt);
+    const wallC = climb || ladder;
+    const want = (wallC ? Math.atan2(wallC.nx, wallC.nz) : moveYaw + Math.PI) + lookOff;
+    // 少し遅れてついてくる（カーブで主人公がななめに見える）
+    camYaw += angDiff(camYaw, want) * Math.min(1, (wallC ? 6 : 3.8) * dt);
+    return;
+  }
+
+  if (look) { camYaw += look * 2.4 * dt; camManualT = 1.2; }
+  camManualT -= dt;
   const behind = faceYaw + Math.PI;     // 主人公の背中側
   if (snapT > 0) {
     snapT -= dt;
     camYaw += angDiff(camYaw, behind) * Math.min(1, 12 * dt);
-    camPitch += (0.35 - camPitch) * Math.min(1, 12 * dt);
     return;
   }
-  if (autoCam && camManualT <= 0) {
+  if (camMode === 'auto' && camManualT <= 0) {
+    // 前に進んでいるときだけ、ゆっくり背中側へ回りこむ（横移動だけでは回らない）
     const inp = getInput();
     const hv = Math.hypot(V.x, V.z);
     let rate = 0, want = camYaw;
@@ -1167,18 +1439,13 @@ function autoCamera(dt) {
     }
     if (rate) camYaw += angDiff(camYaw, want) * Math.min(1, rate * dt);
   }
-  if (autoCam && pitchManualT <= 0) {
-    // 落ちているときは下を、よじ登るときは少し上を見る
-    let pt = 0.35;
-    if (!ground && !climb && V.y < -7) pt = 0.8;
-    if (climb) pt = 0.12;
-    camPitch += (pt - camPitch) * Math.min(1, 1.6 * dt);
-  }
 }
 
 function updateCamera(dt) {
   if (running) autoCamera(dt);
-  camTarget.lerp(tmpV.set(P.x, P.y - RAD + 1.55, P.z), Math.min(1, 12 * dt));
+  // 走っているときは少し前を映す
+  const la = camMode === 'chase' && !climb && !ladder ? Math.min(1, Math.hypot(V.x, V.z) / RUN) * 1.2 : 0;
+  camTarget.lerp(tmpV.set(P.x + Math.sin(moveYaw) * la, P.y - RAD + 1.45, P.z + Math.cos(moveYaw) * la), Math.min(1, 10 * dt));
   const cp = Math.cos(camPitch);
   camDir.set(Math.sin(camYaw) * cp, Math.sin(camPitch), Math.cos(camYaw) * cp);
   nearMeshes.length = 0;
@@ -1225,8 +1492,8 @@ function clear() {
   save();
 }
 $('howto').innerHTML = isTouch
-  ? '左側をなぞる：いどう<br>右側をなぞる：カメラ<br>ジャンプ / ダッシュ ボタン<br>壁のふちに向かって跳ぶと、つかまってよじ登る'
-  : 'WASD：いどう　Shift：ダッシュ　スペース：ジャンプ<br>← →：カメラを回す　↑ ↓：上下　R：背中側へ　C：自動カメラ ON/OFF<br>壁のふちに向かって跳ぶと、つかまってよじ登る（S ではなす）<br>マウスでもカメラを動かせます（なくても遊べます）<br>ホイール：ズーム　P：メニュー';
+  ? '左側をなぞる：上下で前後、左右で向きを変える<br>右側をなぞる：カメラ<br>ジャンプ / ダッシュ ボタン<br>壁のふちに向かって跳ぶと、つかまってよじ登る<br>はしごに向かって進むとつかまる（上に倒すと登る）'
+  : 'W S：前・後ろ　A D：向きを変える　Shift：ダッシュ　スペース：ジャンプ<br>カメラはいつも背中側（← → で見回す　↑ ↓ で上下）<br>C：カメラのモード切りかえ（いつも背中側 / じどう / じぶんで回す）<br>壁のふちに向かって跳ぶと、つかまってよじ登る（S ではなす）<br>マウスでもカメラを動かせます（なくても遊べます）<br>はしごに向かって進むとつかまる（W で上、スペースで跳びおりる）<br>ホイール：ズーム　M：BGM　P：メニュー';
 $('startBtn').onclick = start;
 $('resetBtn').onclick = () => { if (confirm('いまの高さをすてて、いちばん下からやりなおしますか？')) { resetRun(); start(); } };
 $('againBtn').onclick = () => { $('clear').classList.add('hidden'); cleared = false; resetRun(); start(); };
@@ -1261,7 +1528,7 @@ function loop(now) {
 requestAnimationFrame(loop);
 
 // 動作確認用
-window.__game = { P, V, path, plats, get ground() { return ground; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, keys, step, press() { jumpBuf = 0.14; }, get overlapFallbacks() { return overlapFallbacks; }, get climbing() { return !!climb; }, updateCamera, get camPitch() { return camPitch; }, setRunning(v) { running = v; } };
+window.__game = { P, V, path, plats, get ground() { return ground; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, keys, step, press() { jumpBuf = 0.14; }, get overlapFallbacks() { return overlapFallbacks; }, get climbing() { return !!climb; }, updateCamera, get camPitch() { return camPitch; }, setRunning(v) { running = v; }, setMode(m) { camMode = m; }, get moveYaw() { return moveYaw; }, get steer() { return steer; }, get onLadder() { return !!ladder; } };
 })();
 </script>
 </body>
