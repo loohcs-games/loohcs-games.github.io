@@ -32,6 +32,9 @@
   .tbtn { position: fixed; border-radius: 50%; background: rgba(255,255,255,.3); border: 3px solid rgba(255,255,255,.7); color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; pointer-events: auto; text-shadow: 0 1px 3px rgba(0,0,0,.5); }
   #jumpBtn { right: 24px; bottom: 30px; width: 90px; height: 90px; font-size: 17px; }
   #dashBtn { right: 126px; bottom: 44px; width: 64px; height: 64px; font-size: 14px; }
+  #cp { font-size: 13px; margin-top: 4px; opacity: .95; }
+  .sbtn { position: fixed; right: 14px; width: 52px; height: 40px; border-radius: 12px; border: 0; background: rgba(0,0,0,.3); color: #fff; font-size: 14px; font-weight: 800; pointer-events: auto; font-family: inherit; }
+  #saveBtn { top: 62px; } #cp1Btn { top: 108px; } #cp2Btn { top: 154px; }
   #pauseBtn { position: fixed; right: 14px; top: 12px; width: 40px; height: 40px; border-radius: 12px; border: 0; background: rgba(0,0,0,.25); color: #fff; font-size: 18px; pointer-events: auto; }
 </style>
 </head>
@@ -39,16 +42,20 @@
 <div id="hud">
   <div id="height">0<small>m</small></div>
   <div id="sub"></div>
+  <div id="cp"></div>
 </div>
 <div id="speed"></div>
 <div id="toast"></div>
-<div id="hint" class="hidden">← → カメラ ・ R 背中側へ ・ C カメラ切りかえ ・ P メニュー</div>
+<div id="hint" class="hidden">F セーブ ・ 1 2 もどる ・ ← → カメラ ・ P メニュー</div>
 
 <div id="touch" class="hidden">
   <div id="joyBase"><div id="joyKnob"></div></div>
   <div id="dashBtn" class="tbtn">ダッシュ</div>
   <div id="jumpBtn" class="tbtn">ジャンプ</div>
   <button id="pauseBtn">Ⅱ</button>
+  <button id="saveBtn" class="sbtn">セーブ</button>
+  <button id="cp1Btn" class="sbtn">①</button>
+  <button id="cp2Btn" class="sbtn">②</button>
 </div>
 
 <div id="menu" class="overlay">
@@ -757,9 +764,63 @@ let steer = 0;              // ハンドル（-1〜1）。じわっと切れて�
 const camTarget = new THREE.Vector3(P.x, P.y + 1.2, P.z);
 let running = false, curZone = 0;
 
+// ===== セーブ地点（チェックポイント） =====
+// F で今いる場所をセーブ（2つまで）。1 / 2 でそこへもどる。
+// 2つともうまっているときは、低いほうを入れかえる。入れかえは1回のプレイで3回まで。
+const MAX_SWAPS = 3;
+let cps = [null, null], swapsLeft = MAX_SWAPS;
+const CP_COLORS = [0x2d6cdf, 0xf08a24];
+const flags = [0, 1].map(i => {
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.8, 6), M('pivot', 0x77808a, TEX.steel)); pole.position.y = 0.9; pole.castShadow = true; g.add(pole);
+  const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(0.75, -0.22); shape.lineTo(0, -0.45); shape.lineTo(0, 0);
+  const cloth = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshLambertMaterial({ color: CP_COLORS[i], side: THREE.DoubleSide })); cloth.position.y = 1.78; g.add(cloth);
+  const num = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(64, 64, (c) => {
+    c.fillStyle = '#' + CP_COLORS[i].toString(16).padStart(6, '0'); c.beginPath(); c.arc(32, 32, 30, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff'; c.font = 'bold 40px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(i + 1), 32, 34);
+  }), depthTest: false }));
+  num.scale.set(0.45, 0.45, 1); num.position.y = 2.3; g.add(num);
+  g.visible = false; scene.add(g);
+  return { g, cloth };
+});
+function placeFlag(i) {
+  const c = cps[i], f = flags[i];
+  f.g.visible = !!c;
+  if (c) f.g.position.set(c.x, c.y - RAD, c.z);
+}
+const CPN = ['①', '②'];
+function setCheckpoint() {
+  if (!running) return;
+  if (!ground || ground.kind !== 'static' || climb || ladder) { toast('ここではセーブできない'); return; }
+  let i = cps.findIndex(c => !c), swapped = false;
+  if (i < 0) {
+    if (swapsLeft <= 0) { toast('もう入れかえられない'); return; }
+    i = cps[0].y <= cps[1].y ? 0 : 1;
+    swapsLeft--; swapped = true;
+  }
+  cps[i] = { x: P.x, y: P.y, z: P.z, yaw: camYaw, face: faceYaw };
+  placeFlag(i);
+  toast(`セーブ ${CPN[i]} ${Math.floor(P.y - RAD)}m` + (swapped ? `（入れかえ のこり${swapsLeft}回）` : ''));
+  sfx(660, 0.12, 'triangle', 990, 0.1); setTimeout(() => sfx(990, 0.15, 'triangle', null, 0.08), 110);
+  save();
+}
+function warpTo(i) {
+  if (!running) return;
+  const c = cps[i];
+  if (!c) { toast(`${CPN[i]} はまだない（F でセーブ）`); return; }
+  climb = null; ladder = null;
+  P.set(c.x, c.y + 0.02, c.z); V.set(0, 0, 0);
+  ground = null; wasGround = false; airStartY = P.y;
+  camYaw = c.yaw; faceYaw = moveYaw = c.face;
+  camTarget.set(P.x, P.y - RAD + 1.45, P.z);
+  toast(`${CPN[i]} にもどった`);
+  sfx(880, 0.2, 'sine', 440, 0.1);
+  puff(P.x, P.y - RAD, P.z, 6, 0.8);
+}
+
 // ===== セーブ =====
 function save() {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ x: P.x, y: P.y, z: P.z, best, falls, playTime, cleared, camYaw })); } catch (e) {}
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ x: P.x, y: P.y, z: P.z, best, falls, playTime, cleared, camYaw, cps, swapsLeft })); } catch (e) {}
 }
 function load() {
   try {
@@ -769,6 +830,9 @@ function load() {
     best = s.best || 0; falls = s.falls || 0; playTime = s.playTime || 0; cleared = !!s.cleared;
     camYaw = s.camYaw ?? camYaw;
     faceYaw = camYaw + Math.PI; moveYaw = faceYaw;
+    if (Array.isArray(s.cps)) { cps = s.cps.slice(0, 2); while (cps.length < 2) cps.push(null); }
+    swapsLeft = s.swapsLeft ?? MAX_SWAPS;
+    cps.forEach((c, i) => placeFlag(i));
     airStartY = P.y;
     return true;
   } catch (e) { return false; }
@@ -777,6 +841,7 @@ function resetRun() {
   P.copy(START); V.set(0, 0, 0);
   falls = 0; playTime = 0; ground = null; camYaw = startYaw; faceYaw = startYaw + Math.PI; moveYaw = faceYaw; airStartY = P.y;
   camTarget.set(P.x, P.y + 1.2, P.z);
+  cps = [null, null]; swapsLeft = MAX_SWAPS; placeFlag(0); placeFlag(1);
   save();
 }
 
@@ -862,6 +927,9 @@ addEventListener('keydown', e => {
   if (e.code === 'Space') { if (!e.repeat) jumpBuf = 0.14; e.preventDefault(); }
   if (e.code === 'KeyP' && !e.repeat) { running ? pause() : start(); }
   if (e.code === 'KeyR' && !e.repeat) snapT = 0.35;
+  if (e.code === 'KeyF' && !e.repeat) setCheckpoint();
+  if (e.code === 'Digit1' && !e.repeat) warpTo(0);
+  if (e.code === 'Digit2' && !e.repeat) warpTo(1);
   if (e.code === 'KeyM' && !e.repeat) { muted = !muted; toast(muted ? 'BGM オフ' : 'BGM オン'); }
   if (e.code === 'KeyC' && !e.repeat) {
     camMode = { auto: 'free', free: 'chase', chase: 'auto' }[camMode];
@@ -905,6 +973,9 @@ const tbtn = (id, down, up) => {
 tbtn('jumpBtn', () => { jumpBuf = 0.14; });
 tbtn('dashBtn', () => { touchDash = true; }, () => { touchDash = false; });
 tbtn('pauseBtn', () => pause());
+tbtn('saveBtn', () => setCheckpoint());
+tbtn('cp1Btn', () => warpTo(0));
+tbtn('cp2Btn', () => warpTo(1));
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   for (const t of e.changedTouches) {
@@ -1229,7 +1300,10 @@ function step(dt) {
     if (!wasGround) {
       const impact = -preVy;
       if (impact > 4) { landDip = clamp(impact / 30, 0.12, 0.35); sfx(90, 0.1, 'sine', 50, clamp(impact / 60, 0.05, 0.25)); puff(P.x, P.y - RAD, P.z, Math.min(10, 3 + impact / 3), 0.6 + impact / 25); }
-      if (airStartY - P.y > 8) falls++;
+      if (airStartY - P.y > 8) {
+        falls++;
+        if (cps.some(c => c && c.y > P.y + 4)) toast(isTouch ? '① ② でセーブ地点にもどれる' : '1 ・ 2 キーでセーブ地点にもどれる');
+      }
     }
     ground = onGround; coyote = 0.1; airTime = 0;
     airStartY = P.y;
@@ -1344,11 +1418,12 @@ function animate(dt) {
   }
   if (goalRing) { goalRing.rotation.y += dt; goalRing.rotation.x = Math.sin(gameT) * 0.3; }
   for (const f of movers) f(performance.now() / 1000);
+  for (const f of flags) if (f.g.visible) f.cloth.rotation.y = Math.sin(gameT * 3 + f.g.position.x) * 0.35;
   updateDust(dt);
 }
 
 // ===== 画面 =====
-const hHeight = $('height'), hSub = $('sub'), speedEl = $('speed');
+const hHeight = $('height'), hSub = $('sub'), speedEl = $('speed'), hCp = $('cp');
 let toastT = 0;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.opacity = 1; toastT = 2.5; }
 function fmtTime(s) {
@@ -1362,6 +1437,8 @@ function updateHud(dt) {
   best = Math.max(best, h);
   hHeight.innerHTML = Math.floor(h) + '<small>m</small>';
   hSub.textContent = `最高 ${Math.floor(best)}m ・ ${fmtTime(playTime)}`;
+  const cpTxt = `セーブ ${cps.map((c, i) => CPN[i] + (c ? Math.floor(c.y - RAD) + 'm' : '—')).join(' ')} ・ 入れかえ のこり${swapsLeft}回`;
+  if (hCp.textContent !== cpTxt) hCp.textContent = cpTxt;
   if (toastT > 0 && (toastT -= dt) <= 0) $('toast').style.opacity = 0;
   const z = zoneAt(h);
   if (z !== curZone) { if (z > curZone) toast(ZONES[z].name); curZone = z; }
@@ -1486,14 +1563,14 @@ function clear() {
   cleared = true;
   running = false;
   if (document.pointerLockElement) document.exitPointerLock();
-  $('clearText').innerHTML = `${GOAL}m のぼりきった。<br>タイム ${fmtTime(playTime)} ・ 大きく落ちた回数 ${falls}`;
+  $('clearText').innerHTML = `${GOAL}m のぼりきった。<br>タイム ${fmtTime(playTime)} ・ 大きく落ちた回数 ${falls}<br>セーブの入れかえ ${MAX_SWAPS - swapsLeft}回`;
   $('clear').classList.remove('hidden');
   sfx(523, 0.25, 'triangle'); setTimeout(() => sfx(659, 0.25, 'triangle'), 180); setTimeout(() => sfx(784, 0.5, 'triangle'), 360);
   save();
 }
 $('howto').innerHTML = isTouch
-  ? '左側をなぞる：いどう<br>右側をなぞる：カメラ<br>ジャンプ / ダッシュ ボタン<br>壁のふちに向かって跳ぶと、つかまってよじ登る<br>はしごに向かって進むとつかまる（上に倒すと登る）'
-  : 'WASD：いどう　Shift：ダッシュ　スペース：ジャンプ<br>← →：カメラを回す　↑ ↓：上下　R：背中側へ<br>C：カメラのモード切りかえ（じどう / じぶんで回す / いつも背中側）<br>壁のふちに向かって跳ぶと、つかまってよじ登る（S ではなす）<br>マウスでもカメラを動かせます（なくても遊べます）<br>はしごに向かって進むとつかまる（W で上、スペースで跳びおりる）<br>ホイール：ズーム　M：BGM　P：メニュー';
+  ? '左側をなぞる：いどう<br>右側をなぞる：カメラ<br>ジャンプ / ダッシュ ボタン<br>壁のふちに向かって跳ぶと、つかまってよじ登る<br>はしごに向かって進むとつかまる（上に倒すと登る）<br>セーブ：その場をセーブ（2つまで）　① ②：もどる'
+  : 'WASD：いどう　Shift：ダッシュ　スペース：ジャンプ<br>← →：カメラを回す　↑ ↓：上下　R：背中側へ<br>C：カメラのモード切りかえ（じどう / じぶんで回す / いつも背中側）<br>壁のふちに向かって跳ぶと、つかまってよじ登る（S ではなす）<br>マウスでもカメラを動かせます（なくても遊べます）<br>はしごに向かって進むとつかまる（W で上、スペースで跳びおりる）<br><b>F：セーブ（2つまで）　1 / 2：セーブ地点にもどる</b><br>2つうまったら低いほうを入れかえ（1回のプレイで3回まで）<br>ホイール：ズーム　M：BGM　P：メニュー';
 $('startBtn').onclick = start;
 $('resetBtn').onclick = () => { if (confirm('いまの高さをすてて、いちばん下からやりなおしますか？')) { resetRun(); start(); } };
 $('againBtn').onclick = () => { $('clear').classList.add('hidden'); cleared = false; resetRun(); start(); };
@@ -1528,7 +1605,7 @@ function loop(now) {
 requestAnimationFrame(loop);
 
 // 動作確認用
-window.__game = { P, V, path, plats, get ground() { return ground; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, keys, step, press() { jumpBuf = 0.14; }, get overlapFallbacks() { return overlapFallbacks; }, get climbing() { return !!climb; }, updateCamera, get camPitch() { return camPitch; }, setRunning(v) { running = v; }, setMode(m) { camMode = m; }, get moveYaw() { return moveYaw; }, get steer() { return steer; }, get onLadder() { return !!ladder; } };
+window.__game = { P, V, path, plats, get ground() { return ground; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, keys, step, press() { jumpBuf = 0.14; }, get overlapFallbacks() { return overlapFallbacks; }, get climbing() { return !!climb; }, updateCamera, get camPitch() { return camPitch; }, setRunning(v) { running = v; }, setMode(m) { camMode = m; }, get moveYaw() { return moveYaw; }, get steer() { return steer; }, get onLadder() { return !!ladder; }, setCheckpoint, warpTo, get cps() { return cps; }, get swapsLeft() { return swapsLeft; } };
 })();
 </script>
 </body>
