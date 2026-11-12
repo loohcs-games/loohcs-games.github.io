@@ -42,7 +42,7 @@
 </div>
 <div id="speed"></div>
 <div id="toast"></div>
-<div id="hint" class="hidden">A D 向き ・ ← → 見回す ・ C カメラ切りかえ ・ P メニュー</div>
+<div id="hint" class="hidden">← → カメラ ・ R 背中側へ ・ C カメラ切りかえ ・ P メニュー</div>
 
 <div id="touch" class="hidden">
   <div id="joyBase"><div id="joyKnob"></div></div>
@@ -748,10 +748,10 @@ let faceYaw = startYaw + Math.PI;
 let best = 0, falls = 0, playTime = 0, cleared = false;
 let airStartY = P.y;
 let gameT = 0;
-let camYaw = startYaw, camPitch = 0.3, camDist = 6;
+let camYaw = startYaw, camPitch = 0.35, camDist = 6.5;
 let camManualT = 0, pitchManualT = 0, snapT = 0, lookOff = 0;
 // カメラのモード：chase=いつも背中側（A/Dで向きを変える）, auto=自動で回りこむ, free=自分で回す
-let camMode = 'chase';
+let camMode = 'auto';
 let moveYaw = faceYaw;      // chase のときの進む向き
 let steer = 0;              // ハンドル（-1〜1）。じわっと切れて、じわっと戻る
 const camTarget = new THREE.Vector3(P.x, P.y + 1.2, P.z);
@@ -864,9 +864,9 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyR' && !e.repeat) snapT = 0.35;
   if (e.code === 'KeyM' && !e.repeat) { muted = !muted; toast(muted ? 'BGM オフ' : 'BGM オン'); }
   if (e.code === 'KeyC' && !e.repeat) {
-    camMode = { chase: 'auto', auto: 'free', free: 'chase' }[camMode];
+    camMode = { auto: 'free', free: 'chase', chase: 'auto' }[camMode];
     if (camMode === 'chase') moveYaw = faceYaw;
-    toast({ chase: 'カメラ：いつも背中側', auto: 'カメラ：じどうで回りこむ', free: 'カメラ：じぶんで回す' }[camMode]);
+    toast({ auto: 'カメラ：じどうで回りこむ', free: 'カメラ：じぶんで回す', chase: 'カメラ：いつも背中側（A D で向きを変える）' }[camMode]);
   }
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
@@ -1401,7 +1401,7 @@ function autoCamera(dt) {
   pitchManualT -= dt;
   if (pitchManualT <= 0) {
     // 落ちているときは下を、よじ登るときは少し上を見る
-    let pt = 0.3;
+    let pt = 0.35;
     if (!ground && !climb && !ladder && V.y < -7) pt = 0.8;
     if (climb) pt = 0.12;
     if (ladder) pt = -0.15;
@@ -1492,8 +1492,8 @@ function clear() {
   save();
 }
 $('howto').innerHTML = isTouch
-  ? '左側をなぞる：上下で前後、左右で向きを変える<br>右側をなぞる：カメラ<br>ジャンプ / ダッシュ ボタン<br>壁のふちに向かって跳ぶと、つかまってよじ登る<br>はしごに向かって進むとつかまる（上に倒すと登る）'
-  : 'W S：前・後ろ　A D：向きを変える　Shift：ダッシュ　スペース：ジャンプ<br>カメラはいつも背中側（← → で見回す　↑ ↓ で上下）<br>C：カメラのモード切りかえ（いつも背中側 / じどう / じぶんで回す）<br>壁のふちに向かって跳ぶと、つかまってよじ登る（S ではなす）<br>マウスでもカメラを動かせます（なくても遊べます）<br>はしごに向かって進むとつかまる（W で上、スペースで跳びおりる）<br>ホイール：ズーム　M：BGM　P：メニュー';
+  ? '左側をなぞる：いどう<br>右側をなぞる：カメラ<br>ジャンプ / ダッシュ ボタン<br>壁のふちに向かって跳ぶと、つかまってよじ登る<br>はしごに向かって進むとつかまる（上に倒すと登る）'
+  : 'WASD：いどう　Shift：ダッシュ　スペース：ジャンプ<br>← →：カメラを回す　↑ ↓：上下　R：背中側へ<br>C：カメラのモード切りかえ（じどう / じぶんで回す / いつも背中側）<br>壁のふちに向かって跳ぶと、つかまってよじ登る（S ではなす）<br>マウスでもカメラを動かせます（なくても遊べます）<br>はしごに向かって進むとつかまる（W で上、スペースで跳びおりる）<br>ホイール：ズーム　M：BGM　P：メニュー';
 $('startBtn').onclick = start;
 $('resetBtn').onclick = () => { if (confirm('いまの高さをすてて、いちばん下からやりなおしますか？')) { resetRun(); start(); } };
 $('againBtn').onclick = () => { $('clear').classList.add('hidden'); cleared = false; resetRun(); start(); };
