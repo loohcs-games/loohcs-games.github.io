@@ -766,9 +766,8 @@ let running = false, curZone = 0;
 
 // ===== セーブ地点（チェックポイント） =====
 // F で今いる場所をセーブ（2つまで）。1 / 2 でそこへもどる。
-// 2つともうまっているときは、低いほうを入れかえる。入れかえは1回のプレイで3回まで。
-const MAX_SWAPS = 3;
-let cps = [null, null], swapsLeft = MAX_SWAPS;
+// 2つともうまっているときは、低いほうを入れかえる（何回でもできる）。
+let cps = [null, null];
 const CP_COLORS = [0x2d6cdf, 0xf08a24];
 const flags = [0, 1].map(i => {
   const g = new THREE.Group();
@@ -794,13 +793,12 @@ function setCheckpoint() {
   if (!ground || ground.kind !== 'static' || climb || ladder) { toast('ここではセーブできない'); return; }
   let i = cps.findIndex(c => !c), swapped = false;
   if (i < 0) {
-    if (swapsLeft <= 0) { toast('もう入れかえられない'); return; }
     i = cps[0].y <= cps[1].y ? 0 : 1;
-    swapsLeft--; swapped = true;
+    swapped = true;
   }
   cps[i] = { x: P.x, y: P.y, z: P.z, yaw: camYaw, face: faceYaw };
   placeFlag(i);
-  toast(`セーブ ${CPN[i]} ${Math.floor(P.y - RAD)}m` + (swapped ? `（入れかえ のこり${swapsLeft}回）` : ''));
+  toast(`セーブ ${CPN[i]} ${Math.floor(P.y - RAD)}m` + (swapped ? '（入れかえ）' : ''));
   sfx(660, 0.12, 'triangle', 990, 0.1); setTimeout(() => sfx(990, 0.15, 'triangle', null, 0.08), 110);
   save();
 }
@@ -820,7 +818,7 @@ function warpTo(i) {
 
 // ===== セーブ =====
 function save() {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ x: P.x, y: P.y, z: P.z, best, falls, playTime, cleared, camYaw, cps, swapsLeft })); } catch (e) {}
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ x: P.x, y: P.y, z: P.z, best, falls, playTime, cleared, camYaw, cps })); } catch (e) {}
 }
 function load() {
   try {
@@ -831,7 +829,6 @@ function load() {
     camYaw = s.camYaw ?? camYaw;
     faceYaw = camYaw + Math.PI; moveYaw = faceYaw;
     if (Array.isArray(s.cps)) { cps = s.cps.slice(0, 2); while (cps.length < 2) cps.push(null); }
-    swapsLeft = s.swapsLeft ?? MAX_SWAPS;
     cps.forEach((c, i) => placeFlag(i));
     airStartY = P.y;
     return true;
@@ -841,7 +838,7 @@ function resetRun() {
   P.copy(START); V.set(0, 0, 0);
   falls = 0; playTime = 0; ground = null; camYaw = startYaw; faceYaw = startYaw + Math.PI; moveYaw = faceYaw; airStartY = P.y;
   camTarget.set(P.x, P.y + 1.2, P.z);
-  cps = [null, null]; swapsLeft = MAX_SWAPS; placeFlag(0); placeFlag(1);
+  cps = [null, null]; placeFlag(0); placeFlag(1);
   save();
 }
 
@@ -1437,7 +1434,7 @@ function updateHud(dt) {
   best = Math.max(best, h);
   hHeight.innerHTML = Math.floor(h) + '<small>m</small>';
   hSub.textContent = `最高 ${Math.floor(best)}m ・ ${fmtTime(playTime)}`;
-  const cpTxt = `セーブ ${cps.map((c, i) => CPN[i] + (c ? Math.floor(c.y - RAD) + 'm' : '—')).join(' ')} ・ 入れかえ のこり${swapsLeft}回`;
+  const cpTxt = `セーブ ${cps.map((c, i) => CPN[i] + (c ? Math.floor(c.y - RAD) + 'm' : '—')).join(' ')}`;
   if (hCp.textContent !== cpTxt) hCp.textContent = cpTxt;
   if (toastT > 0 && (toastT -= dt) <= 0) $('toast').style.opacity = 0;
   const z = zoneAt(h);
@@ -1563,14 +1560,14 @@ function clear() {
   cleared = true;
   running = false;
   if (document.pointerLockElement) document.exitPointerLock();
-  $('clearText').innerHTML = `${GOAL}m のぼりきった。<br>タイム ${fmtTime(playTime)} ・ 大きく落ちた回数 ${falls}<br>セーブの入れかえ ${MAX_SWAPS - swapsLeft}回`;
+  $('clearText').innerHTML = `${GOAL}m のぼりきった。<br>タイム ${fmtTime(playTime)} ・ 大きく落ちた回数 ${falls}`;
   $('clear').classList.remove('hidden');
   sfx(523, 0.25, 'triangle'); setTimeout(() => sfx(659, 0.25, 'triangle'), 180); setTimeout(() => sfx(784, 0.5, 'triangle'), 360);
   save();
 }
 $('howto').innerHTML = isTouch
   ? '左側をなぞる：いどう<br>右側をなぞる：カメラ<br>ジャンプ / ダッシュ ボタン<br>壁のふちに向かって跳ぶと、つかまってよじ登る<br>はしごに向かって進むとつかまる（上に倒すと登る）<br>セーブ：その場をセーブ（2つまで）　① ②：もどる'
-  : 'WASD：いどう　Shift：ダッシュ　スペース：ジャンプ<br>← →：カメラを回す　↑ ↓：上下　R：背中側へ<br>C：カメラのモード切りかえ（じどう / じぶんで回す / いつも背中側）<br>壁のふちに向かって跳ぶと、つかまってよじ登る（S ではなす）<br>マウスでもカメラを動かせます（なくても遊べます）<br>はしごに向かって進むとつかまる（W で上、スペースで跳びおりる）<br><b>F：セーブ（2つまで）　1 / 2：セーブ地点にもどる</b><br>2つうまったら低いほうを入れかえ（1回のプレイで3回まで）<br>ホイール：ズーム　M：BGM　P：メニュー';
+  : 'WASD：いどう　Shift：ダッシュ　スペース：ジャンプ<br>← →：カメラを回す　↑ ↓：上下　R：背中側へ<br>C：カメラのモード切りかえ（じどう / じぶんで回す / いつも背中側）<br>壁のふちに向かって跳ぶと、つかまってよじ登る（S ではなす）<br>マウスでもカメラを動かせます（なくても遊べます）<br>はしごに向かって進むとつかまる（W で上、スペースで跳びおりる）<br><b>F：セーブ（2つまで）　1 / 2：セーブ地点にもどる</b><br>2つうまったら低いほうを入れかえ（何回でもOK）<br>ホイール：ズーム　M：BGM　P：メニュー';
 $('startBtn').onclick = start;
 $('resetBtn').onclick = () => { if (confirm('いまの高さをすてて、いちばん下からやりなおしますか？')) { resetRun(); start(); } };
 $('againBtn').onclick = () => { $('clear').classList.add('hidden'); cleared = false; resetRun(); start(); };
@@ -1605,7 +1602,7 @@ function loop(now) {
 requestAnimationFrame(loop);
 
 // 動作確認用
-window.__game = { P, V, path, plats, get ground() { return ground; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, keys, step, press() { jumpBuf = 0.14; }, get overlapFallbacks() { return overlapFallbacks; }, get climbing() { return !!climb; }, updateCamera, get camPitch() { return camPitch; }, setRunning(v) { running = v; }, setMode(m) { camMode = m; }, get moveYaw() { return moveYaw; }, get steer() { return steer; }, get onLadder() { return !!ladder; }, setCheckpoint, warpTo, get cps() { return cps; }, get swapsLeft() { return swapsLeft; } };
+window.__game = { P, V, path, plats, get ground() { return ground; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, keys, step, press() { jumpBuf = 0.14; }, get overlapFallbacks() { return overlapFallbacks; }, get climbing() { return !!climb; }, updateCamera, get camPitch() { return camPitch; }, setRunning(v) { running = v; }, setMode(m) { camMode = m; }, get moveYaw() { return moveYaw; }, get steer() { return steer; }, get onLadder() { return !!ladder; }, setCheckpoint, warpTo, get cps() { return cps; } };
 })();
 </script>
 </body>
