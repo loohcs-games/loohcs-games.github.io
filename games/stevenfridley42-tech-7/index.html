@@ -160,6 +160,13 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:2px}
 .mvbreak{flex-basis:100%;height:0}
 .tbtn.mv{width:62px;height:46px;font-size:11px}
 .tbtn.mv .ic{font-size:17px}
+.val.super{color:var(--coral)}
+.secret-tag{margin-left:6px;font-size:10px;font-weight:800;letter-spacing:.08em;background:var(--ink);color:var(--taxi);border-radius:5px;padding:1px 5px;vertical-align:2px}
+.item.secret-locked{cursor:default;background:repeating-linear-gradient(45deg,#f4f6f8 0 8px,#ffffff 8px 16px)}
+.qmark{font-family:var(--f-display);font-weight:700;font-size:22px;color:var(--ink-soft)}
+.pbar.over i{background:var(--coral)}
+.logo{cursor:default}
+.toasts{z-index:5}
 .ctarow{display:flex;gap:10px}
 .ctarow .cta{flex:1}
 .cta2{border:0;border-radius:16px;background:var(--white);box-shadow:0 5px 0 rgba(18,48,71,.18),inset 0 0 0 2px var(--line);font-family:var(--f-display);font-weight:700;font-size:18px;padding:8px 16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:var(--ink)}
@@ -303,6 +310,8 @@ const ENEMY_COLORS = [
 ];
 const ACE_COLORS = { body: 0xc4182c, wing: 0x1d232b, trim: 0xffd23f };
 const CAM_NAMES = ['三人称', '一人称', '上空'];
+const MACH = 340;          // speed of sound, m/s
+const SECRET_RANK = 11;    // 1等空尉 unlocks the secret jet
 
 /* ---- hangar catalogue: price 0 = owned from the start ---- */
 const SHOP = {
@@ -313,6 +322,8 @@ const SHOP = {
     { id: 'float', name: 'シーホッパー',     price: 1000, desc: '水上機。少し速くてじょうぶ', maxSpeed: 86,  accel: 19, turn: 1.05, hp: 4, rate: 7 },
     { id: 'twin',  name: 'ツインスター',     price: 2200, desc: '双発。連射が速くてタフ',     maxSpeed: 100, accel: 23, turn: 0.9,  hp: 5, rate: 11 },
     { id: 'racer', name: 'ソニックプロップ', price: 4000, desc: 'いちばん速いレース機',       maxSpeed: 120, accel: 30, turn: 1.15, hp: 3, rate: 10 },
+    // secret: hidden until unlocked (rank 1等空尉 or the secret command), then free
+    { id: 'jet', name: 'MACH-X', price: 0, secret: true, desc: 'シークレット機。マッハ1を超えるジェット', maxSpeed: 380, accel: 75, turn: 1.0, hp: 5, rate: 14 },
   ],
   paint: [
     { id: 'taxi',   name: 'タクシーイエロー', price: 0,    body: 0xffc82e, wing: 0xffc82e, trim: 0xffffff, check: [0x1d232b, 0xffffff] },
@@ -413,7 +424,7 @@ function stepMissions(ms, stat){
 
 const SAVE_KEY = 'skytaxi-save';
 function loadSave(){
-  const base = { wallet: 0, owned: [], equip: Object.assign({}, DEFAULT_EQUIP), missions: NEW_MISSIONS(), done: 0 };
+  const base = { wallet: 0, owned: [], equip: Object.assign({}, DEFAULT_EQUIP), missions: NEW_MISSIONS(), done: 0, secret: false };
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
     if (s && typeof s.wallet === 'number') {
@@ -424,13 +435,15 @@ function loadSave(){
       // missions from the passenger version do not carry over
       if (m && m.v === MISSION_VERSION && typeof m.next === 'number' && Array.isArray(m.slots) && m.slots.length === 3 && m.slots.every((x) => x && typeof x.i === 'number' && typeof x.p === 'number')) base.missions = m;
       base.done = typeof s.done === 'number' ? Math.max(0, Math.floor(s.done)) : Math.max(0, base.missions.next - 3);
+      base.secret = s.secret === true || rankOf(base.done) >= SECRET_RANK;
       const eqIn = Object.assign({}, s.equip || {});
       if (eqIn.style && !eqIn.plane) eqIn.plane = eqIn.style;
       delete eqIn.style;
       const eq = Object.assign({}, DEFAULT_EQUIP, eqIn);
       for (const k of Object.keys(DEFAULT_EQUIP)) {
         const it = findItem(k, eq[k]);
-        eq[k] = it.price === 0 || base.owned.includes(k + ':' + it.id) ? it.id : DEFAULT_EQUIP[k];
+        const ok = it.secret ? base.secret : (it.price === 0 || base.owned.includes(k + ':' + it.id));
+        eq[k] = ok ? it.id : DEFAULT_EQUIP[k];
       }
       base.equip = eq;
     }
@@ -459,8 +472,47 @@ function mesh(geo, material, x, y, z, parent){
 const propDiscMat = () => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false });
 
 // A small propeller plane built from boxes and cylinders. Nose points to -Z.
+// The secret jet: long fuselage, delta wings, afterburner instead of a propeller. Nose points to -Z.
+function makeJet(c, opts){
+  const g = new THREE.Group();
+  const body = mat(c.body), trim = mat(c.trim), dark = mat(0x2a2f36), glass = mat(0x8fdcff, { transparent: true, opacity: 0.75 });
+  const wingM = mat(c.wing, { side: THREE.DoubleSide });
+  mesh(new THREE.BoxGeometry(1.5, 1.35, 8.2), body, 0, 0, 0.4, g);
+  const nose = mesh(new THREE.ConeGeometry(0.82, 3.4, 8), trim, 0, 0, -5.4, g); nose.rotation.x = -Math.PI / 2;
+  // delta wings from a flat triangle, mirrored
+  const sh = new THREE.Shape();
+  sh.moveTo(0, -1.8); sh.lineTo(5.0, 2.8); sh.lineTo(0, 3.0); sh.lineTo(0, -1.8);
+  const wg = new THREE.ExtrudeGeometry(sh, { depth: 0.22, bevelEnabled: false });
+  for (const sd of [-1, 1]) { const w = mesh(wg, wingM, sd * 0.6, -0.1, 0, g); w.rotation.x = Math.PI / 2; w.scale.x = sd; }
+  const fin = mesh(new THREE.BoxGeometry(0.2, 2.6, 2.0), trim, 0, 1.6, 3.6, g); fin.rotation.x = -0.45;
+  mesh(new THREE.BoxGeometry(3.6, 0.16, 1.1), mat(c.wing), 0, 0.15, 4.1, g);
+  const canopy = mesh(new THREE.BoxGeometry(1.0, 0.7, 2.2), glass, 0, 0.95, -2.0, g); canopy.castShadow = false;
+  for (const sd of [-1, 1]) { const gun = mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.4, 6), dark, sd * 2.2, -0.3, -1.9, g); gun.rotation.x = Math.PI / 2; }
+  const noz = mesh(new THREE.CylinderGeometry(0.62, 0.74, 1.1, 10), dark, 0, 0, 5.0, g); noz.rotation.x = Math.PI / 2;
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.55, 3, 10), new THREE.MeshBasicMaterial({ color: 0xffa23a, transparent: true, opacity: 0.85, depthWrite: false }));
+  flame.rotation.x = Math.PI / 2; flame.position.z = 7.0; g.add(flame);
+  const core = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.8, 8), new THREE.MeshBasicMaterial({ color: 0xfff6c8, transparent: true, opacity: 0.95, depthWrite: false }));
+  core.rotation.x = Math.PI / 2; core.position.z = 6.3; g.add(core);
+  for (const sd of [-1, 1]) {
+    mesh(new THREE.BoxGeometry(0.14, 0.7, 0.14), dark, sd * 0.9, -0.95, -1.0, g);
+    const w = mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.3, 10), dark, sd * 0.95, -1.1, -1.0, g); w.rotation.z = Math.PI / 2;
+  }
+  if (opts.taxi) {
+    const ck = opts.check || [0x1d232b, 0xffffff];
+    const blk = mat(ck[0]), wht = mat(ck[1]);
+    for (const sd of [-1, 1]) for (let i = 0; i < 9; i++) for (let j = 0; j < 2; j++) {
+      const m = mesh(new THREE.BoxGeometry(0.04, 0.3, 0.42), (i + j) % 2 ? blk : wht, sd * 0.77, 0.0 + j * 0.3, -1.2 + i * 0.42, g);
+      m.castShadow = false;
+    }
+  }
+  // no propeller: empty stand-ins keep the rest of the engine code simple
+  const prop = new THREE.Group(), blades = new THREE.Group(); prop.add(blades); prop.visible = false; g.add(prop);
+  return { group: g, prop, blades, canopy, beacon: null, extraProps: [], flame, core };
+}
+
 function makePlane(c, opts){
   opts = opts || {};
+  if (opts.style === 'jet') return makeJet(c, opts);
   const taxi = !!opts.taxi, style = opts.style || 'std';
   const g = new THREE.Group();
   const body = mat(c.body), wing = mat(c.wing), trim = mat(c.trim), dark = mat(0x2a2f36), glass = mat(0x8fdcff, { transparent: true, opacity: 0.75 });
@@ -792,7 +844,7 @@ class Game {
     this.hp = this.stats.hp; this.invuln = 0; this.shake = 0; this.hitFlash = 0;
     this.wave = 0; this.waveState = 'break'; this.breakT = 3; this.damagedThisWave = false;
     this.distAcc = 0; this.cause = ''; this.lock = null; this.fireT = 0; this.firedOnce = false;
-    this.man = null; this.manCD = 0; this.dodgeT = 0; this.lookBack = false;
+    this.man = null; this.manCD = 0; this.dodgeT = 0; this.lookBack = false; this.supersonic = false; this.thrHeld = 0;
     this.state = 'idle';
     if (fly) this.startTakeoff();
     this.camOff.copy(F).multiplyScalar(-17); this.camOff.y = 5.5;
@@ -823,7 +875,7 @@ class Game {
       this.keys[k] = down; e.preventDefault();
     }
     if (down && !e.repeat) {
-      if (e.code === 'KeyC') this.cycleCamera();
+      if (e.code === 'KeyC' && this.state !== 'idle') this.cycleCamera();
       if (e.code === 'KeyR') this.stabilize();
       if (e.code === 'KeyF') this.uTurn(this.keys.right ? -1 : 1);
       if (e.code === 'KeyT') this.loop360();
@@ -927,6 +979,7 @@ class Game {
   updateFlight(dt, inp){
     const p = this.p, C = CFG, st = this.stats;
     const thr = (inp.thr ? 1 : 0) - (inp.brake ? 1 : 0);
+    this.thrHeld = thr;
     const turn = (inp.left ? 1 : 0) - (inp.right ? 1 : 0);
     const pin = (inp.climb ? 1 : 0) - (inp.dive ? 1 : 0);
     if (turn || pin) this.stab = 0;
@@ -990,6 +1043,10 @@ class Game {
       p.yaw = wrap(p.yaw + diff * (1 - Math.exp(-1.6 * dt)));
       p.roll = damp(p.roll, clamp(diff, -0.7, 0.7), 3, dt);
     }
+    // breaking the sound barrier: vapor cone + toast, once per crossing
+    const sup = p.speed >= MACH;
+    if (sup && !this.supersonic) this.sonicBoom();
+    this.supersonic = sup;
     this.distance += p.speed * dt;
     this.score += p.speed * dt * 0.02;
     this.distAcc += p.speed * dt;
@@ -1324,6 +1381,15 @@ class Game {
     }
   }
 
+  sonicBoom(){
+    this.cb.onEvent('ソニックブーム！ マッハ1突破', 'rank');
+    this.shake = Math.max(this.shake, 0.35);
+    const ring = new THREE.Mesh(new THREE.ConeGeometry(4, 5, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }));
+    ring.position.copy(this.p.pos);
+    ring.rotation.set(this.p.pitch - Math.PI / 2, this.p.yaw, 0, 'YXZ');
+    this.scene.add(ring);
+    this.debris.push({ m: ring, flash: true, life: 0.8 });
+  }
   applyPlayer(dt){
     const p = this.p, g = this.player.group;
     g.position.copy(p.pos);
@@ -1332,6 +1398,14 @@ class Game {
     const rpm = this.state === 'idle' ? 9 : 26 + p.speed * 0.6;
     this.player.prop.rotation.z += rpm * dt;
     for (const ep of this.player.extraProps) ep.rotation.z += rpm * dt;
+    if (this.player.flame) {
+      // afterburner grows with speed and throttle, and flickers
+      const on = this.state !== 'idle';
+      const sf = clamp(p.speed / this.stats.maxSpeed, 0, 1);
+      const len = on ? 0.5 + sf * 1.3 + (this.thrHeld > 0 ? 0.7 : 0) + Math.random() * 0.25 : 0.25;
+      this.player.flame.scale.set(1, len, 1); this.player.flame.position.z = 5.6 + 1.4 * len;
+      this.player.core.scale.set(1, len * 0.8, 1); this.player.core.position.z = 5.6 + 0.8 * len;
+    }
     this.sun.position.copy(p.pos).addScaledVector(this.sunDir, 200);
     this.sun.target.position.copy(p.pos);
   }
@@ -1489,7 +1563,7 @@ class Game {
       state: this.state, score: Math.floor(this.score), coins: this.coins, kills: this.kills,
       wave: this.wave, waveState: this.waveState, breakLeft: Math.max(0, Math.ceil(this.breakT)), enemiesLeft: this.enemies.length,
       nearDist: near ? Math.round(nd) : 0, arrow,
-      speed: Math.round(p.speed * 3.6), alt: Math.max(0, Math.round(p.pos.y - GY + 1)), maxKmh: Math.round(this.stats.maxSpeed * 3.6),
+      mach: p.speed / MACH, speed: Math.round(p.speed * 3.6), alt: Math.max(0, Math.round(p.pos.y - GY + 1)), maxKmh: Math.round(this.stats.maxSpeed * 3.6),
       hp: this.hp, maxHp: this.stats.hp, hitFlash: this.hitFlash > 0, lowHp: this.hp === 1 && this.state === 'flying',
       hint, cam: this.camMode, takeoff: this.state === 'takeoff', lookBack: this.lookBack,
       px: p.pos.x, pz: p.pos.z, pyaw: p.yaw,
@@ -1638,7 +1712,7 @@ function Hud({ hud, game, isTouch, onRetry, missions, done }){
       h('div', { className: 'flight' },
         h('div', { className: 'panel flightcard' },
           h('div', { className: 'flightrow' },
-            h('div', { className: 'stat' }, h('span', { className: 'lbl' }, '速度'), h('span', { className: 'val' }, hud.speed, h('small', null, 'km/h'))),
+            h('div', { className: 'stat' }, h('span', { className: 'lbl' }, hud.mach >= 0.5 ? 'マッハ ' + hud.mach.toFixed(2) : '速度'), h('span', { className: 'val' + (hud.mach >= 1 ? ' super' : '') }, hud.speed, h('small', null, 'km/h'))),
             h('div', { className: 'stat' }, h('span', { className: 'lbl' }, '高度'), h('span', { className: 'val' }, hud.alt, h('small', null, 'm')))
           ),
           h('div', { className: 'speedbar' }, h('div', { className: 'speedfill', style: { width: pct + '%' } }))
@@ -1681,7 +1755,8 @@ function StyleIcon({ id }){
     id === 'float' && h('rect', { x: 36, y: 25, width: 10, height: 3, rx: 1.5, fill: ink }),
     id === 'twin' && h('circle', { cx: 17, cy: 14, r: 4, fill: ink }),
     id === 'twin' && h('circle', { cx: 43, cy: 14, r: 4, fill: ink }),
-    id === 'racer' && h('path', { d: 'M30 1 L36 10 L24 10 Z', fill: '#ff4b5c' }));
+    id === 'racer' && h('path', { d: 'M30 1 L36 10 L24 10 Z', fill: '#ff4b5c' }),
+    id === 'jet' && h('path', { d: 'M30 0 L50 24 L10 24 Z', fill: '#ff8a1f' }));
 }
 function Swatch({ kind, item }){
   if (kind === 'paint') return h('div', { className: 'sw' }, [item.body, item.wing, item.trim].map((c, i) => h('i', { key: i, style: { background: hex(c) } })));
@@ -1691,11 +1766,12 @@ function Swatch({ kind, item }){
 }
 
 function Hangar({ save, setSave, game, onClose }){
+  const locked = (it) => it.secret && !save.secret;
   const [tab, setTab] = useState('plane');
   const [preview, setPreview] = useState(() => Object.assign({}, save.equip));
   useEffect(() => { if (game.current) game.current.setSkin(resolveSkin(preview)); }, [preview, game]);
   const owns = (kind, it) => it.price === 0 || save.owned.includes(kind + ':' + it.id);
-  const choose = (id) => setPreview((p) => Object.assign({}, p, { [tab]: id }));
+  const choose = (id) => { const it = SHOP[tab].find((x) => x.id === id); if (it && locked(it)) return; setPreview((p) => Object.assign({}, p, { [tab]: id })); };
   const equip = (it) => {
     choose(it.id);
     setSave((s) => Object.assign({}, s, { equip: Object.assign({}, s.equip, { [tab]: it.id }) }));
@@ -1720,6 +1796,12 @@ function Hangar({ save, setSave, game, onClose }){
     h('div', { className: 'items' }, SHOP[tab].map((it) => {
       const own = owns(tab, it), equipped = save.equip[tab] === it.id, viewing = preview[tab] === it.id;
       const short = it.price - save.wallet;
+      if (locked(it)) {
+        return h('div', { key: it.id, className: 'item secret-locked' },
+          h('div', { className: 'sw sw-svg' }, h('span', { className: 'qmark' }, '?')),
+          h('div', { className: 'iname' }, h('b', null, '？？？'), h('span', { className: 'desc' }, 'シークレット機。階級を上げると現れるらしい…（ほかにも方法があるとか）')),
+          h('span', { className: 'tag' }, 'ロック中'));
+      }
       let action;
       if (equipped) action = h('span', { className: 'tag on' }, '装備中');
       else if (own) action = h('button', { className: 'act', onClick: (e) => { e.stopPropagation(); equip(it); } }, '装備する');
@@ -1728,22 +1810,22 @@ function Hangar({ save, setSave, game, onClose }){
       return h('div', { key: it.id, className: 'item' + (viewing ? ' viewing' : ''), onClick: () => choose(it.id), role: 'button', tabIndex: 0,
         onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(it.id); } } },
         h(Swatch, { kind: tab, item: it }),
-        h('div', { className: 'iname' }, h('b', null, it.name), h('span', null, own ? '持っている' : h(React.Fragment, null, h('i', { className: 'coin' }), it.price.toLocaleString())),
+        h('div', { className: 'iname' }, h('b', null, it.name, it.secret && h('span', { className: 'secret-tag' }, 'SECRET')), h('span', null, own ? '持っている' : h(React.Fragment, null, h('i', { className: 'coin' }), it.price.toLocaleString())),
           tab === 'plane' && h('span', { className: 'desc' }, it.desc),
           tab === 'plane' && h('div', { className: 'pstats' },
             [['速さ', it.maxSpeed / 120], ['加速', it.accel / 30], ['旋回', it.turn / 1.35], ['HP', it.hp / 5], ['連射', it.rate / 11]].map(([l, v]) =>
-              h('div', { key: l, className: 'pst' }, h('span', null, l), h('div', { className: 'pbar' }, h('i', { style: { width: Math.round(v * 100) + '%' } })))))),
+              h('div', { key: l, className: 'pst' }, h('span', null, l), h('div', { className: 'pbar' + (v > 1 ? ' over' : '') }, h('i', { style: { width: Math.round(Math.min(1, v) * 100) + '%' } })))))),
         action);
     })),
     h('p', { className: 'hg-note' }, tab === 'trail' ? '飛行機雲は飛んでいるときに出ます。' : 'タップすると見た目を確認できます。コインは撃墜・WAVEクリア・ミッションでたまります。'),
     h('button', { className: 'cta', onClick: close }, unsaved ? '試すのをやめて戻る' : '戻る'));
 }
 
-function Title({ best, wallet, isTouch, onStart, onHangar, missions, done }){
+function Title({ best, wallet, isTouch, onStart, onHangar, missions, done, onLogoTap }){
   return h('div', { className: 'overlay' },
     h('div', { className: 'card' },
       h('span', { className: 'eyebrow' }, '島々の空を守るドッグファイト'),
-      h('h1', { className: 'logo' }, 'SKY', h('span', null, 'TAXI')),
+      h('h1', { className: 'logo', onClick: onLogoTap }, 'SKY', h('span', null, 'TAXI')),
       h('p', { className: 'lead' }, '空賊の戦闘機がつぎつぎにやってくる。撃ち落としてWAVEをクリアしよう。撃墜・WAVEクリア・ミッションでコインを集めて、ハンガーで強い飛行機を買おう。'),
       isTouch
         ? h('div', { className: 'tip' }, '左のボタンで旋回と上昇・下降、右の赤いボタンで射撃、緑で加速。「Uターン」で横に反転、「縦U」で上に回って反転、「宙返り」で縦に1回転、「回避」で弾をよけるロール、「後ろ」を押している間は後方を確認できます。')
@@ -1781,6 +1863,26 @@ function GameOver({ result, wallet, onRetry, onHangar, missions, done }){
     ));
 }
 
+// type M-A-C-H on the title screen, or tap the logo 5 times quickly
+function useSecretCommand(active, unlock){
+  const buf = useRef(''), taps = useRef([]);
+  useEffect(() => {
+    if (!active) return undefined;
+    const onKey = (e) => {
+      if (!/^Key[A-Z]$/.test(e.code)) return;
+      buf.current = (buf.current + e.code.slice(3)).slice(-4);
+      if (buf.current === 'MACH') { buf.current = ''; unlock(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [active, unlock]);
+  return useCallback(() => {
+    const now = performance.now();
+    taps.current = taps.current.filter((t) => now - t < 2500).concat(now);
+    if (taps.current.length >= 5) { taps.current = []; unlock(); }
+  }, [unlock]);
+}
+
 function App(){
   const mountRef = useRef(null), gameRef = useRef(null), toastId = useRef(0);
   const [hud, setHud] = useState(null);
@@ -1812,8 +1914,10 @@ function App(){
     if (!r.done.length && r.ms.slots.every((s, k) => s.p === cur.missions.slots[k].p)) return;
     const done = (cur.done || 0) + r.done.length;
     const before = rankOf(cur.done || 0), after = rankOf(done);
+    const unlockNow = after >= SECRET_RANK && !cur.secret;
     const promoBonus = after > before ? 100 * after : 0;
-    setSave(Object.assign({}, cur, { missions: r.ms, wallet: cur.wallet + r.reward + promoBonus, done }));
+    setSave(Object.assign({}, cur, { missions: r.ms, wallet: cur.wallet + r.reward + promoBonus, done, secret: cur.secret || unlockNow }));
+    if (unlockNow) setTimeout(() => pushToast('シークレット機 MACH-X が解放された！', 'rank'), 2400 + r.done.length * 700);
     r.done.forEach((m, k) => setTimeout(() => pushToast('ノルマ達成！ +' + m.reward, 'good'), 600 + k * 700));
     if (after > before) setTimeout(() => pushToast('昇進！ ' + RANKS[after].name + '（+' + promoBonus + '）', 'rank'), 900 + r.done.length * 700);
   }, [setSave, pushToast]);
@@ -1846,6 +1950,12 @@ function App(){
     setToasts([]); setResult(null); setScreen('hangar');
   }, []);
   const closeHangar = useCallback(() => { if (gameRef.current) gameRef.current.setShowcase(false); setScreen('title'); }, []);
+  const unlockSecret = useCallback(() => {
+    if (saveRef.current.secret) { pushToast('MACH-X はもう解放されています', 'info'); return; }
+    setSave((s) => Object.assign({}, s, { secret: true }));
+    pushToast('シークレット機 MACH-X が解放された！', 'rank');
+  }, [setSave, pushToast]);
+  const onLogoTap = useSecretCommand(screen === 'title', unlockSecret);
   const start = useCallback(() => { onStat({ kind: 'run_reset' }); if (gameRef.current) gameRef.current.start(); setScreen('play'); }, [onStat]);
   const retry = useCallback(() => { onStat({ kind: 'run_reset' }); setToasts([]); setResult(null); if (gameRef.current) gameRef.current.restart(); setScreen('play'); }, [onStat]);
 
@@ -1862,8 +1972,8 @@ function App(){
   return h('div', { className: 'app' },
     h('div', { ref: mountRef, className: 'stage' }),
     hud && screen === 'play' && h(Hud, { hud, game: gameRef, isTouch, onRetry: retry, missions: save.missions, done: save.done || 0 }),
-    screen === 'play' && h('div', { className: 'toasts', 'aria-live': 'polite' }, toasts.map((t) => h('div', { key: t.id, className: 'toast ' + (t.kind || '') }, t.text))),
-    screen === 'title' && h(Title, { best, wallet: save.wallet, isTouch, onStart: start, onHangar: openHangar, missions: save.missions, done: save.done || 0 }),
+    (screen === 'play' || screen === 'title') && h('div', { className: 'toasts', 'aria-live': 'polite' }, toasts.map((t) => h('div', { key: t.id, className: 'toast ' + (t.kind || '') }, t.text))),
+    screen === 'title' && h(Title, { best, wallet: save.wallet, isTouch, onStart: start, onHangar: openHangar, missions: save.missions, done: save.done || 0, onLogoTap }),
     screen === 'over' && result && h(GameOver, { result, wallet: save.wallet, onRetry: retry, onHangar: openHangar, missions: save.missions, done: save.done || 0 }),
     screen === 'hangar' && h(Hangar, { save, setSave, game: gameRef, onClose: closeHangar }),
     error && h('div', { className: 'overlay' }, h('div', { className: 'card' }, h('p', { className: 'lead' }, error)))
