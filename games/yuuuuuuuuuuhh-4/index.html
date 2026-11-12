@@ -83,6 +83,8 @@
 <div id="overlay"><div id="panel"></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script>
 const G = 9.81, KD = 0.0045, KL = 0.0018, YD = 1.0936, RK = 0.05;
 const AREA = { x0: -150, x1: 150, z0: -560, z1: 40 };
@@ -376,7 +378,7 @@ const windLines = new THREE.LineSegments(windGeo, new THREE.LineBasicMaterial({ 
 windLines.frustumCulled = false; scene.add(windLines);
 
 // golfer (right-handed). Local -z is the target direction, the ball sits at the origin.
-const golfer = new THREE.Group(), swingPivot = new THREE.Group();
+const golfer = new THREE.Group(), swingPivot = new THREE.Group(), clubRod = new THREE.Group(), golferParts = {};
 const SWING_AXIS = new THREE.Vector3(1.36, 0.77, 0).normalize();
 {
   const mat = (c, r = 0.8) => new THREE.MeshStandardMaterial({ color: c, roughness: r });
@@ -392,13 +394,195 @@ const SWING_AXIS = new THREE.Vector3(1.36, 0.77, 0).normalize();
   const cap = new THREE.Mesh(new THREE.SphereGeometry(0.148, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xffffff)); cap.position.set(0.15, 1.65, 0); body.add(cap);
   const brim = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.02, 0.2), mat(0xffffff)); brim.position.set(0.31, 1.66, 0); body.add(brim);
   swingPivot.position.set(-0.77, 1.38, 0); golfer.add(swingPivot);
-  const rod = new THREE.Group(); rod.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0.77, -1.36, 0).normalize()); swingPivot.add(rod);
+  const rod = clubRod; rod.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0.77, -1.36, 0).normalize()); swingPivot.add(rod);
   const arms = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.05, 0.62, 10), mat(0x2f7fe0)); arms.position.y = -0.31; rod.add(arms);
   const hands = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), mat(0xffffff)); hands.position.y = -0.63; rod.add(hands);
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.9, 6), mat(0xc8ccd4, 0.3)); shaft.position.y = -1.08; rod.add(shaft);
   const headC = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.13), mat(0x1c1c1c, 0.3)); headC.position.set(0, -1.52, -0.04); rod.add(headC);
+  // caddie bag beside the golfer
+  const bag = new THREE.Group(); bag.position.set(-1.9, 0, -0.7); bag.rotation.set(0.25, 0.4, 0.12); golfer.add(bag);
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.12, 0.88, 16), mat(0x1d2f5c, 0.6)); tube.position.y = 0.44; bag.add(tube);
+  const rimB = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.02, 8, 20), mat(0xffffff, 0.5)); rimB.rotation.x = Math.PI / 2; rimB.position.y = 0.88; bag.add(rimB);
+  [[0.04, 0.03, 0xb8bcc4], [-0.05, 0.04, 0x222222], [0.0, -0.06, 0x8a6a3a]].forEach(([x, z, c], i) => {
+    const s = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.3, 6), mat(0xc8ccd4, 0.3)); s.position.set(x, 1.0, z); bag.add(s);
+    const hd = new THREE.Mesh(i === 2 ? new THREE.SphereGeometry(0.05, 10, 8) : new THREE.BoxGeometry(0.03, 0.05, 0.08), mat(c, 0.4)); hd.position.set(x, 1.16, z); bag.add(hd);
+  });
+  Object.assign(golferParts, { body, arms, hands, shaft, headC });
   golfer.traverse(o => { if (o.isMesh) o.castShadow = true; }); scene.add(golfer);
 }
+
+// ---------- realistic people (Ready Player Me avatar from the three.js examples) ----------
+const HUMAN_URL = ''; // サイト版: 利用条件が分からない人物モデルは使わない
+const BONE_NAMES = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftArm', 'LeftForeArm', 'LeftHand', 'RightArm', 'RightForeArm', 'RightHand'];
+const V3 = THREE.Vector3, UP = new V3(0, 1, 0);
+let humanProto = null, human = null;
+const crowd = new THREE.Group(); scene.add(crowd);
+const people = [];
+const gripL = new THREE.Object3D(), gripR = new THREE.Object3D(); clubRod.add(gripL, gripR);
+const _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion(), _qd = new THREE.Quaternion(), _qe = new THREE.Quaternion();
+const _pa = new V3(), _pb = new V3(), _pc = new V3();
+function makeRig(root) {
+  const r = { root, b: {}, rest: [] };
+  root.traverse(o => {
+    if (o.isBone) { const n = o.name.replace(/^mixamorig:?/, ''); if (BONE_NAMES.includes(n)) r.b[n] = o; r.rest.push([o, o.quaternion.clone()]); }
+    if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; }
+  });
+  return r;
+}
+function resetRig(r) { for (const [b, q] of r.rest) b.quaternion.copy(q); r.root.updateMatrixWorld(true); }
+// rotate a bone by a rotation given in world space
+function rotWorldQ(bone, q) {
+  bone.parent.getWorldQuaternion(_qb); bone.getWorldQuaternion(_qc); _qc.premultiply(q);
+  bone.quaternion.copy(_qb.invert().multiply(_qc)); bone.updateMatrixWorld(true);
+}
+function rotWorld(bone, axis, ang) { rotWorldQ(bone, _qe.setFromAxisAngle(axis, ang)); }
+function aimBone(bone, child, target) {
+  bone.getWorldPosition(_pa); child.getWorldPosition(_pb);
+  _pb.sub(_pa).normalize(); _pc.copy(target).sub(_pa).normalize();
+  if (_pb.dot(_pc) < 0.99999) rotWorldQ(bone, _qd.setFromUnitVectors(_pb, _pc));
+}
+// two-bone IK: put the hand on target, bending the elbow toward pole
+function armIK(up, low, end, target, pole) {
+  const pa = up.getWorldPosition(new V3()), pb = low.getWorldPosition(new V3()), pc = end.getWorldPosition(new V3());
+  const l1 = pa.distanceTo(pb), l2 = pb.distanceTo(pc), dir = target.clone().sub(pa);
+  const d = clamp(dir.length(), 0.02, (l1 + l2) * 0.999); dir.normalize();
+  const cosA = clamp((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d), -1, 1);
+  const n = pole.clone().sub(pa); n.addScaledVector(dir, -n.dot(dir)).normalize();
+  const elbow = pa.clone().addScaledVector(dir, cosA * l1).addScaledVector(n, Math.sqrt(1 - cosA * cosA) * l1);
+  aimBone(up, low, elbow); aimBone(low, end, target);
+}
+function poseGolferBody(sw) {
+  const b = human.b; resetRig(human);
+  const right = new V3(0, 0, 1).applyQuaternion(golfer.getWorldQuaternion(new THREE.Quaternion()));
+  rotWorld(b.Spine, UP, sw * 0.12);           // hips/lower back turn a little
+  rotWorld(b.Spine, right, -0.5);             // bend over the ball
+  const axis = b.Neck.getWorldPosition(new V3()).sub(b.Spine.getWorldPosition(new V3())).normalize();
+  rotWorld(b.Spine1, axis, sw * 0.2); rotWorld(b.Spine2, axis, sw * 0.2); // shoulder turn
+  rotWorld(b.Neck, axis, -sw * 0.3); rotWorld(b.Head, right, -0.3);      // eyes stay on the ball
+  return right;
+}
+function poseGolfer(sw) {
+  const b = human.b, right = poseGolferBody(sw);
+  const hip = b.Hips.getWorldPosition(new V3());
+  armIK(b.LeftArm, b.LeftForeArm, b.LeftHand, gripL.getWorldPosition(new V3()), hip.clone().addScaledVector(right, -0.6).addScaledVector(UP, -0.4));
+  armIK(b.RightArm, b.RightForeArm, b.RightHand, gripR.getWorldPosition(new V3()), hip.clone().addScaledVector(right, 0.6).addScaledVector(UP, -0.4));
+}
+// fit the club between the model's shoulders and the ball
+function fitClub() {
+  const b = human.b, sh = () => golfer.worldToLocal(b.LeftArm.getWorldPosition(new V3()).add(b.RightArm.getWorldPosition(new V3())).multiplyScalar(0.5));
+  golfer.position.set(0, 0, 0); golfer.rotation.set(0, 0, 0); golfer.updateMatrixWorld(true);
+  poseGolferBody(0); let S = sh();
+  human.root.position.x += -0.78 - S.x; golfer.updateMatrixWorld(true); poseGolferBody(0); S = sh();
+  const reach = b.LeftArm.getWorldPosition(new V3()).distanceTo(b.LeftHand.getWorldPosition(new V3()));
+  const half = b.LeftArm.getWorldPosition(new V3()).distanceTo(b.RightArm.getWorldPosition(new V3())) / 2;
+  const gripD = Math.sqrt(Math.max(reach * reach - half * half, 0.1)) * 0.93;
+  swingPivot.position.copy(S);
+  const d = new V3(0, 0.03, 0).sub(S), total = d.length(); d.normalize();
+  SWING_AXIS.set(-d.y, d.x, 0).normalize();
+  clubRod.quaternion.setFromUnitVectors(new V3(0, -1, 0), d);
+  gripL.position.set(0, -gripD, 0); gripR.position.set(0, -gripD - 0.09, 0);
+  const len = total - gripD + 0.08, sp = golferParts.shaft;
+  sp.scale.y = len / 0.9; sp.position.y = -(gripD - 0.08 + len / 2);
+  golferParts.headC.position.set(0, -(total - 0.035), -0.04);
+}
+// swap the avatar's suit texture for a plain colour (polo shirt / slacks look)
+function recolor(mesh, color) { mesh.material = mesh.material.clone(); mesh.material.map = null; mesh.material.color.copy(color); mesh.material.needsUpdate = true; }
+function placeCrowd() {
+  while (crowd.children.length) crowd.remove(crowd.children[0]);
+  people.length = 0;
+  if (!humanProto || !hole) return;
+  const L = hole.line, prev = L[L.length - 2], dx = pin[0] - prev[0], dz = pin[1] - prev[1], base = Math.atan2(dz, dx);
+  const spots = [], ring = [];
+  for (let i = 0; i < 9; i++) { // behind and beside the green, looking at the pin
+    const a = base + (i - 4) * 0.33, r = hole.greenR * 1.12 + 9 + (i % 2) * 1.8;
+    spots.push([pin[0] + Math.cos(a) * r, pin[1] + Math.sin(a) * r, pin[0], pin[1]]);
+  }
+  for (let a = -1.7; a <= 1.7; a += 0.17) ring.push([pin[0] + Math.cos(base + a) * (hole.greenR * 1.12 + 6.5), pin[1] + Math.sin(base + a) * (hole.greenR * 1.12 + 6.5)]);
+  for (const [x, z] of [[-7.5, -1], [-8.5, 2.5], [7.5, 0.5], [8.6, 3.5]]) spots.push([x, z, 0, -12]); // at the tee
+  const bad = (x, z) => x < AREA.x0 + 5 || x > AREA.x1 - 5 || z < AREA.z0 + 5 || hole.ponds.some(p => ell(p, x, z) < 1.45) || hole.bunkers.some(p => ell(p, x, z) < 1.25);
+  for (const [x, z, tx, tz] of spots) {
+    if (bad(x, z)) continue;
+    const g = THREE.SkeletonUtils.clone(humanProto), r = makeRig(g);
+    const top = new THREE.Color().setHSL(Math.random(), 0.45 + Math.random() * 0.3, 0.35 + Math.random() * 0.3);
+    const bottom = new THREE.Color().setHSL(0.08 + Math.random() * 0.55, 0.2, 0.25 + Math.random() * 0.4), beard = Math.random() < 0.4;
+    g.traverse(o => {
+      if (!o.isMesh) return;
+      if (/Outfit_Top/.test(o.name)) recolor(o, top);
+      if (/Outfit_Bottom/.test(o.name)) recolor(o, bottom);
+      if (/Beard/.test(o.name)) o.visible = beard;
+    });
+    g.scale.setScalar(0.92 + Math.random() * 0.14);
+    g.position.set(x, H(x, z), z); g.rotation.y = Math.atan2(tx - x, tz - z);
+    crowd.add(g); people.push({ rig: r, mode: 'idle', t: 0, ph: Math.random() * 6.28 });
+  }
+  // rope line in front of the green gallery
+  const pts = [], postGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.8, 6), postMat = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.6 });
+  ring.forEach(([x, z], i) => {
+    if (bad(x, z)) return;
+    const y = H(x, z), post = new THREE.Mesh(postGeo, postMat); post.position.set(x, y + 0.4, z); post.castShadow = true; crowd.add(post);
+    if (i && !bad(...ring[i - 1])) pts.push(ring[i - 1][0], H(...ring[i - 1]) + 0.7, ring[i - 1][1], x, y + 0.7, z);
+  });
+  const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  crowd.add(new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: 0xffffff })));
+}
+function posePerson(p, dt) {
+  const r = p.rig, b = r.b; resetRig(r);
+  p.t -= dt; if (p.t <= 0) p.mode = 'idle';
+  const q = r.root.getWorldQuaternion(new THREE.Quaternion());
+  const fwd = new V3(0, 0, 1).applyQuaternion(q), left = new V3(1, 0, 0).applyQuaternion(q);
+  rotWorld(b.Spine, left, 0.03 * Math.sin(time * 0.9 + p.ph));
+  // follow the ball with the head
+  const hp = b.Head.getWorldPosition(new V3()), to = new V3(ball.p.x - hp.x, 0, ball.p.z - hp.z).normalize();
+  const look = clamp(Math.atan2(to.dot(left), to.dot(fwd)), -1, 1);
+  rotWorld(b.Neck, UP, look * 0.7 + (p.mode === 'shake' ? Math.sin(time * 10) * 0.35 : 0));
+  const hip = b.Hips.getWorldPosition(new V3()), chest = b.Spine2.getWorldPosition(new V3());
+  let tl, tr;
+  if (p.mode === 'clap') {
+    const c = chest.clone().addScaledVector(fwd, 0.3).addScaledVector(UP, -0.08), s = 0.03 + 0.06 * Math.abs(Math.sin(time * 13 + p.ph));
+    tl = c.clone().addScaledVector(left, s); tr = c.clone().addScaledVector(left, -s);
+  } else {
+    tl = hip.clone().addScaledVector(left, 0.2).addScaledVector(UP, -0.2).addScaledVector(fwd, 0.04);
+    tr = hip.clone().addScaledVector(left, -0.2).addScaledVector(UP, -0.2).addScaledVector(fwd, 0.04);
+  }
+  armIK(b.LeftArm, b.LeftForeArm, b.LeftHand, tl, hip.clone().addScaledVector(left, 0.6).addScaledVector(fwd, -0.4));
+  armIK(b.RightArm, b.RightForeArm, b.RightHand, tr, hip.clone().addScaledVector(left, -0.6).addScaledVector(fwd, -0.4));
+}
+function crowdReact(mode) { for (const p of people) { p.mode = mode; p.t = mode === 'clap' ? 2.6 : 1.8; } if (mode === 'clap') sfx.clap(); else sfx.groan(); }
+if (HUMAN_URL && THREE.GLTFLoader && THREE.SkeletonUtils) new THREE.GLTFLoader().load(HUMAN_URL, gltf => {
+  humanProto = gltf.scene;
+  human = makeRig(THREE.SkeletonUtils.clone(humanProto));
+  human.root.rotation.y = Math.PI / 2; human.root.position.x = -0.85; golfer.add(human.root);
+  human.root.traverse(o => {
+    if (!o.isMesh) return;
+    if (/Outfit_Top/.test(o.name)) recolor(o, new THREE.Color(0x2f6fd0));
+    if (/Outfit_Bottom/.test(o.name)) recolor(o, new THREE.Color(0xd8d0bc));
+    if (/Headwear/.test(o.name)) recolor(o, new THREE.Color(0xf4f4f4));
+  });
+  golferParts.body.visible = golferParts.arms.visible = golferParts.hands.visible = false;
+  fitClub(); placeCrowd();
+}, undefined, e => console.warn('人物モデルを読み込めませんでした', e));
+
+// grass tufts around the ball (regenerated for every shot)
+const TUFT_N = 3500, tuftGeo = new THREE.BufferGeometry();
+tuftGeo.setAttribute('position', new THREE.Float32BufferAttribute([-0.012, 0, 0, 0.012, 0, 0, 0.002, 1, 0, 0, 0, -0.012, 0, 0, 0.012, 0.004, 0.9, 0.002], 3));
+tuftGeo.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], 3));
+const tufts = new THREE.InstancedMesh(tuftGeo, new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide }), TUFT_N);
+tufts.frustumCulled = false; scene.add(tufts);
+function placeTufts() {
+  const dm = new THREE.Object3D(), col = new THREE.Color(), T = THEMES[hole.theme].grass; let k = 0;
+  for (let i = 0; i < TUFT_N * 3 && k < TUFT_N; i++) {
+    const r = 0.25 + Math.sqrt(Math.random()) * 22, a = Math.random() * 6.283, x = ball.p.x + Math.cos(a) * r, z = ball.p.z + Math.sin(a) * r, t = surf(x, z);
+    if (t === GREEN || t === BUNKER || t === WATER || t === TEE) continue;
+    const h = t === FAIRWAY ? 0.03 + Math.random() * 0.02 : t === OB ? 0.14 + Math.random() * 0.1 : 0.08 + Math.random() * 0.08;
+    dm.position.set(x, H(x, z), z); dm.rotation.set((Math.random() - 0.5) * 0.5, Math.random() * 6.283, (Math.random() - 0.5) * 0.5);
+    dm.scale.set(1 + Math.random(), h, 1 + Math.random()); dm.updateMatrix(); tufts.setMatrixAt(k, dm.matrix);
+    col.setHSL(0.24 + Math.random() * 0.05, 0.55, (t === FAIRWAY ? 0.3 : 0.2) + Math.random() * 0.1); col.r *= T[0]; col.g *= T[1]; col.b *= T[2];
+    tufts.setColorAt(k++, col);
+  }
+  tufts.count = k; tufts.instanceMatrix.needsUpdate = true; if (tufts.instanceColor) tufts.instanceColor.needsUpdate = true;
+}
+const teePeg = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.003, 0.07, 8), new THREE.MeshStandardMaterial({ color: 0xf3efe2, roughness: 0.6 }));
+scene.add(teePeg);
 
 // ---------- physics ----------
 function airStep(b, dt, wx, wz) {
@@ -471,7 +655,7 @@ function showPanel(html, btn, fn) {
   $('go').onclick = () => { initAudio(); $('overlay').classList.add('hidden'); fn(); };
 }
 function startHole(i) {
-  holeIndex = i; buildHole(i); strokes = 0; timers = [];
+  holeIndex = i; buildHole(i); strokes = 0; timers = []; placeCrowd();
   const a = Math.random() * Math.PI * 2, sp = Math.round((1 + Math.random() * (3.5 + i)) * 10) / 10;
   wind = { x: Math.cos(a) * sp, z: Math.sin(a) * sp, speed: sp };
   ball.p.x = 0; ball.p.z = 0; ball.p.y = H(0, 0);
@@ -483,6 +667,7 @@ function startHole(i) {
 function setupShot() {
   state = 'aim'; ball.mode = 'roll'; ball.v.x = ball.v.y = ball.v.z = 0; ball.p.y = H(ball.p.x, ball.p.z);
   lie = surf(ball.p.x, ball.p.z); trailN = 0; swing = 0; follow = -1; mPos = 0;
+  placeTufts();
   const d = pinDist();
   if (lie === GREEN) club = PUTTER;
   else { club = lie === TEE ? 0 : 1; for (let k = PUTTER - 1; k >= 0; k--) if (CLUBS[k].carry >= d * 0.97) { club = k; break; } }
@@ -515,7 +700,7 @@ function fire(err, missed = false, msg = null) {
   followDir.x = Math.sin(yaw); followDir.z = -Math.cos(yaw);
 }
 function penalty(text) {
-  state = 'settle'; strokes++; say(text, 2);
+  crowdReact('shake'); state = 'settle'; strokes++; say(text, 2);
   after(1.8, () => { ball.p.x = shotStart.x; ball.p.z = shotStart.z; afterShot(); });
 }
 function afterShot() {
@@ -527,11 +712,15 @@ function stopBall() {
   const t = surf(ball.p.x, ball.p.z);
   if (t === OB) return penalty('OB… +1打');
   const moved = Math.hypot(ball.p.x - shotStart.x, ball.p.z - shotStart.z);
-  if (!CLUBS[club].putter) say(`${Math.round(moved * YD)}y ・ ${SURF_NAME[t]}`, 1.6);
+  if (!CLUBS[club].putter) {
+    const pd = pinDist();
+    if (pd < 3) { say(`ベタピン!ピンまで ${pd.toFixed(1)}m`, 2); crowdReact('clap'); }
+    else say(`${Math.round(moved * YD)}y ・ ${SURF_NAME[t]}`, 1.6);
+  }
   after(1.3, afterShot);
 }
 function holed() {
-  state = 'holed'; ball.p.x = pin[0]; ball.p.z = pin[1]; ball.p.y = H(pin[0], pin[1]) - 0.08; sfx.cup();
+  crowdReact('clap'); state = 'holed'; ball.p.x = pin[0]; ball.p.z = pin[1]; ball.p.y = H(pin[0], pin[1]) - 0.08; sfx.cup();
   after(1.2, finishHole);
 }
 function resultName(s, par) {
@@ -570,6 +759,7 @@ function liveStep(dt) {
       if (Math.hypot(b.p.x - pin[0], b.p.z - pin[1]) < 0.13) return holed();
       const g = grad(b.p.x, b.p.z), nl = Math.hypot(g[0], 1, g[1]), nx = -g[0] / nl, ny = 1 / nl, nz = -g[1] / nl;
       const vn = b.v.x * nx + b.v.y * ny + b.v.z * nz, t = surf(b.p.x, b.p.z), ph = PHYS[t];
+      if (!b.landed) { b.landed = true; if (t === GREEN) { say('グリーンオン!', 1.4); crowdReact('clap'); } else if (t === BUNKER) say('バンカー…', 1.2); }
       if (vn < 0) {
         // backspin grabs the turf (most on the green); hard landings lose more energy
         const tf = ph.tf * (1 - Math.min(0.75, 0.55 * b.back * (t === GREEN ? 1.3 : 1))), e = ph.e * clamp(1 + vn / 45, 0.55, 1);
@@ -684,8 +874,9 @@ function update(dt) {
   if (follow >= 0) { follow = Math.min(follow + dt * 5, 1); swing = follow * (c.putter ? 0.5 : 2.5); }
 
   // meshes
-  ballMesh.position.set(ball.p.x, ball.p.y + 0.035, ball.p.z);
-  const gh = H(ball.p.x, ball.p.z); shadow.position.set(ball.p.x, gh + 0.02, ball.p.z);
+  const gh = H(ball.p.x, ball.p.z), onTee = lie === TEE && aiming;
+  ballMesh.position.set(ball.p.x, ball.p.y + 0.035 + (onTee ? 0.03 : 0), ball.p.z);
+  teePeg.visible = onTee; teePeg.position.set(ball.p.x, gh + 0.012, ball.p.z); shadow.position.set(ball.p.x, gh + 0.02, ball.p.z);
   trailLine.geometry.setDrawRange(0, trailN); trailLine.visible = trailN > 1;
   slopeDots.visible = greenGrid.visible = c.putter && state !== 'holed'; if (slopeDots.visible) updateSlopeDots(dt);
   if (aiming) {
@@ -694,6 +885,8 @@ function update(dt) {
     golfer.visible = true; golfer.position.set(ball.p.x, gh, ball.p.z); golfer.rotation.y = -yaw;
   } else aimLine.visible = ribbon.visible = marker.visible = false;
   swingPivot.quaternion.setFromAxisAngle(SWING_AXIS, swing);
+  if (human) { golfer.updateMatrixWorld(true); poseGolfer(swing); }
+  for (const p of people) if (p.rig.root.position.distanceTo(camera.position) < 170) posePerson(p, dt);
   flagCloth.rotation.y = Math.atan2(-wind.z, wind.x) + Math.sin(time * (3 + wind.speed)) * (0.08 + wind.speed * 0.03);
   for (const w of waters) { w.offset.x = time * 0.02; w.offset.y = time * 0.013; }
   updateWind(dt);
@@ -803,6 +996,8 @@ const sfx = {
   land: () => noise(0.12, 0.25, 220, 1),
   splash: () => noise(0.7, 0.5, 900, 0.5),
   cup: () => { tone(500, 0.08, 'triangle', 0.25, 250); tone(380, 0.1, 'triangle', 0.2, 200, 0.09); [659, 784, 1047].forEach((f, i) => tone(f, 0.25, 'triangle', 0.15, null, 0.3 + i * 0.1)); },
+  clap: () => { if (!audio) return; for (let i = 0; i < 45; i++) setTimeout(() => noise(0.035, 0.22, 1500 + Math.random() * 2000, 1.2), Math.random() * 2200); sfx.cheer(); },
+  groan: () => { tone(260, 0.9, 'sawtooth', 0.035, 150); tone(200, 0.9, 'sawtooth', 0.03, 120, 0.05); noise(0.9, 0.06, 500, 0.6); },
   cheer: () => { for (let i = 0; i < 5; i++) setTimeout(() => noise(0.5, 0.12, 2500 + Math.random() * 1500, 0.4), i * 120); },
 };
 
