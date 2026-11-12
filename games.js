@@ -30,6 +30,7 @@ window.GAMES = [
   { id: "stevenfridley42-tech", title: "僕の夏休み ― 永遠オリーブ地獄編 ―", author: "stevenfridley42-tech", description: "小豆島のオリーブ農園で夏休みを過ごす一人称3D。バスで島をめぐり、観光スタンプを集める。PC版 Chrome / Edge 向け。音あり" },
   { id: "stevenfridley42-tech-2", title: "VEGGIE SLASH", author: "stevenfridley42-tech", description: "飛び出す野菜をスワイプで切りまくる60秒のアーケードゲーム。1回で何個も切るとコンボ倍率。金のトマトと虹のキャベツも出る。スマホ・PC 両対応。音あり" },
   { id: "stevenfridley42-tech-3", title: "ナスっとドーナツ！🍆🍩", author: "stevenfridley42-tech", description: "左右に動くドーナツの穴をねらって、ナスを飛ばすタイミングゲーム。入るとハートがポンと出る。3回続けて入るとパーフェクト。スマホ・PC 両対応。音あり" },
+  { id: "stevenfridley42-tech-4", title: "SWISH!", author: "stevenfridley42-tech", description: "手前のボールを上にスワイプして、リングに入れる一人称3Dバスケ。3回ミスで終わり。3回続けて入るとコンボで得点2倍、10点からリングが動く。スマホ・PC 両対応。音あり" },
 
   // ---- mineiyuki ----
   // { id: "mineiyuki", title: "ゲームの名前", author: "mineiyuki", description: "ひとこと説明" },
