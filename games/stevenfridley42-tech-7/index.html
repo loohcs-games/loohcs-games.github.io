@@ -1,0 +1,1877 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>SKY TAXI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap">
+<style>
+/* Layout: full-bleed 3D stage; HUD pieces float in the corners like stickers on a cockpit window.
+   Single daytime look on purpose (no dark variant): every color is set explicitly below. */
+:root{
+  --sky:#8fd3ff;
+  --ink:#123047;
+  --ink-soft:#4f6b80;
+  --panel:rgba(255,255,255,.88);
+  --line:rgba(18,48,71,.14);
+  --taxi:#ffc82e;
+  --taxi-deep:#e0a400;
+  --leaf:#1fbf68;
+  --coral:#ff4b5c;
+  --sea:#1e9ad6;
+  --white:#ffffff;
+  --shadow:0 6px 18px rgba(13,42,64,.18);
+  --f-display:'Fredoka','M PLUS Rounded 1c',system-ui,sans-serif;
+  --f-body:'M PLUS Rounded 1c','Hiragino Maru Gothic ProN','Hiragino Sans',system-ui,sans-serif;
+  color-scheme:light;
+}
+html{height:100%;box-sizing:border-box}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;margin:0;overflow:hidden;background:var(--sky);color:var(--ink);font-family:var(--f-body);
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+#root,.app{height:100%;position:relative;touch-action:none}
+.stage{position:absolute;inset:0;overflow:hidden}
+.stage canvas{display:block;width:100%;height:100%}
+.stage canvas.ov{position:absolute;left:0;top:0;pointer-events:none}
+
+button{font-family:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--sea);outline-offset:2px}
+
+/* ---------- HUD ---------- */
+.hud{position:absolute;inset:0;pointer-events:none;
+  padding:12px max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px))}
+.hud button{pointer-events:auto}
+.top{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"stats mission flight";gap:10px;align-items:start}
+.panel{background:var(--panel);border-radius:14px;box-shadow:var(--shadow);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.stats{grid-area:stats;display:flex;flex-direction:column;gap:8px}
+.statcard{display:flex;gap:16px;padding:8px 14px}
+.stat{display:flex;flex-direction:column;min-width:56px}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--ink-soft)}
+.val{font-family:var(--f-display);font-weight:700;font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}
+.val small{font-size:12px;font-weight:600;color:var(--ink-soft);margin-left:3px}
+.coin{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--taxi);border:2px solid var(--taxi-deep);margin-right:5px;vertical-align:-1px}
+.btnrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.hbtn{white-space:nowrap;border:0;background:var(--panel);box-shadow:var(--shadow);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px}
+.hbtn kbd{font-family:var(--f-display);font-size:11px;background:var(--ink);color:var(--white);border-radius:5px;padding:1px 5px}
+.hbtn:active{transform:translateY(1px)}
+
+.mission{grid-area:mission;justify-self:center;display:flex;align-items:center;gap:12px;padding:8px 14px 8px 10px;max-width:440px;min-width:0}
+.arrowwrap{width:46px;height:46px;flex:none;border-radius:50%;background:var(--ink);display:grid;place-items:center}
+.arrowwrap svg{width:32px;height:32px}
+.mtext{min-width:0;display:flex;flex-direction:column;gap:2px}
+.chip{align-self:flex-start;font-family:var(--f-display);font-size:12px;font-weight:700;letter-spacing:.06em;border-radius:999px;padding:2px 10px}
+.chip.fight{background:var(--coral);color:var(--white)}
+.chip.break{background:var(--leaf);color:var(--white)}
+.mline{font-weight:800;font-size:14px;line-height:1.3}
+.mdist{font-family:var(--f-display);font-weight:600;font-size:13px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+
+.flight{grid-area:flight;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.flightcard{padding:8px 14px;display:flex;flex-direction:column;gap:6px;min-width:150px}
+.flightrow{display:flex;gap:16px}
+.speedbar{position:relative;height:7px;border-radius:4px;background:rgba(18,48,71,.12);overflow:hidden}
+.speedfill{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--sea);transition:width .1s linear}
+.minimap{width:130px;height:130px;display:block;filter:drop-shadow(0 6px 12px rgba(13,42,64,.22))}
+.mm-sea{fill:rgba(30,154,214,.82);stroke:var(--white);stroke-width:80}
+.mm-isl{fill:#f3dc9b;stroke:#7bd35a;stroke-width:80}
+.mm-enemy{fill:var(--coral);stroke:var(--white);stroke-width:40}
+.mm-plane{fill:var(--white);stroke:var(--ink);stroke-width:44;stroke-linejoin:round}
+
+.hearts{display:flex;gap:2px;align-items:center;height:26px}
+.heart{width:16px;height:15px;fill:var(--coral)}
+.heart.empty{fill:rgba(18,48,71,.18)}
+
+.status{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+.bigwave{font-family:var(--f-display);font-weight:700;font-size:clamp(40px,9vw,64px);color:var(--white);text-shadow:0 4px 0 var(--ink),0 8px 24px rgba(13,42,64,.35);letter-spacing:.04em;line-height:1}
+.bigsub{margin-top:8px;display:inline-block;font-weight:800;font-size:14px;background:var(--ink);color:var(--white);border-radius:999px;padding:5px 14px}
+.toasts{position:absolute;left:50%;top:26%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;width:max-content;max-width:calc(100% - 32px)}
+.toast{font-family:var(--f-display);font-weight:700;font-size:20px;padding:6px 16px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow);animation:pop .35s cubic-bezier(.2,1.6,.4,1)}
+.toast.coin{background:var(--taxi)}
+.toast.good{background:var(--leaf);color:var(--white)}
+.toast.warn{background:var(--coral);color:var(--white)}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+
+.warning{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 90px 18px rgba(255,75,92,.55);animation:pulse .5s ease-in-out infinite alternate}
+.hitflash{position:absolute;inset:0;background:rgba(255,75,92,.28);pointer-events:none}
+@keyframes pulse{from{opacity:.55}to{opacity:1}}
+
+.hint{position:absolute;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--white);font-weight:700;font-size:13px;padding:7px 14px;border-radius:999px;max-width:calc(100% - 32px);text-align:center}
+.hint.touch{bottom:calc(306px + env(safe-area-inset-bottom,0px));font-size:12px;max-width:min(320px,calc(100% - 32px))}
+.keys{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;gap:6px;max-width:380px}
+.key{background:var(--panel);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;box-shadow:var(--shadow)}
+.key b{font-family:var(--f-display);margin-right:4px}
+
+/* ---------- touch controls ---------- */
+.pad,.thr,.firebtn{position:absolute;pointer-events:auto;touch-action:none}
+.pad,.thr{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+.pad{left:max(14px,env(safe-area-inset-left,0px));display:grid;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(3,52px);gap:6px}
+.thr{right:max(14px,env(safe-area-inset-right,0px));display:grid;grid-template-columns:64px 64px;grid-template-rows:52px 52px;gap:6px}
+.tbtn{border:0;border-radius:16px;background:rgba(255,255,255,.78);box-shadow:var(--shadow);font-weight:800;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;touch-action:none;-webkit-user-select:none;user-select:none}
+.tbtn .ic{font-family:var(--f-display);font-size:20px;line-height:1}
+.tbtn.on{background:var(--taxi)}
+.tbtn.gas{grid-column:2;grid-row:1 / span 2;background:rgba(31,191,104,.9);color:var(--white)}
+.tbtn.gas.on{background:var(--leaf)}
+.tbtn.brake{grid-column:1;grid-row:2}
+.tbtn.small{grid-column:1;grid-row:1;font-size:11px}
+.pad .u{grid-column:2;grid-row:1}.pad .l{grid-column:1;grid-row:2}.pad .r{grid-column:3;grid-row:2}.pad .d{grid-column:2;grid-row:3}
+.firebtn{right:max(22px,env(safe-area-inset-right,0px));bottom:calc(138px + env(safe-area-inset-bottom,0px));width:96px;height:96px;border-radius:50%;background:rgba(255,75,92,.92);color:var(--white);font-size:15px}
+.firebtn .ic{font-size:26px}
+.firebtn.on{background:var(--coral);transform:scale(.95)}
+
+/* ---------- overlays ---------- */
+.overlay{position:absolute;inset:0;display:grid;place-items:center;padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));
+  background:linear-gradient(180deg,rgba(143,211,255,.35),rgba(18,48,71,.35));overflow-y:auto;touch-action:auto}
+.card{background:var(--panel);border-radius:22px;box-shadow:0 20px 50px rgba(13,42,64,.3);padding:26px 26px 22px;width:min(540px,100%);display:flex;flex-direction:column;gap:16px}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--ink-soft)}
+.logo{font-family:var(--f-display);font-weight:700;font-size:clamp(46px,12vw,72px);line-height:.95;letter-spacing:.01em;margin:0;color:var(--ink)}
+.logo span{display:inline-block;background:var(--taxi);padding:0 .14em;border-radius:.16em;margin-left:.08em;
+  background-image:repeating-linear-gradient(90deg,var(--ink) 0 .14em,transparent .14em .28em);background-size:100% .14em;background-repeat:no-repeat;background-position:0 100%;background-color:var(--taxi);padding-bottom:.16em}
+.lead{margin:0;font-size:15px;line-height:1.7;text-wrap:pretty}
+.ctrls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 14px;font-size:13px}
+.ctrls div{display:flex;gap:8px;align-items:center}
+.ctrls kbd{font-family:var(--f-display);font-weight:600;font-size:12px;background:var(--ink);color:var(--white);border-radius:6px;padding:2px 7px;min-width:52px;text-align:center}
+.ctrls .fire kbd{background:var(--coral)}
+.tip{font-size:13px;background:rgba(30,154,214,.12);border-radius:12px;padding:10px 12px;line-height:1.6}
+.cta{border:0;border-radius:16px;background:var(--taxi);box-shadow:0 5px 0 var(--taxi-deep);font-family:var(--f-display);font-weight:700;font-size:22px;padding:12px 18px;color:var(--ink)}
+.cta:active{transform:translateY(3px);box-shadow:0 2px 0 var(--taxi-deep)}
+.sub{font-size:12px;color:var(--ink-soft);text-align:center}
+.backlink{align-self:center;font-size:13px;font-weight:700;color:var(--sea);text-decoration:none}
+.backlink:hover{text-decoration:underline}
+.results{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.results div{background:rgba(18,48,71,.06);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column}
+.over-title{font-family:var(--f-display);font-weight:700;font-size:40px;margin:0;color:var(--coral)}
+.rank{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 10px 4px 6px;font-size:12px;font-weight:800;box-shadow:var(--shadow);white-space:nowrap;background:var(--white);color:var(--ink)}
+.rank svg{width:15px;height:15px}
+.rank.big{font-size:15px;padding:5px 12px 5px 8px;box-shadow:none}
+.rank.big svg{width:18px;height:18px}
+.rank.g-shi svg{fill:var(--sea)}
+.rank.g-so svg{fill:var(--leaf)}
+.rank.g-jun svg{fill:#8d9aa5}
+.rank.g-i{background:#e9eef3}.rank.g-i svg{fill:#8d9aa5}
+.rank.g-sa{background:var(--taxi)}.rank.g-sa svg{fill:var(--ink)}
+.rank.g-sho{background:var(--ink);color:var(--taxi)}.rank.g-sho svg{fill:var(--taxi)}
+.rankcard{display:flex;flex-direction:column;gap:6px;background:rgba(18,48,71,.05);border-radius:14px;padding:10px 12px}
+.rk-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.toast.rank{background:var(--ink);color:var(--taxi)}
+.lookpill{position:absolute;left:50%;top:16%;transform:translateX(-50%);background:var(--ink);color:var(--white);font-weight:800;font-size:13px;border-radius:999px;padding:5px 14px;letter-spacing:.06em}
+.manv{position:absolute;pointer-events:auto;left:max(14px,env(safe-area-inset-left,0px));bottom:calc(196px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;gap:6px;width:198px;touch-action:none}
+.mvbreak{flex-basis:100%;height:0}
+.tbtn.mv{width:62px;height:46px;font-size:11px}
+.tbtn.mv .ic{font-size:17px}
+.ctarow{display:flex;gap:10px}
+.ctarow .cta{flex:1}
+.cta2{border:0;border-radius:16px;background:var(--white);box-shadow:0 5px 0 rgba(18,48,71,.18),inset 0 0 0 2px var(--line);font-family:var(--f-display);font-weight:700;font-size:18px;padding:8px 16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:var(--ink)}
+.cta2 span{font-size:13px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.cta2:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(18,48,71,.18),inset 0 0 0 2px var(--line)}
+
+.missions{display:flex;flex-direction:column;gap:8px}
+.missions.compact{padding:8px 12px;gap:6px;width:250px}
+.ms{display:flex;flex-direction:column;gap:3px}
+.ms-top{display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:700}
+.compact .ms-top{font-size:11px}
+.ms-text{min-width:0}
+.ms-rw{white-space:nowrap;font-family:var(--f-display);font-weight:600;font-variant-numeric:tabular-nums}
+.ms-rw .coin{width:11px;height:11px;border-width:1.5px;margin-right:3px}
+.ms-bar{height:6px;border-radius:3px;background:rgba(18,48,71,.1);overflow:hidden}
+.ms-bar i{display:block;height:100%;background:var(--leaf);border-radius:3px}
+.ms-prog{font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+
+/* ---------- hangar ---------- */
+.hangar{position:absolute;top:16px;bottom:16px;right:max(16px,env(safe-area-inset-right,0px));width:min(400px,calc(100% - 32px));
+  background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:22px;box-shadow:0 20px 50px rgba(13,42,64,.3);
+  padding:20px 18px 18px;display:flex;flex-direction:column;gap:12px;touch-action:auto;min-height:0}
+.hg-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.hg-title{font-family:var(--f-display);font-weight:700;font-size:34px;line-height:1;margin:2px 0 0}
+.wallet{font-family:var(--f-display);font-weight:700;font-size:22px;background:var(--taxi);border-radius:999px;padding:4px 14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tabs{display:flex;gap:4px;background:rgba(18,48,71,.07);border-radius:12px;padding:4px}
+.tab{flex:1;border:0;background:transparent;border-radius:9px;padding:7px 4px;font-weight:800;font-size:13px;color:var(--ink-soft)}
+.tab.on{background:var(--white);color:var(--ink);box-shadow:0 2px 6px rgba(13,42,64,.12)}
+.items{display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:0;flex:1;padding:2px}
+.item{display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;background:var(--white);box-shadow:inset 0 0 0 2px var(--line);cursor:pointer}
+.item.viewing{box-shadow:inset 0 0 0 3px var(--sea)}
+.item:focus-visible{outline:3px solid var(--sea);outline-offset:2px}
+.sw{width:64px;height:34px;border-radius:9px;display:flex;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
+.sw i{flex:1}
+.sw-svg{background:rgba(18,48,71,.06);align-items:center;justify-content:center}
+.sw-trail{background-color:var(--sea)}
+.iname{display:flex;flex-direction:column;min-width:0}
+.iname b{font-size:14px}
+.iname span{font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.iname .coin{width:11px;height:11px;border-width:1.5px;margin-right:3px}
+.desc{font-size:11px;color:var(--ink-soft)}
+.pstats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px;margin-top:4px}
+.pst{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:800;color:var(--ink-soft)}
+.pst span{width:24px;flex:none;white-space:nowrap}
+.pbar{flex:1;height:5px;border-radius:3px;background:rgba(18,48,71,.1);overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--sea)}
+.act{border:0;border-radius:999px;background:var(--ink);color:var(--white);font-weight:800;font-size:12px;padding:7px 12px;white-space:nowrap;display:flex;align-items:center}
+.act.buy{background:var(--taxi);color:var(--ink);box-shadow:0 3px 0 var(--taxi-deep)}
+.act .coin{width:12px;height:12px;border-width:1.5px}
+.tag{font-size:12px;font-weight:800;color:var(--ink-soft);white-space:nowrap;padding:0 4px}
+.tag.on{color:var(--leaf)}
+.hg-note{margin:0;font-size:12px;color:var(--ink-soft);line-height:1.6}
+.hangar .cta{font-size:18px;padding:10px 16px}
+
+@media (max-width:680px){
+  .hangar{top:auto;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));width:auto;max-height:56%;padding:16px 14px 14px}
+  .hg-title{font-size:26px}
+  .ctarow{flex-direction:column}
+  .missions.compact{display:none}
+  .item{grid-template-columns:48px minmax(0,1fr) auto;gap:10px;padding:8px 10px}
+  .sw{width:48px}
+  .desc{display:none}
+  .heart{width:13px;height:12px}
+  .top{grid-template-columns:1fr auto;grid-template-areas:"stats flight" "mission mission"}
+  .mission{justify-self:stretch;max-width:none}
+  .val{font-size:19px}
+  .val small{font-size:10px;margin-left:2px}
+  .stat{min-width:0}
+  .statcard,.flightcard{padding:7px 10px}
+  .statcard,.flightrow{gap:10px}
+  .minimap{width:84px;height:84px}
+  .flightcard{min-width:0}
+  .results{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .toasts{top:36%}
+  .toast{font-size:17px}
+  .ctrls{grid-template-columns:1fr}
+}
+@media (max-height:520px){
+  .pad{grid-template-columns:repeat(3,50px);grid-template-rows:repeat(3,44px)}
+  .manv{bottom:calc(166px + env(safe-area-inset-bottom,0px));width:174px}
+  .tbtn.mv{width:54px;height:40px}
+  .hint.touch{bottom:calc(266px + env(safe-area-inset-bottom,0px))}
+  .thr{grid-template-columns:58px 58px;grid-template-rows:44px 44px}
+  .firebtn{width:76px;height:76px;bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+  .minimap{width:80px;height:80px}
+  .toasts{top:22%}
+}
+@media (prefers-reduced-motion:reduce){
+  .warning{animation:none}.toast{animation:none}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script>
+(function(){
+'use strict';
+/* =====================================================================
+   SKY TAXI — wave-based dogfight.
+   The Game class owns Three.js, the loop, input and a 2D overlay canvas
+   (reticle + enemy markers, drawn every frame). React only draws the HUD
+   panels and menus from snapshots the engine pushes ~10 times a second.
+   ===================================================================== */
+const V3 = THREE.Vector3;
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const damp = (a, b, k, dt) => lerp(a, b, 1 - Math.exp(-k * dt));
+const wrap = (a) => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
+const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+const fwdV = (yaw, out) => (out || new V3()).set(-Math.sin(yaw), 0, -Math.cos(yaw));
+const dir3 = (yaw, pitch, out) => { const c = Math.cos(pitch); return (out || new V3()).set(-Math.sin(yaw) * c, Math.sin(pitch), -Math.cos(yaw) * c); };
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+const CFG = {
+  minSpeed: 22,
+  worldR: 2750, maxAlt: 320,
+  ramR: 7,              // plane-to-plane collision
+  enemyHitR: 4.6,       // player bullets vs enemy
+  playerHitR: 3.0,      // enemy bullets vs player
+  pBulletSpeed: 260, eBulletSpeed: 95,
+  lockCone: 0.14, lockRange: 600,
+};
+const ISLAND_TOP = 3;
+const GY = 4.65; // plane centre height when sitting on a runway
+const ISLANDS = [
+  { x: 0,     z: 0,     r: 100, h: 0.3,  roof: 0xff7a59 },
+  { x: 1550,  z: -820,  r: 100, h: 1.2,  roof: 0x4f8cff },
+  { x: -1450, z: -1120, r: 100, h: -0.6, roof: 0xffb627 },
+  { x: 820,   z: 1520,  r: 100, h: 2.0,  roof: 0xb76cff },
+  { x: -1330, z: 1200,  r: 100, h: 0.9,  roof: 0x2fc4a8 },
+];
+const ENEMY_COLORS = [
+  { body: 0x2b2d35, wing: 0x3a3d47, trim: 0xff2a3a },
+  { body: 0x4a1f2e, wing: 0x6b2a3d, trim: 0xffb627 },
+  { body: 0x23324a, wing: 0x31445f, trim: 0xff2a3a },
+];
+const ACE_COLORS = { body: 0xc4182c, wing: 0x1d232b, trim: 0xffd23f };
+const CAM_NAMES = ['三人称', '一人称', '上空'];
+
+/* ---- hangar catalogue: price 0 = owned from the start ---- */
+const SHOP = {
+  // speed in m/s, accel in m/s², turn = turn-rate multiplier, hp = hits it can take, rate = shots per second
+  plane: [
+    { id: 'std',   name: 'ミニキャブ',       price: 0,    desc: 'あつかいやすい最初の1機',   maxSpeed: 75,  accel: 16, turn: 1.0,  hp: 3, rate: 7 },
+    { id: 'bi',    name: 'ビッグウィング',   price: 600,  desc: '翼が2枚。小回りがきく',     maxSpeed: 72,  accel: 16, turn: 1.35, hp: 3, rate: 8 },
+    { id: 'float', name: 'シーホッパー',     price: 1000, desc: '水上機。少し速くてじょうぶ', maxSpeed: 86,  accel: 19, turn: 1.05, hp: 4, rate: 7 },
+    { id: 'twin',  name: 'ツインスター',     price: 2200, desc: '双発。連射が速くてタフ',     maxSpeed: 100, accel: 23, turn: 0.9,  hp: 5, rate: 11 },
+    { id: 'racer', name: 'ソニックプロップ', price: 4000, desc: 'いちばん速いレース機',       maxSpeed: 120, accel: 30, turn: 1.15, hp: 3, rate: 10 },
+  ],
+  paint: [
+    { id: 'taxi',   name: 'タクシーイエロー', price: 0,    body: 0xffc82e, wing: 0xffc82e, trim: 0xffffff, check: [0x1d232b, 0xffffff] },
+    { id: 'mint',   name: 'ミントソーダ',     price: 200,  body: 0x6fe3c8, wing: 0xffffff, trim: 0xff7aa8, check: [0xff7aa8, 0xffffff] },
+    { id: 'sunset', name: 'サンセット',       price: 300,  body: 0xff7a3d, wing: 0xffd23f, trim: 0x7a2e8f, check: [0x7a2e8f, 0xffd23f] },
+    { id: 'sakura', name: 'さくら',           price: 450,  body: 0xffb7cf, wing: 0xffffff, trim: 0xff5a8a, check: [0xff5a8a, 0xffffff] },
+    { id: 'navy',   name: 'ネイビーエース',   price: 600,  body: 0x24407a, wing: 0xf2f2f2, trim: 0xe8424a, check: [0xe8424a, 0xf2f2f2] },
+    { id: 'gold',   name: 'ゴールドVIP',      price: 1500, body: 0xe8b830, wing: 0x1d232b, trim: 0xfff1b8, check: [0x1d232b, 0xfff1b8] },
+  ],
+  trail: [
+    { id: 'none',    name: 'なし',       price: 0 },
+    { id: 'white',   name: '白いけむり', price: 150 },
+    { id: 'heart',   name: 'ピンクの雲', price: 350 },
+    { id: 'rainbow', name: 'にじ雲',     price: 900 },
+  ],
+};
+const SHOP_TABS = [['plane', '飛行機'], ['paint', '塗装'], ['trail', '飛行機雲']];
+const DEFAULT_EQUIP = { paint: 'taxi', plane: 'std', trail: 'none' };
+function findItem(kind, id){ return SHOP[kind].find((x) => x.id === id) || SHOP[kind][0]; }
+function resolveSkin(equip){ return { paint: findItem('paint', equip.paint), plane: findItem('plane', equip.plane), trail: findItem('trail', equip.trail).id }; }
+
+/* ---- combat missions: an endless ladder, three active at a time ---- */
+const MISSION_BASE = [
+  { type: 'run_kill',   n: 2,     reward: 150 },
+  { type: 'wave',       n: 2,     reward: 200 },
+  { type: 'total_kill', n: 10,    reward: 300 },
+  { type: 'perfect',    n: 1,     reward: 300 },
+  { type: 'distance',   n: 10000, reward: 250 },
+  { type: 'run_kill',   n: 6,     reward: 450 },
+  { type: 'ace',        n: 1,     reward: 500 },
+  { type: 'wave',       n: 4,     reward: 500 },
+  { type: 'total_kill', n: 40,    reward: 800 },
+  { type: 'perfect',    n: 3,     reward: 700 },
+  { type: 'run_kill',   n: 12,    reward: 900 },
+  { type: 'wave',       n: 7,     reward: 1200 },
+  { type: 'ace',        n: 5,     reward: 1200 },
+  { type: 'total_kill', n: 120,   reward: 2000 },
+];
+function missionAt(i){
+  const L = MISSION_BASE.length, b = MISSION_BASE[i % L], tier = Math.floor(i / L);
+  const m = Object.assign({ i }, b);
+  if (tier > 0) {
+    if (b.type === 'wave') m.n = b.n + 2 * tier;
+    else if (b.type !== 'perfect') m.n = Math.ceil(b.n * (1 + tier * 0.6));
+    m.reward = Math.round(b.reward * (1 + tier * 0.5) / 10) * 10;
+  }
+  return m;
+}
+function missionText(m){
+  switch (m.type) {
+    case 'run_kill': return '1回の出撃で敵を' + m.n + '機撃墜';
+    case 'total_kill': return '合計' + m.n + '機撃墜';
+    case 'wave': return 'WAVE ' + m.n + ' をクリア';
+    case 'perfect': return 'ノーダメージでWAVEクリア' + (m.n > 1 ? '（' + m.n + '回）' : '');
+    case 'distance': return '合計' + (m.n / 1000) + 'km飛ぶ';
+    case 'ace': return 'エース機を' + m.n + '機撃墜';
+  }
+  return '';
+}
+function missionProg(m, p){
+  if (m.type === 'distance') return (p / 1000).toFixed(1) + ' / ' + (m.n / 1000) + ' km';
+  return Math.floor(p) + ' / ' + m.n;
+}
+/* ---- 航空自衛隊の階級: complete quotas (missions) to get promoted ---- */
+const RANKS = [
+  { name: '3等空士', g: 'shi' }, { name: '2等空士', g: 'shi' }, { name: '1等空士', g: 'shi' }, { name: '空士長', g: 'shi' },
+  { name: '3等空曹', g: 'so' }, { name: '2等空曹', g: 'so' }, { name: '1等空曹', g: 'so' }, { name: '空曹長', g: 'so' },
+  { name: '准空尉', g: 'jun' },
+  { name: '3等空尉', g: 'i' }, { name: '2等空尉', g: 'i' }, { name: '1等空尉', g: 'i' },
+  { name: '3等空佐', g: 'sa' }, { name: '2等空佐', g: 'sa' }, { name: '1等空佐', g: 'sa' },
+  { name: '空将補', g: 'sho' }, { name: '空将', g: 'sho' }, { name: '航空幕僚長', g: 'sho' },
+];
+// quotas completed in total needed for each rank
+const RANK_NEED = [0, 1, 2, 4, 6, 8, 11, 14, 17, 21, 25, 30, 35, 41, 48, 56, 65, 80];
+function rankOf(done){ let r = 0; for (let i = 0; i < RANK_NEED.length; i++) if (done >= RANK_NEED[i]) r = i; return r; }
+const MISSION_VERSION = 2;
+const NEW_MISSIONS = () => ({ v: MISSION_VERSION, next: 3, slots: [{ i: 0, p: 0 }, { i: 1, p: 0 }, { i: 2, p: 0 }] });
+// stat: {kind:'kill', ace} | {kind:'wave', v} | {kind:'perfect'} | {kind:'distance', d} | {kind:'run_reset'}
+function stepMissions(ms, stat){
+  let reward = 0; const done = [];
+  let next = ms.next;
+  const slots = ms.slots.map((s) => {
+    const m = missionAt(s.i); let p = s.p;
+    const k = stat.kind;
+    switch (m.type) {
+      case 'run_kill': p = k === 'run_reset' ? 0 : k === 'kill' ? p + 1 : p; break;
+      case 'total_kill': if (k === 'kill') p++; break;
+      case 'ace': if (k === 'kill' && stat.ace) p++; break;
+      case 'wave': if (k === 'wave') p = Math.max(p, stat.v); break;
+      case 'perfect': if (k === 'perfect') p++; break;
+      case 'distance': if (k === 'distance') p += stat.d; break;
+    }
+    if (p >= m.n) { reward += m.reward; done.push(m); return { i: next++, p: 0 }; }
+    return { i: s.i, p };
+  });
+  return { ms: { v: MISSION_VERSION, next, slots }, reward, done };
+}
+
+const SAVE_KEY = 'skytaxi-save';
+function loadSave(){
+  const base = { wallet: 0, owned: [], equip: Object.assign({}, DEFAULT_EQUIP), missions: NEW_MISSIONS(), done: 0 };
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    if (s && typeof s.wallet === 'number') {
+      base.wallet = Math.max(0, Math.floor(s.wallet));
+      // earlier versions called planes "style"
+      base.owned = Array.isArray(s.owned) ? s.owned.filter((x) => typeof x === 'string').map((x) => x.indexOf('style:') === 0 ? 'plane:' + x.slice(6) : x) : [];
+      const m = s.missions;
+      // missions from the passenger version do not carry over
+      if (m && m.v === MISSION_VERSION && typeof m.next === 'number' && Array.isArray(m.slots) && m.slots.length === 3 && m.slots.every((x) => x && typeof x.i === 'number' && typeof x.p === 'number')) base.missions = m;
+      base.done = typeof s.done === 'number' ? Math.max(0, Math.floor(s.done)) : Math.max(0, base.missions.next - 3);
+      const eqIn = Object.assign({}, s.equip || {});
+      if (eqIn.style && !eqIn.plane) eqIn.plane = eqIn.style;
+      delete eqIn.style;
+      const eq = Object.assign({}, DEFAULT_EQUIP, eqIn);
+      for (const k of Object.keys(DEFAULT_EQUIP)) {
+        const it = findItem(k, eq[k]);
+        eq[k] = it.price === 0 || base.owned.includes(k + ':' + it.id) ? it.id : DEFAULT_EQUIP[k];
+      }
+      base.equip = eq;
+    }
+  } catch (e) {}
+  return base;
+}
+function storeSave(s){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch (e) {} }
+const hex = (n) => '#' + n.toString(16).padStart(6, '0');
+function loadBest(){ try { return Number(localStorage.getItem('skytaxi-best-dogfight')) || 0; } catch (e) { return 0; } }
+function saveBest(v){ try { localStorage.setItem('skytaxi-best-dogfight', String(v)); } catch (e) {} }
+
+/* ---------------------------- models ------------------------------ */
+const matCache = {};
+function mat(color, extra){
+  const key = color + (extra ? JSON.stringify(extra) : '');
+  if (!matCache[key]) matCache[key] = new THREE.MeshLambertMaterial(Object.assign({ color, flatShading: true }, extra || {}));
+  return matCache[key];
+}
+function mesh(geo, material, x, y, z, parent){
+  const m = new THREE.Mesh(geo, material);
+  m.position.set(x || 0, y || 0, z || 0);
+  m.castShadow = true; m.receiveShadow = true;
+  if (parent) parent.add(m);
+  return m;
+}
+const propDiscMat = () => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false });
+
+// A small propeller plane built from boxes and cylinders. Nose points to -Z.
+function makePlane(c, opts){
+  opts = opts || {};
+  const taxi = !!opts.taxi, style = opts.style || 'std';
+  const g = new THREE.Group();
+  const body = mat(c.body), wing = mat(c.wing), trim = mat(c.trim), dark = mat(0x2a2f36), glass = mat(0x8fdcff, { transparent: true, opacity: 0.75 });
+  mesh(new THREE.BoxGeometry(1.7, 1.6, 6.2), body, 0, 0, 0, g);
+  mesh(new THREE.BoxGeometry(1.2, 1.0, 1.6), body, 0, 0.1, 3.6, g);
+  const nose = mesh(new THREE.CylinderGeometry(0.95, 0.75, 1.0, 8), trim, 0, 0, -3.5, g); nose.rotation.x = Math.PI / 2;
+  const spin = mesh(new THREE.ConeGeometry(0.38, 0.8, 8), dark, 0, 0, -4.3, g); spin.rotation.x = -Math.PI / 2;
+  const span = style === 'racer' ? 7.8 : style === 'twin' ? 12.4 : 10.4;
+  mesh(new THREE.BoxGeometry(span, 0.28, 1.9), wing, 0, -0.25, -0.6, g);
+  mesh(new THREE.BoxGeometry(0.9, 0.3, 1.95), trim, span / 2 - 0.3, -0.25, -0.6, g);
+  mesh(new THREE.BoxGeometry(0.9, 0.3, 1.95), trim, -(span / 2 - 0.3), -0.25, -0.6, g);
+  // wing guns
+  for (const s of [-1, 1]) { const gun = mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.4, 6), dark, s * 2.2, -0.3, -1.9, g); gun.rotation.x = Math.PI / 2; }
+  const extraProps = [];
+  if (style === 'twin') {
+    for (const s of [-1, 1]) {
+      const nac = mesh(new THREE.CylinderGeometry(0.62, 0.5, 3.0, 8), trim, s * 3.1, -0.15, -1.3, g); nac.rotation.x = Math.PI / 2;
+      const ep = new THREE.Group(); ep.position.set(s * 3.1, -0.15, -2.95); g.add(ep);
+      mesh(new THREE.BoxGeometry(0.22, 2.9, 0.08), dark, 0, 0, 0, ep);
+      ep.add(new THREE.Mesh(new THREE.CircleGeometry(1.5, 16), propDiscMat()));
+      extraProps.push(ep);
+    }
+  }
+  if (style === 'racer') {
+    mesh(new THREE.BoxGeometry(0.22, 2.3, 1.6), trim, 0, 1.4, 3.8, g);
+    mesh(new THREE.BoxGeometry(0.5, 0.3, 4.5), trim, 0, 0.82, -1.2, g);
+    g.scale.set(0.95, 0.88, 1.22);
+  }
+  if (opts.enemy) {
+    for (const s of [-1, 1]) { const t = mesh(new THREE.ConeGeometry(0.5, 2.2, 4), mat(0xff2a3a), s * (span / 2 + 0.6), -0.25, -0.6, g); t.rotation.z = -s * Math.PI / 2; }
+  }
+  mesh(new THREE.BoxGeometry(3.8, 0.2, 1.0), wing, 0, 0.3, 3.9, g);
+  mesh(new THREE.BoxGeometry(0.22, 1.7, 1.2), trim, 0, 1.2, 3.9, g);
+  const canopy = mesh(new THREE.BoxGeometry(1.2, 0.75, 1.6), glass, 0, 1.15, -0.6, g);
+  canopy.castShadow = false;
+  if (style === 'bi') {
+    mesh(new THREE.BoxGeometry(9.8, 0.24, 1.7), wing, 0, 1.95, -0.7, g);
+    for (const s of [-1, 1]) for (const z of [-1.2, -0.2]) mesh(new THREE.BoxGeometry(0.12, 2.1, 0.12), dark, s * 3.4, 0.85, z, g);
+  }
+  if (style === 'float') {
+    for (const s of [-1, 1]) {
+      mesh(new THREE.BoxGeometry(0.9, 0.6, 6.4), trim, s * 1.7, -1.6, -0.5, g);
+      const tip = mesh(new THREE.ConeGeometry(0.45, 1.0, 4), trim, s * 1.7, -1.6, -4.2, g); tip.rotation.x = -Math.PI / 2; tip.rotation.y = Math.PI / 4;
+      for (const z of [-1.8, 0.6]) mesh(new THREE.BoxGeometry(0.12, 1.0, 0.12), dark, s * 1.3, -0.95, z, g);
+    }
+  } else {
+    for (const s of [-1, 1]) {
+      mesh(new THREE.BoxGeometry(0.14, 0.7, 0.14), dark, s * 0.9, -0.95, -1.4, g);
+      const w = mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.3, 10), dark, s * 0.95, -1.1, -1.4, g); w.rotation.z = Math.PI / 2;
+    }
+    const tw = mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.2, 8), dark, 0, -0.75, 4.1, g); tw.rotation.z = Math.PI / 2;
+  }
+  const prop = new THREE.Group(); prop.position.set(0, 0, -4.15); g.add(prop);
+  const blades = new THREE.Group(); prop.add(blades);
+  mesh(new THREE.BoxGeometry(0.32, 4.4, 0.1), dark, 0, 0, 0, blades);
+  prop.add(new THREE.Mesh(new THREE.CircleGeometry(2.25, 20), propDiscMat()));
+  if (style === 'twin') prop.visible = false;
+  let beacon = null;
+  if (taxi) {
+    const ck = opts.check || [0x1d232b, 0xffffff];
+    const blk = mat(ck[0]), wht = mat(ck[1]);
+    for (const s of [-1, 1]) for (let i = 0; i < 7; i++) for (let j = 0; j < 2; j++) {
+      const m = mesh(new THREE.BoxGeometry(0.04, 0.32, 0.42), (i + j) % 2 ? blk : wht, s * 0.87, 0.05 + j * 0.32, -1.3 + i * 0.42, g);
+      m.castShadow = false;
+    }
+    mesh(new THREE.BoxGeometry(1.0, 0.42, 0.55), mat(0xfff6d8), 0, 1.05, 0.75, g);
+  } else {
+    beacon = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2a3a }));
+    beacon.position.set(0, 2.15, 4.1); g.add(beacon);
+  }
+  return { group: g, prop, blades, canopy, beacon, extraProps };
+}
+
+function makeCloud(rng){
+  const g = new THREE.Group();
+  const m = mat(0xffffff, { emissive: 0x9fb8c8 });
+  const n = 3 + Math.floor(rng() * 3);
+  for (let i = 0; i < n; i++) {
+    const s = new THREE.Mesh(new THREE.IcosahedronGeometry(8 + rng() * 10, 0), m);
+    s.position.set((i - n / 2) * 11 + rng() * 6, rng() * 5, rng() * 10 - 5);
+    s.scale.y = 0.7;
+    g.add(s);
+  }
+  return g;
+}
+function makeBoat(color){
+  const g = new THREE.Group();
+  mesh(new THREE.BoxGeometry(2.6, 1.2, 7), mat(color), 0, 0.2, 0, g);
+  mesh(new THREE.BoxGeometry(2, 1.4, 2.4), mat(0xffffff), 0, 1.4, 0.8, g);
+  const wake = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 14), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false }));
+  wake.rotation.x = -Math.PI / 2; wake.position.set(0, -0.3, 10); g.add(wake);
+  return g;
+}
+
+/* ----------------------------- engine ------------------------------ */
+class Game {
+  constructor(el, cb){
+    this.el = el; this.cb = cb;
+    const r = this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+    el.appendChild(r.domElement);
+    // 2D overlay for reticle and enemy markers
+    this.ov = document.createElement('canvas'); this.ov.className = 'ov';
+    el.appendChild(this.ov); this.octx = this.ov.getContext('2d');
+
+    this.scene = new THREE.Scene();
+    this.scene.fog = new THREE.Fog(0xcdeeff, 1300, 4600);
+    this.camera = new THREE.PerspectiveCamera(62, 1, 0.1, 7000);
+    this.rig = new THREE.PerspectiveCamera();
+    this.tmp = new V3(); this.tmp2 = new V3(); this.tmp3 = new V3(); this.tmpO = new V3();
+
+    this.keys = {}; this.touch = {}; this.mouseDown = false;
+    this.enemies = []; this.debris = []; this.bullets = []; this.pbullets = []; this.pbPool = [];
+    this.camMode = 0; this.camOff = new V3(0, 6, 18);
+    this.time = 0; this.gunSide = 1; this.fireT = 0;
+
+    this.buildWorld();
+    this.player = null;
+    this.showcase = false; this.viewShift = { x: 0, y: 0 };
+    this.setSkin(cb.skin || resolveSkin(DEFAULT_EQUIP));
+    this.puffs = []; this.puffI = 0; this.puffT = 0;
+    const puffGeo = new THREE.IcosahedronGeometry(1, 0);
+    for (let i = 0; i < 80; i++) {
+      const m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
+      m.visible = false; this.scene.add(m);
+      this.puffs.push({ m, life: 0, L: 1 });
+    }
+    this.pbGeo = new THREE.BoxGeometry(0.28, 0.28, 4.5);
+    this.pbMat = new THREE.MeshBasicMaterial({ color: 0xfff07a });
+    this.ebGeo = new THREE.SphereGeometry(0.75, 8, 6);
+    this.ebMat = new THREE.MeshBasicMaterial({ color: 0xff8a1f });
+    this.ebGlow = new THREE.MeshBasicMaterial({ color: 0xffd04a, transparent: true, opacity: 0.4, depthWrite: false });
+
+    this.onKeyDown = (e) => this.onKey(e, true);
+    this.onKeyUp = (e) => this.onKey(e, false);
+    this.onBlur = () => { this.keys = {}; this.touch = {}; this.mouseDown = false; };
+    this.onPDown = (e) => { if (e.pointerType === 'mouse' && e.button === 0) this.mouseDown = true; };
+    this.onPUp = () => { this.mouseDown = false; };
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('blur', this.onBlur);
+    el.addEventListener('pointerdown', this.onPDown);
+    window.addEventListener('pointerup', this.onPUp);
+
+    this.resize();
+    this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(el);
+    this.reset(false);
+    this.last = performance.now();
+    this.loop = this.loop.bind(this);
+    this.raf = requestAnimationFrame(this.loop);
+  }
+
+  /* ---- world ---- */
+  buildWorld(){
+    const s = this.scene, rng = mulberry32(7);
+    s.add(new THREE.HemisphereLight(0xe4f5ff, 0x5f9e6a, 0.78));
+    const sun = this.sun = new THREE.DirectionalLight(0xfff4dc, 0.9);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    const sc = sun.shadow.camera; sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70; sc.near = 10; sc.far = 400;
+    sun.shadow.bias = -0.0008;
+    s.add(sun); s.add(sun.target);
+    this.sunDir = new V3(0.45, 0.75, -0.5).normalize();
+
+    const sky = this.sky = new THREE.Mesh(new THREE.SphereGeometry(6000, 24, 12), new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false,
+      uniforms: { top: { value: new THREE.Color(0x3d9cf5) }, bottom: { value: new THREE.Color(0xcdeeff) } },
+      vertexShader: 'varying vec3 vP; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vP = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }',
+      fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying vec3 vP; void main(){ float h = max(normalize(vP - cameraPosition).y, 0.0); gl_FragColor = vec4(mix(bottom, top, pow(h, 0.55)), 1.0); }'
+    }));
+    sky.frustumCulled = false; sky.renderOrder = -2; s.add(sky);
+    const sunDisc = this.sunDisc = new THREE.Mesh(new THREE.SphereGeometry(150, 16, 10), new THREE.MeshBasicMaterial({ color: 0xfff1a8, fog: false }));
+    sunDisc.renderOrder = -1; s.add(sunDisc);
+
+    const og = new THREE.PlaneGeometry(16000, 16000, 110, 110);
+    const pos = og.attributes.position;
+    for (let i = 0; i < pos.count; i++) pos.setZ(i, (rng() - 0.5) * 0.8);
+    og.computeVertexNormals();
+    const ocean = new THREE.Mesh(og, mat(0x168fc6));
+    ocean.rotation.x = -Math.PI / 2; ocean.position.y = -1; ocean.receiveShadow = true;
+    s.add(ocean);
+
+    this.colliders = [];
+    ISLANDS.forEach((isl) => this.buildIsland(isl, rng));
+
+    let made = 0;
+    for (let tries = 0; tries < 400 && made < 22; tries++) {
+      const a = rng() * TAU, d = 250 + rng() * 2500;
+      const x = Math.cos(a) * d, z = Math.sin(a) * d;
+      if (ISLANDS.some((isl) => Math.hypot(x - isl.x, z - isl.z) < 380)) continue;
+      const R = 12 + rng() * 14;
+      const g = new THREE.Group(); g.position.set(x, 0, z); s.add(g);
+      const sh = new THREE.Mesh(new THREE.CircleGeometry(R + 30, 18), mat(0x5fd7e0));
+      sh.rotation.x = -Math.PI / 2; sh.position.y = -0.2; g.add(sh);
+      mesh(new THREE.CylinderGeometry(R, R + 6, 4, 12), mat(0xf3dc9b), 0, 0, 0, g);
+      const rockH = 6 + rng() * 14;
+      const rock = mesh(new THREE.ConeGeometry(R * 0.6, rockH, 6), mat(rng() < 0.5 ? 0x8d9aa5 : 0x4fae4a), R * 0.2, 2 + rockH / 2, 0, g);
+      rock.rotation.y = rng() * TAU;
+      for (let k = 0; k < 2; k++) {
+        const t = new THREE.Group(); t.position.set(-R * 0.4 + k * 4, 2, (k - 0.5) * R * 0.6); g.add(t);
+        mesh(new THREE.CylinderGeometry(0.4, 0.55, 5, 6), mat(0x8b5a2b), 0, 2.5, 0, t);
+        mesh(new THREE.IcosahedronGeometry(2.4, 0), mat(0x3fbf5a), 0, 5.6, 0, t);
+      }
+      this.colliders.push({ x: x + R * 0.2, z, R: R * 0.6, H: rockH + 2 });
+      this.colliders.push({ x, z, R: R + 2, H: 0, flat: true });
+      made++;
+    }
+
+    this.clouds = [];
+    for (let i = 0; i < 110; i++) {
+      const c = makeCloud(rng);
+      const a = rng() * TAU, d = 150 + rng() * 3200;
+      c.position.set(Math.cos(a) * d, 115 + rng() * 110, Math.sin(a) * d);
+      c.scale.setScalar(0.8 + rng() * 0.9);
+      s.add(c); this.clouds.push(c);
+    }
+    this.boats = [];
+    [0xff4b5c, 0x3d7bff, 0xffffff, 0xffb627, 0x2fc4a8].forEach((c, i) => {
+      const b = makeBoat(c); s.add(b);
+      this.boats.push({ g: b, isl: ISLANDS[i], R: 150 + rng() * 60, a: rng() * TAU, w: (0.04 + rng() * 0.04) * (i % 2 ? 1 : -1) });
+    });
+  }
+
+  buildIsland(isl, rng){
+    const g = new THREE.Group(); g.position.set(isl.x, 0, isl.z); this.scene.add(g);
+    const r = isl.r;
+    const shallow = new THREE.Mesh(new THREE.CircleGeometry(r + 70, 28), mat(0x5fd7e0));
+    shallow.rotation.x = -Math.PI / 2; shallow.position.y = -0.2; shallow.receiveShadow = true; g.add(shallow);
+    mesh(new THREE.CylinderGeometry(r + 8, r + 22, 6, 20), mat(0xf3dc9b), 0, -1, 0, g);
+    mesh(new THREE.CylinderGeometry(r - 2, r + 5, 1.2, 20), mat(0x7bd35a), 0, 2.4, 0, g);
+    const rw = new THREE.Group(); rw.rotation.y = isl.h; g.add(rw);
+    const white = mat(0xffffff);
+    mesh(new THREE.BoxGeometry(16, 0.14, 150), mat(0x4a4f57), 0, 3.07, 0, rw);
+    for (let k = -5; k <= 5; k++) mesh(new THREE.BoxGeometry(0.7, 0.04, 6), white, 0, 3.16, k * 12, rw);
+    for (const sd of [-1, 1]) {
+      for (let j = 0; j < 5; j++) mesh(new THREE.BoxGeometry(1.2, 0.04, 7), white, (j - 2) * 2.6, 3.16, sd * 68, rw);
+      mesh(new THREE.BoxGeometry(0.4, 0.04, 150), white, sd * 7.4, 3.16, 0, rw);
+    }
+    mesh(new THREE.BoxGeometry(14, 6, 9), mat(0xfbf7ef), 26, 6, 6, rw);
+    mesh(new THREE.BoxGeometry(14.2, 1.4, 9.2), mat(0x7fd0ff), 26, 6.4, 6, rw);
+    mesh(new THREE.BoxGeometry(15.5, 1, 10.5), mat(isl.roof), 26, 9.5, 6, rw);
+    mesh(new THREE.CylinderGeometry(1.5, 2, 14, 8), mat(0xfbf7ef), 26, 10, -16, rw);
+    mesh(new THREE.BoxGeometry(5, 3, 5), mat(0x7fd0ff), 26, 18.5, -16, rw);
+    mesh(new THREE.BoxGeometry(5.6, 0.6, 5.6), mat(isl.roof), 26, 20.3, -16, rw);
+    mesh(new THREE.CylinderGeometry(0.15, 0.15, 6, 6), white, -13, 6, 46, rw);
+    const sock = mesh(new THREE.ConeGeometry(0.7, 3, 8, 1, true), mat(0xff8a3d), -13, 8.6, 47.5, rw); sock.rotation.x = Math.PI / 2;
+
+    g.updateMatrixWorld(true);
+    const toWorld = (lx, lz) => rw.localToWorld(new V3(lx, 0, lz));
+    const hills = [{ x: -58, z: 28, R: 26, H: 22 }, { x: -50, z: -40, R: 22, H: 16 }, { x: 55, z: 50, R: 18, H: 14 }];
+    hills.forEach((hh) => {
+      const m = mesh(new THREE.ConeGeometry(hh.R, hh.H, 7), mat(0x4fae4a), hh.x, ISLAND_TOP + hh.H / 2 - 0.3, hh.z, rw);
+      m.rotation.y = rng() * TAU;
+      const w = toWorld(hh.x, hh.z); this.colliders.push({ x: w.x, z: w.z, R: hh.R, H: hh.H });
+    });
+    const tw = toWorld(26, -16); this.colliders.push({ x: tw.x, z: tw.z, R: 6, H: 18, flat: true });
+    const tm = toWorld(26, 6); this.colliders.push({ x: tm.x, z: tm.z, R: 9, H: 7, flat: true });
+
+    const trunk = mat(0x8b5a2b), leafA = mat(0x3fbf5a), leafB = mat(0x2e9e4f), leafC = mat(0x9bd84a);
+    let placed = 0;
+    for (let tries = 0; tries < 200 && placed < 28; tries++) {
+      const a = rng() * TAU, d = Math.sqrt(rng()) * (r - 10);
+      const lx = Math.cos(a) * d, lz = Math.sin(a) * d;
+      if (Math.abs(lx) < 15 && Math.abs(lz) < 84) continue;
+      if (lx > 14 && lx < 40 && lz > -26 && lz < 14) continue;
+      if (lx < -8 && lx > -18 && lz > 40 && lz < 54) continue;
+      if (hills.some((hh) => Math.hypot(lx - hh.x, lz - hh.z) < hh.R + 2)) continue;
+      const t = new THREE.Group(); t.position.set(lx, ISLAND_TOP, lz); rw.add(t);
+      t.scale.setScalar(0.8 + rng() * 0.7);
+      mesh(new THREE.CylinderGeometry(0.4, 0.55, 2.4, 6), trunk, 0, 1.2, 0, t);
+      if (rng() < 0.5) {
+        mesh(new THREE.ConeGeometry(2.6, 4.2, 7), leafB, 0, 4, 0, t);
+        mesh(new THREE.ConeGeometry(1.9, 3.2, 7), leafB, 0, 5.8, 0, t);
+      } else {
+        mesh(new THREE.IcosahedronGeometry(2.4, 0), rng() < 0.5 ? leafA : leafC, 0, 4, 0, t);
+      }
+      placed++;
+    }
+  }
+
+  groundAt(x, z){
+    let gnd = 0;
+    for (const isl of ISLANDS) if (Math.hypot(x - isl.x, z - isl.z) < isl.r + 8) gnd = ISLAND_TOP;
+    for (const c of this.colliders) {
+      const d = Math.hypot(x - c.x, z - c.z);
+      if (d < c.R) gnd = Math.max(gnd, ISLAND_TOP + (c.flat ? c.H : c.H * (1 - d / c.R)));
+    }
+    return gnd;
+  }
+
+  /* ---- customization ---- */
+  setSkin(skin){
+    this.skin = skin;
+    if (this.player) this.scene.remove(this.player.group);
+    const c = skin.paint;
+    const pl = makePlane({ body: c.body, wing: c.wing, trim: c.trim }, { taxi: true, check: c.check, style: skin.plane.id });
+    this.stats = skin.plane;
+    this.player = pl; this.scene.add(pl.group);
+    this.syncCockpitParts();
+    if (this.p && this.state === 'idle') this.hp = this.stats.hp;
+    if (this.p) { pl.group.visible = this.state !== 'crashed'; this.applyPlayer(0); }
+  }
+  syncCockpitParts(){
+    const inside = this.camMode === 1 && !this.showcase && !this.lookBack;
+    this.player.canopy.visible = !inside;
+    this.player.blades.visible = !inside;
+  }
+  setShowcase(on, shift){
+    this.showcase = on;
+    this.viewShift = on && shift ? shift : { x: 0, y: 0 };
+    this.syncCockpitParts();
+    this.resize();
+  }
+  toIdle(){ this.reset(false); }
+
+  /* ---- state ---- */
+  reset(fly){
+    this.clearCombat();
+    for (const d of this.debris) this.scene.remove(d.m);
+    this.debris = [];
+    if (this.puffs) for (const pf of this.puffs) { pf.life = 0; pf.m.visible = false; }
+    const isl = ISLANDS[0];
+    const F = fwdV(isl.h);
+    this.p = { pos: new V3(isl.x, GY, isl.z).addScaledVector(F, -27), yaw: isl.h, pitch: 0, roll: 0, speed: 0 };
+    this.player.group.visible = true;
+    this.coins = 0; this.score = 0; this.distance = 0; this.kills = 0;
+    this.stab = 0; this.out = false; this.overSent = false;
+    this.hp = this.stats.hp; this.invuln = 0; this.shake = 0; this.hitFlash = 0;
+    this.wave = 0; this.waveState = 'break'; this.breakT = 3; this.damagedThisWave = false;
+    this.distAcc = 0; this.cause = ''; this.lock = null; this.fireT = 0; this.firedOnce = false;
+    this.man = null; this.manCD = 0; this.dodgeT = 0; this.lookBack = false;
+    this.state = 'idle';
+    if (fly) this.startTakeoff();
+    this.camOff.copy(F).multiplyScalar(-17); this.camOff.y = 5.5;
+    this.camera.position.copy(this.p.pos).add(this.camOff);
+    this.camera.lookAt(this.tmp.copy(this.p.pos).addScaledVector(F, 12));
+    this.applyPlayer(0);
+    this.hudT = 0;
+    this.emitHud();
+  }
+  clearCombat(){
+    for (const e of this.enemies) this.scene.remove(e.m.group);
+    this.enemies = [];
+    for (const b of this.bullets) this.scene.remove(b.m);
+    this.bullets = [];
+    for (const b of this.pbullets) { b.m.visible = false; this.pbPool.push(b.m); }
+    this.pbullets = [];
+  }
+  start(){ if (this.state === 'idle') this.startTakeoff(); }
+  restart(){ this.reset(true); }
+
+  /* ---- input ---- */
+  onKey(e, down){
+    const map = { KeyW: 'thr', KeyS: 'brake', KeyA: 'left', KeyD: 'right', ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'dive', ArrowDown: 'climb', Space: 'fire', KeyJ: 'fire', KeyV: 'look' };
+    const k = map[e.code];
+    if (k) {
+      // Space on a focused button should click it on menus; during flight it fires
+      if (k === 'fire' && e.code === 'Space' && this.state !== 'flying' && this.state !== 'takeoff') return;
+      this.keys[k] = down; e.preventDefault();
+    }
+    if (down && !e.repeat) {
+      if (e.code === 'KeyC') this.cycleCamera();
+      if (e.code === 'KeyR') this.stabilize();
+      if (e.code === 'KeyF') this.uTurn(this.keys.right ? -1 : 1);
+      if (e.code === 'KeyT') this.loop360();
+      if (e.code === 'KeyG') this.immelmann(this.keys.right ? -1 : 1);
+      if (e.code === 'KeyQ') this.barrelRoll(1);
+      if (e.code === 'KeyE') this.barrelRoll(-1);
+    }
+  }
+  setTouch(name, v){ this.touch[name] = v; }
+  input(){
+    const k = this.keys, t = this.touch;
+    return { thr: k.thr || t.thr, brake: k.brake || t.brake, left: k.left || t.left, right: k.right || t.right, dive: k.dive || t.dive, climb: k.climb || t.climb, fire: k.fire || t.fire || this.mouseDown, look: k.look || t.look };
+  }
+  cycleCamera(){
+    this.camMode = (this.camMode + 1) % 3;
+    this.syncCockpitParts();
+    this.cb.onEvent('視点：' + CAM_NAMES[this.camMode], 'info');
+    this.emitHud();
+  }
+  // quick 180° turn; dir +1 = left, -1 = right
+  uTurn(dir){
+    if (this.state !== 'flying' || this.man || this.manCD > 0) return;
+    this.man = { type: 'uturn', t: 0, dur: 1.3, dir, yaw0: this.p.yaw };
+    this.cb.onEvent('Uターン！', 'info');
+  }
+  // full vertical loop: pull up and over, come out on the same heading
+  loop360(){
+    if (this.state !== 'flying' || this.man || this.manCD > 0) return;
+    this.man = { type: 'loop', t: 0, dur: 3.2, pitch0: this.p.pitch };
+    this.cb.onEvent('宙返り！', 'info');
+  }
+  // Immelmann turn: half loop up, then roll upright — heading reversed, higher up
+  immelmann(dir){
+    if (this.state !== 'flying' || this.man || this.manCD > 0) return;
+    this.man = { type: 'immel', t: 0, dur: 2.6, dir, yaw0: this.p.yaw, pitch0: this.p.pitch, flipped: false };
+    this.cb.onEvent('縦Uターン！', 'info');
+  }
+  vertMan(){ const m = this.man; return !!m && (m.type === 'loop' || (m.type === 'immel' && !m.flipped)); }
+  // evasive barrel roll: slides sideways and dodges bullets while rolling
+  barrelRoll(dir){
+    if (this.state !== 'flying' || this.man || this.manCD > 0) return;
+    this.man = { type: 'roll', t: 0, dur: 0.75, dir, roll0: this.p.roll };
+    this.dodgeT = 0.75;
+  }
+  stabilize(){
+    if (this.state !== 'flying') return;
+    this.stab = 1.1;
+    this.cb.onEvent('姿勢を安定', 'info');
+  }
+
+  /* ---- loop ---- */
+  loop(now){
+    this.raf = requestAnimationFrame(this.loop);
+    const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
+    this.last = now;
+    if (dt > 0) this.update(dt);
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  update(dt){
+    this.time += dt;
+    const inp = this.input();
+    const lb = !!inp.look && (this.state === 'flying' || this.state === 'takeoff');
+    if (lb !== this.lookBack) { this.lookBack = lb; this.syncCockpitParts(); }
+    this.manCD = Math.max(0, this.manCD - dt); this.dodgeT = Math.max(0, this.dodgeT - dt);
+    switch (this.state) {
+      case 'flying': this.updateFlight(dt, inp); break;
+      case 'takeoff': this.updateTakeoff(dt); break;
+      case 'crashed':
+        this.crashT -= dt;
+        if (this.crashT <= 0 && !this.overSent) {
+          this.overSent = true;
+          const score = Math.floor(this.score);
+          const best = Math.max(loadBest(), score); saveBest(best);
+          this.cb.onGameOver({ score, coins: this.coins, kills: this.kills, wave: this.wave, best, cause: this.cause });
+        }
+        break;
+    }
+    if (this.state === 'flying') {
+      this.updateWaves(dt);
+      this.fireT -= dt;
+      if (inp.fire && this.fireT <= 0) this.firePlayer();
+    }
+    this.updateEnemies(dt);
+    this.updateEnemyBullets(dt);
+    this.updatePlayerBullets(dt);
+    this.invuln = Math.max(0, this.invuln - dt); this.shake = Math.max(0, this.shake - dt); this.hitFlash = Math.max(0, this.hitFlash - dt);
+    this.applyPlayer(dt);
+    this.animateWorld(dt);
+    this.updateDebris(dt);
+    this.updateTrail(dt);
+    this.updateCamera(dt);
+    this.updateLock();
+    this.drawOverlay();
+    this.hudT -= dt;
+    if (this.hudT <= 0) { this.hudT = 0.1; this.emitHud(); }
+  }
+
+  pVel(out){ return dir3(this.p.yaw, this.p.pitch, out).multiplyScalar(this.p.speed); }
+
+  updateFlight(dt, inp){
+    const p = this.p, C = CFG, st = this.stats;
+    const thr = (inp.thr ? 1 : 0) - (inp.brake ? 1 : 0);
+    const turn = (inp.left ? 1 : 0) - (inp.right ? 1 : 0);
+    const pin = (inp.climb ? 1 : 0) - (inp.dive ? 1 : 0);
+    if (turn || pin) this.stab = 0;
+    p.speed = clamp(p.speed + thr * st.accel * dt - (this.vertMan() ? 0 : Math.sin(p.pitch) * 7 * dt), C.minSpeed, st.maxSpeed);
+    const sf = (p.speed - C.minSpeed) / (st.maxSpeed - C.minSpeed);
+    const sk = this.stab > 0 ? 3 : 1;
+    this.stab = Math.max(0, this.stab - dt);
+    const m = this.man;
+    if (m) {
+      m.t += dt;
+      const u = Math.min(1, m.t / m.dur);
+      if (m.type === 'uturn') {
+        p.yaw = wrap(m.yaw0 + m.dir * Math.PI * smooth(0, 1, u));
+        p.roll = m.dir * Math.sin(Math.PI * u) * 1.25;
+        p.pitch = Math.sin(Math.PI * u) * 0.3;
+      } else if (m.type === 'loop') {
+        // steady pitch rate makes a round loop; settle the bank first
+        p.pitch = m.pitch0 * (1 - u) + TAU * u;
+        p.roll = damp(p.roll, 0, 8, dt);
+      } else if (m.type === 'immel') {
+        const split = 0.62;
+        if (u < split) {
+          p.pitch = m.pitch0 + (Math.PI - m.pitch0) * smooth(0, 1, u / split);
+          p.roll = damp(p.roll, 0, 8, dt);
+        } else {
+          if (!m.flipped) {
+            // upside down heading back = same attitude as (yaw+180°, pitch 0, roll 180°)
+            m.flipped = true;
+            p.yaw = wrap(m.yaw0 + Math.PI); p.pitch = 0;
+          }
+          p.roll = m.dir * Math.PI * (1 - smooth(split, 1, u));
+        }
+      } else {
+        p.roll = m.roll0 + m.dir * TAU * smooth(0, 1, u);
+        // slide ~14 m toward the roll side over the manoeuvre
+        const side = m.dir * 14 * (Math.PI / 2) * Math.sin(Math.PI * u) * dt / m.dur;
+        p.pos.x -= Math.cos(p.yaw) * side; p.pos.z += Math.sin(p.yaw) * side;
+      }
+      if (u >= 1) {
+        if (m.type === 'roll') p.roll = m.roll0;
+        if (m.type === 'loop') p.pitch = 0;
+        if (m.type === 'immel') { p.roll = 0; p.pitch = 0; }
+        this.man = null; this.manCD = m.type === 'roll' ? 1.0 : 0.8;
+      }
+    } else {
+      p.roll = damp(p.roll, turn * 0.78, 3.2 * sk, dt);
+      p.pitch = damp(p.pitch, pin * 0.42, (2.2 + sf * 1.2) * sk, dt);
+      p.yaw = wrap(p.yaw + p.roll * (1.2 - 0.45 * sf) * st.turn * dt);
+    }
+    const cp = Math.cos(p.pitch);
+    p.pos.x += -Math.sin(p.yaw) * cp * p.speed * dt;
+    p.pos.z += -Math.cos(p.yaw) * cp * p.speed * dt;
+    p.pos.y += Math.sin(p.pitch) * p.speed * dt;
+    const g = this.groundAt(p.pos.x, p.pos.z) + 4.2;
+    if (p.pos.y < g) { p.pos.y = g; if (!this.man && p.pitch < 0) p.pitch = damp(p.pitch, 0.05, 10, dt); }
+    if (p.pos.y > C.maxAlt) { p.pos.y = C.maxAlt; if (!this.man && p.pitch > 0) p.pitch = damp(p.pitch, 0, 6, dt); }
+    this.out = Math.hypot(p.pos.x, p.pos.z) > C.worldR;
+    if (this.out) {
+      const home = Math.atan2(p.pos.x, p.pos.z);
+      const diff = wrap(home - p.yaw);
+      p.yaw = wrap(p.yaw + diff * (1 - Math.exp(-1.6 * dt)));
+      p.roll = damp(p.roll, clamp(diff, -0.7, 0.7), 3, dt);
+    }
+    this.distance += p.speed * dt;
+    this.score += p.speed * dt * 0.02;
+    this.distAcc += p.speed * dt;
+    if (this.distAcc >= 250) { this.stat({ kind: 'distance', d: this.distAcc }); this.distAcc = 0; }
+  }
+  stat(s){ if (this.cb.onStat) this.cb.onStat(s); }
+
+  startTakeoff(){
+    const p = this.p;
+    this.anim = { t: 0, dur: 4, from: p.pos.clone(), F: fwdV(p.yaw), gy: p.pos.y };
+    this.state = 'takeoff';
+    this.cb.onEvent('離陸！', 'info');
+  }
+  updateTakeoff(dt){
+    const a = this.anim; a.t += dt;
+    const u = Math.min(1, a.t / a.dur);
+    const d = 20 * u + 80 * u * u;
+    const o = this.tmp.copy(a.from).addScaledVector(a.F, d);
+    o.y = a.gy + 40 * smooth(0.3, 1, u);
+    const p = this.p;
+    const v = this.tmp2.subVectors(o, p.pos).divideScalar(Math.max(dt, 1e-4));
+    const vh = Math.hypot(v.x, v.z);
+    p.pitch = damp(p.pitch, clamp(Math.atan2(v.y, Math.max(vh, 1)), -0.4, 0.4), 8, dt);
+    p.speed = Math.hypot(vh, v.y);
+    p.pos.copy(o);
+    if (u >= 1) { this.state = 'flying'; this.p.speed = 45; this.p.roll = 0; }
+  }
+
+  /* ---- waves ---- */
+  updateWaves(dt){
+    if (this.waveState === 'break') {
+      this.breakT -= dt;
+      if (this.breakT <= 0) this.startWave();
+    } else if (this.enemies.length === 0) {
+      this.waveCleared();
+    }
+  }
+  startWave(){
+    this.wave++;
+    this.waveState = 'fight'; this.damagedThisWave = false;
+    const n = Math.min(2 + Math.floor((this.wave - 1) * 0.75), 7);
+    const p = this.p;
+    for (let i = 0; i < n; i++) {
+      const ace = this.wave >= 3 && i === 0;
+      const a = p.yaw + (i - (n - 1) / 2) * 0.5 + (Math.random() - 0.5) * 0.3;
+      const d = 520 + Math.random() * 220;
+      const pos = new V3(p.pos.x - Math.sin(a) * d, 0, p.pos.z - Math.cos(a) * d);
+      pos.y = Math.max(p.pos.y + (Math.random() - 0.3) * 40, this.groundAt(pos.x, pos.z) + 40);
+      this.spawnEnemy(pos, ace);
+    }
+    this.cb.onEvent('WAVE ' + this.wave + '　敵 ' + n + '機', 'warn');
+  }
+  waveCleared(){
+    const bonus = 40 * this.wave;
+    this.coins += bonus; this.score += 200 * this.wave;
+    if (this.cb.onCoins) this.cb.onCoins(bonus);
+    this.cb.onEvent('WAVE ' + this.wave + ' クリア！ +' + bonus, 'coin');
+    this.stat({ kind: 'wave', v: this.wave });
+    if (!this.damagedThisWave) { this.stat({ kind: 'perfect' }); setTimeout(() => this.cb.onEvent('ノーダメージ！', 'good'), 700); }
+    if (this.hp < this.stats.hp) { this.hp++; setTimeout(() => this.cb.onEvent('HP +1', 'good'), 1300); }
+    this.waveState = 'break'; this.breakT = 5;
+  }
+
+  /* ---- enemies ---- */
+  spawnEnemy(pos, ace){
+    const w = this.wave;
+    const col = ace ? ACE_COLORS : ENEMY_COLORS[(w + this.enemies.length) % ENEMY_COLORS.length];
+    const m = makePlane(col, { enemy: true, style: ace ? 'racer' : (Math.random() < 0.5 ? 'bi' : 'std') });
+    m.group.scale.multiplyScalar(1.2);
+    this.scene.add(m.group);
+    const hp = 3 + Math.floor(w / 3) + (ace ? 3 : 0);
+    const e = {
+      m, pos, vel: new V3(), ace,
+      yaw: Math.atan2(-(this.p.pos.x - pos.x), -(this.p.pos.z - pos.z)), pitch: 0, roll: 0,
+      speed: 45, baseSpeed: Math.min(66, 44 + w * 1.6) + (ace ? 10 : 0),
+      turn: Math.min(1.15, 0.72 + w * 0.04) + (ace ? 0.25 : 0),
+      hp, maxHp: hp, fireT: 1.5 + Math.random() * 2,
+      rate: Math.max(0.7, 1.8 - w * 0.1) * (ace ? 0.7 : 1),
+      mode: 'chase', modeT: 0, breakYaw: 0, hitT: 0,
+    };
+    this.enemies.push(e);
+    this.placeEnemy(e);
+  }
+  placeEnemy(e){
+    const g = e.m.group;
+    g.position.copy(e.pos);
+    g.rotation.set(e.pitch, e.yaw, e.roll, 'YXZ');
+  }
+  updateEnemies(dt){
+    const p = this.p, flying = this.state === 'flying';
+    const pv = this.pVel(this.tmp3);
+    for (let i = 0; i < this.enemies.length; i++) {
+      const e = this.enemies[i];
+      const dx = p.pos.x - e.pos.x, dy = p.pos.y - e.pos.y, dz = p.pos.z - e.pos.z;
+      const dist = Math.hypot(dx, dy, dz);
+      let ty, tp;
+      if (e.mode === 'chase' && flying) {
+        // lead pursuit
+        const lt = clamp(dist / 120, 0, 1.2);
+        const lx = dx + pv.x * lt, ly = dy + pv.y * lt, lz = dz + pv.z * lt;
+        ty = Math.atan2(-lx, -lz); tp = Math.atan2(ly, Math.hypot(lx, lz));
+        if (dist < 45) { e.mode = 'break'; e.modeT = 2 + Math.random() * 1.5; e.breakYaw = e.yaw + (Math.random() < 0.5 ? -1 : 1) * 1.5; }
+      } else {
+        e.modeT -= dt;
+        ty = e.breakYaw; tp = 0.2;
+        if (e.modeT <= 0 && flying) e.mode = 'chase';
+        if (!flying && e.modeT <= 0) { e.breakYaw = e.yaw + 0.8; e.modeT = 3; }
+      }
+      if (Math.hypot(e.pos.x, e.pos.z) > CFG.worldR + 200) ty = Math.atan2(e.pos.x, e.pos.z);
+      const gnd = this.groundAt(e.pos.x, e.pos.z) + 14;
+      if (e.pos.y < gnd + 12) tp = Math.max(tp, 0.35);
+      const dYaw = clamp(wrap(ty - e.yaw), -e.turn * dt, e.turn * dt);
+      e.yaw = wrap(e.yaw + dYaw);
+      e.roll = damp(e.roll, clamp(dYaw / dt * 0.75, -0.85, 0.85), 4, dt);
+      e.pitch = damp(e.pitch, clamp(tp, -0.45, 0.45), 2, dt);
+      e.speed = damp(e.speed, e.baseSpeed + (dist > 500 ? 18 : 0), 1, dt);
+      dir3(e.yaw, e.pitch, e.vel).multiplyScalar(e.speed);
+      e.pos.addScaledVector(e.vel, dt);
+      if (e.pos.y < gnd) e.pos.y = gnd;
+      if (e.pos.y > CFG.maxAlt) e.pos.y = CFG.maxAlt;
+      // keep a little space between enemies
+      for (let j = i + 1; j < this.enemies.length; j++) {
+        const o = this.enemies[j];
+        const sx = e.pos.x - o.pos.x, sy = e.pos.y - o.pos.y, sz = e.pos.z - o.pos.z;
+        const sd = Math.hypot(sx, sy, sz);
+        if (sd < 28 && sd > 0.01) { const k = (28 - sd) / sd * 0.5; e.pos.x += sx * k; e.pos.y += sy * k; e.pos.z += sz * k; o.pos.x -= sx * k; o.pos.y -= sy * k; o.pos.z -= sz * k; }
+      }
+      e.hitT = Math.max(0, e.hitT - dt);
+      this.placeEnemy(e);
+      e.m.prop.rotation.z += 34 * dt;
+      if (e.m.beacon) e.m.beacon.visible = (this.time * 2.5 + i * 0.37) % 1 < 0.5;
+      if (!flying) continue;
+      if (dist < CFG.ramR) { this.destroyEnemy(e, true); this.damagePlayer(2, 'enemy'); i--; continue; }
+      e.fireT -= dt;
+      if (e.mode === 'chase' && dist < 300 && e.fireT <= 0) {
+        const f = dir3(e.yaw, e.pitch, this.tmp);
+        const cosA = (f.x * dx + f.y * dy + f.z * dz) / Math.max(dist, 1e-3);
+        if (cosA > Math.cos(0.22)) { e.fireT = e.rate; this.fireEnemyBullet(e); }
+      }
+    }
+  }
+  fireEnemyBullet(e){
+    const p = this.p, BS = CFG.eBulletSpeed;
+    const from = e.pos.clone().addScaledVector(dir3(e.yaw, e.pitch), 6);
+    const v = this.pVel(new V3());
+    const d = p.pos.clone().sub(from);
+    const qa = v.dot(v) - BS * BS, qb = 2 * d.dot(v), qc = d.dot(d);
+    const disc = qb * qb - 4 * qa * qc;
+    let tFly = d.length() / BS;
+    if (disc >= 0 && Math.abs(qa) > 1e-6) {
+      const cand = [(-qb + Math.sqrt(disc)) / (2 * qa), (-qb - Math.sqrt(disc)) / (2 * qa)].filter((x) => x > 0);
+      if (cand.length) tFly = Math.min.apply(null, cand);
+    }
+    const aim = p.pos.clone().addScaledVector(v, tFly);
+    aim.x += (Math.random() - 0.5) * 3; aim.y += (Math.random() - 0.5) * 3; aim.z += (Math.random() - 0.5) * 3;
+    const m = new THREE.Mesh(this.ebGeo, this.ebMat);
+    const glow = new THREE.Mesh(this.ebGeo, this.ebGlow); glow.scale.setScalar(2.2); m.add(glow);
+    m.position.copy(from); this.scene.add(m);
+    this.bullets.push({ m, v: aim.sub(from).normalize().multiplyScalar(BS), life: 3.5, prev: from.clone() });
+  }
+  // closest distance from point c to segment a→b
+  segDist(a, b, c){
+    const sx = b.x - a.x, sy = b.y - a.y, sz = b.z - a.z;
+    const L2 = sx * sx + sy * sy + sz * sz;
+    const t = L2 > 0 ? clamp(((c.x - a.x) * sx + (c.y - a.y) * sy + (c.z - a.z) * sz) / L2, 0, 1) : 0;
+    return Math.hypot(c.x - (a.x + sx * t), c.y - (a.y + sy * t), c.z - (a.z + sz * t));
+  }
+  updateEnemyBullets(dt){
+    for (let i = this.bullets.length - 1; i >= 0; i--) {
+      const b = this.bullets[i];
+      b.prev.copy(b.m.position);
+      b.m.position.addScaledVector(b.v, dt);
+      b.life -= dt;
+      const hit = this.state === 'flying' && this.invuln <= 0 && this.dodgeT <= 0 && this.segDist(b.prev, b.m.position, this.p.pos) < CFG.playerHitR;
+      if (hit) this.damagePlayer(1, 'shot');
+      if (hit || b.life <= 0 || b.m.position.y < 0) { this.scene.remove(b.m); this.bullets.splice(i, 1); }
+    }
+  }
+
+  /* ---- player guns ---- */
+  updateLock(){
+    this.lock = null;
+    if (this.state !== 'flying') return;
+    const g = this.player.group;
+    const f = this.tmp.set(0, 0, -1).applyQuaternion(g.quaternion);
+    let best = CFG.lockCone;
+    for (const e of this.enemies) {
+      const to = this.tmp2.subVectors(e.pos, this.p.pos);
+      const d = to.length();
+      if (d > CFG.lockRange || d < 1) continue;
+      const ang = Math.acos(clamp(f.dot(to) / d, -1, 1));
+      if (ang < best) { best = ang; this.lock = e; }
+    }
+  }
+  firePlayer(){
+    this.fireT = 1 / this.stats.rate;
+    this.gunSide *= -1;
+    this.firedOnce = true;
+    const g = this.player.group; g.updateMatrixWorld();
+    const muzzle = g.localToWorld(new V3(this.gunSide * 2.2, -0.3, -2.8));
+    const dir = new V3(0, 0, -1).applyQuaternion(g.quaternion);
+    const PB = CFG.pBulletSpeed + this.p.speed;
+    const t = this.lock;
+    if (t) {
+      // aim assist: steer the shot most of the way toward where the locked enemy will be
+      const tf = t.pos.distanceTo(muzzle) / PB;
+      const lead = t.pos.clone().addScaledVector(t.vel, tf);
+      const aimDir = lead.sub(muzzle).normalize();
+      dir.lerp(aimDir, 0.85).normalize();
+    }
+    const m = this.pbPool.pop() || new THREE.Mesh(this.pbGeo, this.pbMat);
+    if (!m.parent) this.scene.add(m);
+    m.visible = true;
+    m.position.copy(muzzle);
+    m.quaternion.setFromUnitVectors(new V3(0, 0, 1), dir);
+    this.pbullets.push({ m, v: dir.multiplyScalar(PB), life: 1.6, prev: muzzle.clone() });
+  }
+  updatePlayerBullets(dt){
+    for (let i = this.pbullets.length - 1; i >= 0; i--) {
+      const b = this.pbullets[i];
+      b.prev.copy(b.m.position);
+      b.m.position.addScaledVector(b.v, dt);
+      b.life -= dt;
+      let hitE = null;
+      for (const e of this.enemies) if (this.segDist(b.prev, b.m.position, e.pos) < CFG.enemyHitR) { hitE = e; break; }
+      if (hitE) this.damageEnemy(hitE, 1, b.m.position);
+      if (hitE || b.life <= 0 || b.m.position.y < 0) { b.m.visible = false; this.pbPool.push(b.m); this.pbullets.splice(i, 1); }
+    }
+  }
+  damageEnemy(e, n, at){
+    e.hp -= n; e.hitT = 0.12;
+    this.spark(at, 0xfff07a, 4);
+    if (e.hp <= 0) this.destroyEnemy(e, true);
+  }
+  destroyEnemy(e, byPlayer){
+    const idx = this.enemies.indexOf(e);
+    if (idx < 0) return;
+    this.enemies.splice(idx, 1);
+    this.scene.remove(e.m.group);
+    this.explode(e.pos, [0x2b2d35, 0xff2a3a, 0xff8a3d, 0xffd23f, 0x3a3d47], 22);
+    if (this.lock === e) this.lock = null;
+    if (byPlayer) {
+      const coins = e.ace ? 80 : 30;
+      this.kills++; this.coins += coins; this.score += e.ace ? 300 : 100;
+      if (this.cb.onCoins) this.cb.onCoins(coins);
+      this.stat({ kind: 'kill', ace: e.ace });
+      this.cb.onEvent((e.ace ? 'エース撃墜！ +' : '撃墜！ +') + coins, 'coin');
+    }
+  }
+  damagePlayer(n, cause){
+    if (this.invuln > 0 || this.state !== 'flying') return;
+    this.hp -= n; this.invuln = 1.2; this.shake = 0.45; this.hitFlash = 0.35; this.damagedThisWave = true;
+    if (this.hp <= 0) { this.hp = 0; this.crash(cause); return; }
+    this.cb.onEvent(cause === 'enemy' ? '体当たり！ HP -' + n : '被弾！ のこりHP ' + this.hp, 'warn');
+    this.emitHud();
+  }
+
+  /* ---- effects ---- */
+  spark(at, color, n){
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(this.ebGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 }));
+      m.scale.setScalar(0.5); m.position.copy(at); this.scene.add(m);
+      this.debris.push({ m, v: new V3((Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30), spin: new V3(), life: 0.35, spark: true });
+    }
+  }
+  explode(at, cols, n){
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.6 + Math.random(), 0.4 + Math.random() * 0.6, 0.6 + Math.random()), mat(cols[i % cols.length]));
+      m.position.copy(at); this.scene.add(m);
+      this.debris.push({ m, v: new V3((Math.random() - 0.5) * 40, Math.random() * 25 + 5, (Math.random() - 0.5) * 40), spin: new V3(Math.random() * 8, Math.random() * 8, Math.random() * 8), life: 2.6 });
+    }
+    const flash = new THREE.Mesh(new THREE.SphereGeometry(4, 14, 10), new THREE.MeshBasicMaterial({ color: 0xffa23a, transparent: true, opacity: 0.9 }));
+    flash.position.copy(at); this.scene.add(flash);
+    this.debris.push({ m: flash, flash: true, life: 0.8 });
+  }
+  crash(cause){
+    this.cause = cause || 'shot';
+    this.state = 'crashed'; this.crashT = 1.6;
+    this.player.group.visible = false;
+    this.explode(this.p.pos, [0xffc82e, 0xffffff, 0xff8a3d, 0x2a2f36, 0xff4b5c], 28);
+    this.p.speed = 0;
+    this.emitHud();
+  }
+  updateDebris(dt){
+    for (let i = this.debris.length - 1; i >= 0; i--) {
+      const d = this.debris[i];
+      d.life -= dt;
+      if (d.flash) {
+        d.m.scale.setScalar(1 + (0.8 - d.life) * 7);
+        d.m.material.opacity = Math.max(0, d.life / 0.8);
+      } else if (d.spark) {
+        d.m.position.addScaledVector(d.v, dt);
+        d.m.material.opacity = Math.max(0, d.life / 0.35);
+      } else {
+        d.v.y -= 22 * dt;
+        d.m.position.addScaledVector(d.v, dt);
+        if (d.m.position.y < 0) { d.m.position.y = 0; d.v.set(d.v.x * 0.4, 0, d.v.z * 0.4); }
+        d.m.rotation.x += d.spin.x * dt; d.m.rotation.y += d.spin.y * dt;
+        if (d.life < 0.6) d.m.scale.setScalar(Math.max(0.01, d.life / 0.6));
+      }
+      if (d.life <= 0) {
+        this.scene.remove(d.m);
+        if (d.flash || d.spark) d.m.material.dispose();
+        this.debris.splice(i, 1);
+      }
+    }
+  }
+  updateTrail(dt){
+    const kind = this.skin.trail, p = this.p;
+    const airborne = this.state === 'flying' || (this.state === 'takeoff' && p.pos.y > GY + 1.5);
+    if (kind !== 'none' && airborne && !this.showcase) {
+      this.puffT -= dt;
+      while (this.puffT <= 0) {
+        this.puffT += 0.04;
+        const pf = this.puffs[this.puffI]; this.puffI = (this.puffI + 1) % this.puffs.length;
+        const g = this.player.group; g.updateMatrixWorld();
+        pf.m.position.copy(g.localToWorld(this.tmp2.set(0, 0.3, 4.8)));
+        pf.L = pf.life = kind === 'white' ? 1.4 : 1.8;
+        if (kind === 'rainbow') pf.m.material.color.setHSL((this.time * 0.45) % 1, 0.9, 0.62);
+        else if (kind === 'heart') pf.m.material.color.setHex(0xff9ec4);
+        else pf.m.material.color.setHex(0xffffff);
+        pf.m.visible = true;
+      }
+    }
+    for (const pf of this.puffs) {
+      if (pf.life <= 0) continue;
+      pf.life -= dt;
+      if (pf.life <= 0) { pf.m.visible = false; continue; }
+      const k = 1 - pf.life / pf.L;
+      pf.m.scale.setScalar(0.5 + k * 2.4);
+      pf.m.material.opacity = 0.75 * (1 - k);
+    }
+  }
+
+  applyPlayer(dt){
+    const p = this.p, g = this.player.group;
+    g.position.copy(p.pos);
+    g.rotation.set(p.pitch, p.yaw, p.roll, 'YXZ');
+    if (this.state !== 'crashed') g.visible = !(this.invuln > 0 && (this.time * 14) % 2 < 1);
+    const rpm = this.state === 'idle' ? 9 : 26 + p.speed * 0.6;
+    this.player.prop.rotation.z += rpm * dt;
+    for (const ep of this.player.extraProps) ep.rotation.z += rpm * dt;
+    this.sun.position.copy(p.pos).addScaledVector(this.sunDir, 200);
+    this.sun.target.position.copy(p.pos);
+  }
+
+  animateWorld(dt){
+    for (const c of this.clouds) { c.position.x += 4 * dt; if (c.position.x > 3500) c.position.x -= 7000; }
+    for (const b of this.boats) {
+      b.a += b.w * dt;
+      b.g.position.set(b.isl.x + Math.cos(b.a) * b.R, 0, b.isl.z + Math.sin(b.a) * b.R);
+      b.g.rotation.y = Math.atan2(Math.sin(b.a) * b.w, -Math.cos(b.a) * b.w);
+    }
+    this.sky.position.copy(this.camera.position);
+    this.sunDisc.position.copy(this.camera.position).addScaledVector(this.sunDir, 5000);
+  }
+
+  updateCamera(dt){
+    const p = this.p, cam = this.camera, rig = this.rig;
+    const F = fwdV(p.yaw, this.tmp);
+    const sf = clamp((p.speed - CFG.minSpeed) / (this.stats.maxSpeed - CFG.minSpeed), 0, 1);
+    const off = this.tmp2;
+    let k;
+    if (this.showcase) {
+      const ang = this.time * 0.3 + 2.2;
+      const R = cam.aspect < 1.2 ? 34 : 21;
+      off.set(Math.sin(ang) * R, R * 0.32, Math.cos(ang) * R);
+      rig.up.set(0, 1, 0);
+      rig.position.copy(p.pos).add(off);
+      rig.lookAt(p.pos.x, p.pos.y + 0.6, p.pos.z);
+      k = 3;
+    } else if (this.lookBack) {
+      // camera in front of the nose, looking back past the plane
+      off.copy(F).multiplyScalar(16); off.y = 5;
+      rig.up.set(0, 1, 0);
+      rig.position.copy(p.pos).add(off);
+      rig.lookAt(p.pos.x - F.x * 40, p.pos.y + 2, p.pos.z - F.z * 40);
+      k = 9;
+    } else if (this.camMode === 0 && this.vertMan()) {
+      // ride along through the loop: offset and up vector follow the plane
+      const q = this.player.group.quaternion;
+      const far = cam.aspect < 1 ? 1.45 : 1;
+      off.set(0, 5 * far, 17 * far).applyQuaternion(q);
+      rig.up.set(0, 1, 0).applyQuaternion(q);
+      rig.position.copy(p.pos).add(off);
+      const f3 = this.tmp3.set(0, 0, -1).applyQuaternion(q);
+      rig.lookAt(p.pos.x + f3.x * 24, p.pos.y + f3.y * 24, p.pos.z + f3.z * 24);
+      k = 7;
+    } else if (this.camMode === 0) {
+      const far = cam.aspect < 1 ? 1.45 : 1;
+      off.copy(F).multiplyScalar(-(16 + sf * 4) * far); off.y = 5.5 * far - Math.sin(p.pitch) * 8;
+      rig.up.set(0, 1, 0);
+      rig.position.copy(p.pos).add(off);
+      rig.lookAt(p.pos.x + F.x * 24, p.pos.y + 2 + Math.sin(p.pitch) * 20, p.pos.z + F.z * 24);
+      k = 4.5;
+    } else if (this.camMode === 1) {
+      off.set(0, 1.65, -0.5).applyQuaternion(this.player.group.quaternion);
+      rig.quaternion.copy(this.player.group.quaternion);
+      k = 16;
+    } else {
+      off.copy(F).multiplyScalar(-14); off.y = 150;
+      rig.up.copy(F);
+      rig.position.copy(p.pos).add(off);
+      rig.lookAt(p.pos.x + F.x * 22, p.pos.y, p.pos.z + F.z * 22);
+      k = 3.5;
+    }
+    const a = 1 - Math.exp(-k * dt);
+    this.camOff.lerp(off, a);
+    cam.position.copy(p.pos).add(this.camOff);
+    if (this.shake > 0) { const s = this.shake * 1.6; cam.position.x += (Math.random() - 0.5) * s; cam.position.y += (Math.random() - 0.5) * s; cam.position.z += (Math.random() - 0.5) * s; }
+    if (cam.position.y < 1.5) cam.position.y = 1.5;
+    cam.quaternion.slerp(rig.quaternion, a);
+    const fov = this.showcase ? 50 : this.lookBack ? 66 : this.camMode === 1 ? 72 : 60 + sf * 12;
+    if (Math.abs(cam.fov - fov) > 0.05) { cam.fov = damp(cam.fov, fov, 3, dt); cam.updateProjectionMatrix(); }
+  }
+
+  /* ---- 2D overlay: reticle + enemy markers, every frame ---- */
+  drawOverlay(){
+    const c = this.octx, W = this.ow, H = this.oh;
+    c.setTransform(this.odpr, 0, 0, this.odpr, 0, 0);
+    c.clearRect(0, 0, W, H);
+    if (this.showcase || (this.state !== 'flying' && this.state !== 'takeoff')) return;
+    const cam = this.camera; cam.updateMatrixWorld();
+    const v = this.tmpO;
+    // reticle where the guns converge
+    v.set(0, 0, -1).applyQuaternion(this.player.group.quaternion).multiplyScalar(170).add(this.p.pos).project(cam);
+    if (v.z < 1) {
+      const x = (v.x * 0.5 + 0.5) * W, y = (-v.y * 0.5 + 0.5) * H;
+      const col = this.lock ? '#ffd23f' : '#ffffff';
+      for (const pass of [0, 1]) {
+        c.lineWidth = pass ? 2 : 5; c.strokeStyle = pass ? col : 'rgba(18,48,71,.35)';
+        c.beginPath(); c.arc(x, y, 14, 0, TAU); c.stroke();
+        c.beginPath();
+        c.moveTo(x - 24, y); c.lineTo(x - 18, y); c.moveTo(x + 18, y); c.lineTo(x + 24, y);
+        c.moveTo(x, y - 24); c.lineTo(x, y - 18); c.moveTo(x, y + 18); c.lineTo(x, y + 24);
+        c.stroke();
+      }
+      c.fillStyle = col; c.beginPath(); c.arc(x, y, 2, 0, TAU); c.fill();
+    }
+    c.font = '700 11px Fredoka, system-ui, sans-serif'; c.textAlign = 'center';
+    for (const e of this.enemies) {
+      const dist = e.pos.distanceTo(this.p.pos);
+      v.copy(e.pos).project(cam);
+      const behind = v.z > 1;
+      let nx = v.x, ny = v.y;
+      if (behind) { nx = -nx; ny = -ny; }
+      const locked = e === this.lock;
+      const col = e.hitT > 0 ? '#ffffff' : locked ? '#ffd23f' : '#ff4b5c';
+      if (!behind && Math.abs(nx) < 0.96 && Math.abs(ny) < 0.94) {
+        const x = (nx * 0.5 + 0.5) * W, y = (-ny * 0.5 + 0.5) * H;
+        const s = clamp(1100 / dist, 10, 32), L = s * 0.55;
+        for (const pass of [0, 1]) {
+          c.lineWidth = pass ? 2.5 : 5.5; c.strokeStyle = pass ? col : 'rgba(18,48,71,.35)';
+          c.beginPath();
+          for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+            c.moveTo(x + sx * s, y + sy * s - sy * L); c.lineTo(x + sx * s, y + sy * s); c.lineTo(x + sx * s - sx * L, y + sy * s);
+          }
+          c.stroke();
+        }
+        // health bar
+        const bw = s * 2, frac = e.hp / e.maxHp;
+        c.fillStyle = 'rgba(18,48,71,.5)'; c.fillRect(x - s, y + s + 5, bw, 4);
+        c.fillStyle = col; c.fillRect(x - s, y + s + 5, bw * frac, 4);
+        const label = (e.ace ? 'ACE ' : '') + (locked ? 'LOCK ' : '') + (dist > 120 ? Math.round(dist) + 'm' : '');
+        if (label) {
+          c.lineWidth = 3; c.strokeStyle = 'rgba(18,48,71,.55)'; c.strokeText(label, x, y - s - 6);
+          c.fillStyle = col; c.fillText(label, x, y - s - 6);
+        }
+      } else {
+        // off-screen: arrow on the screen edge pointing at the enemy
+        const ang = Math.atan2(-ny, nx);
+        const dx = Math.cos(ang), dy = Math.sin(ang);
+        const sc = Math.min((W / 2 - 34) / Math.max(Math.abs(dx), 1e-4), (H / 2 - 34) / Math.max(Math.abs(dy), 1e-4));
+        const x = W / 2 + dx * sc, y = H / 2 + dy * sc;
+        c.save(); c.translate(x, y); c.rotate(ang);
+        c.beginPath(); c.moveTo(14, 0); c.lineTo(-8, -10); c.lineTo(-8, 10); c.closePath();
+        c.fillStyle = e.ace ? '#ffd23f' : '#ff4b5c'; c.fill();
+        c.lineWidth = 2; c.strokeStyle = '#ffffff'; c.stroke();
+        c.restore();
+      }
+    }
+  }
+
+  emitHud(){
+    const p = this.p;
+    let near = null, nd = Infinity;
+    for (const e of this.enemies) { const d = e.pos.distanceTo(p.pos); if (d < nd) { nd = d; near = e; } }
+    let arrow = 0;
+    if (near) arrow = -wrap(Math.atan2(-(near.pos.x - p.pos.x), -(near.pos.z - p.pos.z)) - p.yaw);
+    let hint = '';
+    if (this.state === 'flying') {
+      if (this.out) hint = 'エリアの端です。自動で引き返します';
+      else if (!this.firedOnce && this.wave >= 1) hint = 'touch';
+      else if (p.pos.y < 11 && this.groundAt(p.pos.x, p.pos.z) === 0) hint = '高度が低いよ（↓で上昇）';
+    }
+    this.cb.onHud({
+      state: this.state, score: Math.floor(this.score), coins: this.coins, kills: this.kills,
+      wave: this.wave, waveState: this.waveState, breakLeft: Math.max(0, Math.ceil(this.breakT)), enemiesLeft: this.enemies.length,
+      nearDist: near ? Math.round(nd) : 0, arrow,
+      speed: Math.round(p.speed * 3.6), alt: Math.max(0, Math.round(p.pos.y - GY + 1)), maxKmh: Math.round(this.stats.maxSpeed * 3.6),
+      hp: this.hp, maxHp: this.stats.hp, hitFlash: this.hitFlash > 0, lowHp: this.hp === 1 && this.state === 'flying',
+      hint, cam: this.camMode, takeoff: this.state === 'takeoff', lookBack: this.lookBack,
+      px: p.pos.x, pz: p.pos.z, pyaw: p.yaw,
+      enemies: this.enemies.map((e) => ({ x: e.pos.x, z: e.pos.z, ace: e.ace })),
+    });
+  }
+
+  resize(){
+    const w = Math.max(1, this.el.clientWidth), h = Math.max(1, this.el.clientHeight);
+    this.renderer.setSize(w, h);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.ov.width = Math.round(w * dpr); this.ov.height = Math.round(h * dpr);
+    this.ov.style.width = w + 'px'; this.ov.style.height = h + 'px';
+    this.ow = w; this.oh = h; this.odpr = dpr;
+    this.camera.aspect = w / h;
+    const vs = this.viewShift || { x: 0, y: 0 };
+    if (vs.x || vs.y) this.camera.setViewOffset(w, h, vs.x * w, vs.y * h, w, h);
+    else this.camera.clearViewOffset();
+    this.camera.updateProjectionMatrix();
+  }
+
+  dispose(){
+    cancelAnimationFrame(this.raf);
+    this.ro.disconnect();
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('blur', this.onBlur);
+    window.removeEventListener('pointerup', this.onPUp);
+    this.el.removeEventListener('pointerdown', this.onPDown);
+    this.renderer.dispose();
+    for (const n of [this.renderer.domElement, this.ov]) if (n.parentNode) n.parentNode.removeChild(n);
+  }
+}
+
+/* ============================ React HUD ============================ */
+const { useState, useEffect, useRef, useCallback } = React;
+const h = React.createElement;
+const MIN_KMH = Math.round(CFG.minSpeed * 3.6);
+
+function ArrowIcon(){
+  return h('svg', { viewBox: '0 0 32 32', 'aria-hidden': true },
+    h('path', { d: 'M16 2 L27 20 L19 17 L19 29 L13 29 L13 17 L5 20 Z', fill: '#ff4b5c', stroke: '#ffffff', strokeWidth: 1.5, strokeLinejoin: 'round' }));
+}
+
+function MiniMap({ hud }){
+  return h('svg', { className: 'minimap', viewBox: '-2900 -2900 5800 5800', 'aria-label': 'ミニマップ' },
+    h('circle', { cx: 0, cy: 0, r: 2870, className: 'mm-sea' }),
+    ISLANDS.map((s, i) => h('circle', { key: i, cx: s.x, cy: s.z, r: 230, className: 'mm-isl' })),
+    hud.enemies.map((n, i) => h('circle', { key: 'e' + i, cx: n.x, cy: n.z, r: n.ace ? 170 : 120, className: 'mm-enemy' })),
+    h('path', { d: 'M0,-260 L170,190 L0,110 L-170,190 Z', className: 'mm-plane', transform: 'translate(' + hud.px.toFixed(0) + ',' + hud.pz.toFixed(0) + ') rotate(' + (-hud.pyaw * 180 / Math.PI).toFixed(1) + ')' })
+  );
+}
+
+function HoldBtn({ game, name, cls, icon, label }){
+  const [on, setOn] = useState(false);
+  const set = (v) => (e) => {
+    e.preventDefault();
+    if (v && e.currentTarget.setPointerCapture) { try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} }
+    setOn(v);
+    if (game.current) game.current.setTouch(name, v);
+  };
+  return h('button', {
+    className: 'tbtn ' + cls + (on ? ' on' : ''), 'aria-label': label,
+    onPointerDown: set(true), onPointerUp: set(false), onPointerCancel: set(false), onLostPointerCapture: set(false),
+    onContextMenu: (e) => e.preventDefault(),
+  }, h('span', { className: 'ic' }, icon), h('span', null, label));
+}
+function TapBtn({ onTap, cls, icon, label }){
+  return h('button', { className: 'tbtn ' + cls, onPointerDown: (e) => { e.preventDefault(); onTap(); }, onContextMenu: (e) => e.preventDefault() },
+    h('span', { className: 'ic' }, icon), h('span', null, label));
+}
+
+function RankBadge({ done, big }){
+  const r = rankOf(done), rk = RANKS[r];
+  return h('span', { className: 'rank g-' + rk.g + (big ? ' big' : '') },
+    h('svg', { viewBox: '0 0 20 20', 'aria-hidden': true }, h('path', { d: 'M10 1.5 L12.4 7.3 L18.6 7.6 L13.8 11.6 L15.4 17.8 L10 14.4 L4.6 17.8 L6.2 11.6 L1.4 7.6 L7.6 7.3 Z' })),
+    rk.name);
+}
+function RankCard({ done }){
+  const r = rankOf(done), last = r === RANKS.length - 1;
+  const need = last ? 0 : RANK_NEED[r + 1] - done;
+  const pct = last ? 100 : clamp((done - RANK_NEED[r]) / (RANK_NEED[r + 1] - RANK_NEED[r]), 0, 1) * 100;
+  return h('div', { className: 'rankcard' },
+    h('div', { className: 'rk-top' }, h('span', { className: 'lbl' }, '階級（航空自衛隊）'), h(RankBadge, { done, big: true })),
+    h('div', { className: 'ms-bar' }, h('i', { style: { width: pct + '%' } })),
+    h('span', { className: 'ms-prog' }, last ? '最高の階級です' : '次は「' + RANKS[r + 1].name + '」 あとノルマ ' + need + ' 個'));
+}
+
+function Hearts({ hp, max }){
+  const out = [];
+  for (let i = 0; i < max; i++) out.push(h('svg', { key: i, viewBox: '0 0 24 22', className: 'heart' + (i < hp ? '' : ' empty'), 'aria-hidden': true },
+    h('path', { d: 'M12 21 L3 12 A5.5 5.5 0 0 1 12 4.5 A5.5 5.5 0 0 1 21 12 Z' })));
+  return h('span', { className: 'hearts', 'aria-label': 'HP ' + hp + ' / ' + max }, out);
+}
+
+function MissionList({ missions, compact }){
+  if (!missions) return null;
+  return h('div', { className: 'missions' + (compact ? ' compact panel' : '') },
+    !compact && h('span', { className: 'eyebrow' }, 'ノルマ（達成するとコインがもらえて、階級が上がる）'),
+    compact && h('span', { className: 'lbl' }, 'ノルマ'),
+    missions.slots.map((sl) => {
+      const m = missionAt(sl.i);
+      const pct = clamp(sl.p / m.n, 0, 1) * 100;
+      return h('div', { key: sl.i, className: 'ms' },
+        h('div', { className: 'ms-top' }, h('span', { className: 'ms-text' }, missionText(m)), h('span', { className: 'ms-rw' }, h('i', { className: 'coin' }), m.reward)),
+        h('div', { className: 'ms-bar' }, h('i', { style: { width: pct + '%' } })),
+        !compact && h('span', { className: 'ms-prog' }, missionProg(m, sl.p)));
+    }));
+}
+
+function Hud({ hud, game, isTouch, onRetry, missions, done }){
+  const pct = clamp((hud.speed - MIN_KMH) / (hud.maxKmh - MIN_KMH), 0, 1) * 100;
+  const fighting = hud.waveState === 'fight';
+  const blurClick = (fn) => (e) => { fn(); e.currentTarget.blur(); };
+  const hintText = hud.hint === 'touch' ? (isTouch ? '赤い「射撃」ボタンで撃とう。黄色の枠はロックオン中' : 'Space かクリックで撃とう。黄色の枠はロックオン中') : hud.hint;
+  let big = null;
+  if (hud.takeoff) big = h('div', null, h('div', { className: 'bigwave' }, '離陸！'), h('div', { className: 'bigsub' }, '敵が来るまでに高度をとろう'));
+  else if (hud.state === 'flying' && !fighting && hud.breakLeft > 0) big = h('div', null, h('div', { className: 'bigwave' }, 'WAVE ' + (hud.wave + 1)), h('div', { className: 'bigsub' }, hud.breakLeft + '秒後に敵機が来る'));
+  return h('div', { className: 'hud' },
+    hud.lowHp && h('div', { className: 'warning' }),
+    hud.hitFlash && h('div', { className: 'hitflash' }),
+    h('div', { className: 'top' },
+      h('div', { className: 'stats' },
+        h('div', { className: 'panel statcard' },
+          h('div', { className: 'stat' }, h('span', { className: 'lbl' }, 'スコア'), h('span', { className: 'val' }, hud.score)),
+          h('div', { className: 'stat' }, h('span', { className: 'lbl' }, 'コイン'), h('span', { className: 'val' }, h('i', { className: 'coin' }), hud.coins)),
+          h('div', { className: 'stat' }, h('span', { className: 'lbl' }, '撃墜'), h('span', { className: 'val' }, hud.kills)),
+          h('div', { className: 'stat' }, h('span', { className: 'lbl' }, 'HP'), h(Hearts, { hp: hud.hp, max: hud.maxHp }))
+        ),
+        h('div', { className: 'btnrow' },
+          h('button', { className: 'hbtn', onClick: blurClick(() => game.current && game.current.cycleCamera()) }, '視点：' + CAM_NAMES[hud.cam], !isTouch && h('kbd', null, 'C')),
+          h('button', { className: 'hbtn', onClick: blurClick(onRetry) }, 'リトライ'),
+          h(RankBadge, { done })
+        ),
+        h(MissionList, { missions, compact: true })
+      ),
+      h('div', { className: 'panel mission' },
+        h('div', { className: 'arrowwrap' }, fighting && hud.enemiesLeft > 0
+          ? h('div', { style: { transform: 'rotate(' + hud.arrow.toFixed(3) + 'rad)', display: 'grid' } }, h(ArrowIcon))
+          : h('span', { style: { color: '#ffffff', fontFamily: 'var(--f-display)', fontWeight: 700, fontSize: '18px' } }, hud.wave || '–')),
+        h('div', { className: 'mtext' },
+          h('span', { className: 'chip ' + (fighting ? 'fight' : 'break') }, 'WAVE ' + Math.max(1, fighting ? hud.wave : hud.wave + 1)),
+          h('span', { className: 'mline' }, fighting ? '敵機 のこり ' + hud.enemiesLeft + '機' : '次の敵にそなえよう'),
+          h('span', { className: 'mdist' }, fighting && hud.nearDist ? 'いちばん近い敵 ' + hud.nearDist + ' m' : '撃墜 +30 ／ エース +80 コイン'))
+      ),
+      h('div', { className: 'flight' },
+        h('div', { className: 'panel flightcard' },
+          h('div', { className: 'flightrow' },
+            h('div', { className: 'stat' }, h('span', { className: 'lbl' }, '速度'), h('span', { className: 'val' }, hud.speed, h('small', null, 'km/h'))),
+            h('div', { className: 'stat' }, h('span', { className: 'lbl' }, '高度'), h('span', { className: 'val' }, hud.alt, h('small', null, 'm')))
+          ),
+          h('div', { className: 'speedbar' }, h('div', { className: 'speedfill', style: { width: pct + '%' } }))
+        ),
+        h(MiniMap, { hud })
+      )
+    ),
+    big && h('div', { className: 'status' }, big),
+    hud.lookBack && h('div', { className: 'lookpill' }, '後方確認中'),
+    hintText && h('div', { className: 'hint' + (isTouch ? ' touch' : '') }, hintText),
+    !isTouch && h('div', { className: 'keys' },
+      [['Space', '射撃'], ['W/S', '加速/減速'], ['A/D', '旋回'], ['↑/↓', '下降/上昇'], ['F', 'Uターン'], ['T', '宙返り'], ['G', '縦Uターン'], ['Q/E', '回避ロール'], ['V', '後ろを見る'], ['R', '水平'], ['C', '視点']].map(([k, t]) => h('span', { key: k, className: 'key' }, h('b', null, k), t))),
+    isTouch && h('div', { className: 'pad' },
+      h(HoldBtn, { game, name: 'climb', cls: 'u', icon: '▲', label: '上昇' }),
+      h(HoldBtn, { game, name: 'left', cls: 'l', icon: '◀', label: '左' }),
+      h(HoldBtn, { game, name: 'right', cls: 'r', icon: '▶', label: '右' }),
+      h(HoldBtn, { game, name: 'dive', cls: 'd', icon: '▼', label: '下降' })),
+    isTouch && h(HoldBtn, { game, name: 'fire', cls: 'firebtn', icon: '✦', label: '射撃' }),
+    isTouch && h('div', { className: 'manv' },
+      h(TapBtn, { cls: 'mv', icon: '⤴', label: '縦U', onTap: () => game.current && game.current.immelmann(game.current.touch.right ? -1 : 1) }),
+      h(TapBtn, { cls: 'mv', icon: '↻', label: '宙返り', onTap: () => game.current && game.current.loop360() }),
+      h('span', { className: 'mvbreak' }),
+      h(TapBtn, { cls: 'mv', icon: '↶', label: 'Uターン', onTap: () => game.current && game.current.uTurn(game.current.touch.right ? -1 : 1) }),
+      h(TapBtn, { cls: 'mv', icon: '⟳', label: '回避', onTap: () => game.current && game.current.barrelRoll(game.current.touch.right ? -1 : 1) }),
+      h(HoldBtn, { game, name: 'look', cls: 'mv', icon: '◎', label: '後ろ' })),
+    isTouch && h('div', { className: 'thr' },
+      h(TapBtn, { cls: 'small', icon: '⟲', label: '水平', onTap: () => game.current && game.current.stabilize() }),
+      h(HoldBtn, { game, name: 'thr', cls: 'gas', icon: '+', label: '加速' }),
+      h(HoldBtn, { game, name: 'brake', cls: 'brake', icon: '−', label: '減速' }))
+  );
+}
+
+function StyleIcon({ id }){
+  const ink = '#123047';
+  return h('svg', { viewBox: '0 0 60 30', width: 60, height: 30, 'aria-hidden': true },
+    h('rect', { x: 8, y: 12, width: 44, height: 4, rx: 2, fill: ink }),
+    h('rect', { x: 26, y: 6, width: 8, height: 18, rx: 3, fill: ink }),
+    id === 'bi' && h('rect', { x: 10, y: 4, width: 40, height: 3, rx: 1.5, fill: ink }),
+    id === 'float' && h('rect', { x: 14, y: 25, width: 10, height: 3, rx: 1.5, fill: ink }),
+    id === 'float' && h('rect', { x: 36, y: 25, width: 10, height: 3, rx: 1.5, fill: ink }),
+    id === 'twin' && h('circle', { cx: 17, cy: 14, r: 4, fill: ink }),
+    id === 'twin' && h('circle', { cx: 43, cy: 14, r: 4, fill: ink }),
+    id === 'racer' && h('path', { d: 'M30 1 L36 10 L24 10 Z', fill: '#ff4b5c' }));
+}
+function Swatch({ kind, item }){
+  if (kind === 'paint') return h('div', { className: 'sw' }, [item.body, item.wing, item.trim].map((c, i) => h('i', { key: i, style: { background: hex(c) } })));
+  if (kind === 'plane') return h('div', { className: 'sw sw-svg' }, h(StyleIcon, { id: item.id }));
+  const bg = { none: 'repeating-linear-gradient(45deg,#dfe7ee 0 6px,#ffffff 6px 12px)', white: 'linear-gradient(90deg,rgba(255,255,255,0),#ffffff)', heart: 'linear-gradient(90deg,rgba(255,158,196,0),#ff9ec4)', rainbow: 'linear-gradient(90deg,#ff5a5a,#ffb83f,#ffe14f,#4fd67a,#4fb3ff,#9b6bff)' }[item.id];
+  return h('div', { className: 'sw sw-trail', style: { background: bg } });
+}
+
+function Hangar({ save, setSave, game, onClose }){
+  const [tab, setTab] = useState('plane');
+  const [preview, setPreview] = useState(() => Object.assign({}, save.equip));
+  useEffect(() => { if (game.current) game.current.setSkin(resolveSkin(preview)); }, [preview, game]);
+  const owns = (kind, it) => it.price === 0 || save.owned.includes(kind + ':' + it.id);
+  const choose = (id) => setPreview((p) => Object.assign({}, p, { [tab]: id }));
+  const equip = (it) => {
+    choose(it.id);
+    setSave((s) => Object.assign({}, s, { equip: Object.assign({}, s.equip, { [tab]: it.id }) }));
+  };
+  const buy = (it) => {
+    if (save.wallet < it.price) return;
+    choose(it.id);
+    setSave((s) => s.wallet < it.price ? s : Object.assign({}, s, {
+      wallet: s.wallet - it.price,
+      owned: s.owned.concat(tab + ':' + it.id),
+      equip: Object.assign({}, s.equip, { [tab]: it.id }),
+    }));
+  };
+  const close = () => { if (game.current) game.current.setSkin(resolveSkin(save.equip)); onClose(); };
+  const unsaved = Object.keys(DEFAULT_EQUIP).some((k) => preview[k] !== save.equip[k]);
+  return h('div', { className: 'hangar', role: 'dialog', 'aria-label': 'ハンガー' },
+    h('div', { className: 'hg-head' },
+      h('div', null, h('span', { className: 'eyebrow' }, 'カスタマイズ'), h('h2', { className: 'hg-title' }, 'ハンガー')),
+      h('div', { className: 'wallet' }, h('i', { className: 'coin' }), save.wallet.toLocaleString())),
+    h('div', { className: 'tabs', role: 'tablist' }, SHOP_TABS.map(([k, label]) =>
+      h('button', { key: k, role: 'tab', 'aria-selected': tab === k, className: 'tab' + (tab === k ? ' on' : ''), onClick: () => setTab(k) }, label))),
+    h('div', { className: 'items' }, SHOP[tab].map((it) => {
+      const own = owns(tab, it), equipped = save.equip[tab] === it.id, viewing = preview[tab] === it.id;
+      const short = it.price - save.wallet;
+      let action;
+      if (equipped) action = h('span', { className: 'tag on' }, '装備中');
+      else if (own) action = h('button', { className: 'act', onClick: (e) => { e.stopPropagation(); equip(it); } }, '装備する');
+      else if (short > 0) action = h('span', { className: 'tag' }, 'あと ' + short.toLocaleString());
+      else action = h('button', { className: 'act buy', onClick: (e) => { e.stopPropagation(); buy(it); } }, h('i', { className: 'coin' }), it.price.toLocaleString(), ' で買う');
+      return h('div', { key: it.id, className: 'item' + (viewing ? ' viewing' : ''), onClick: () => choose(it.id), role: 'button', tabIndex: 0,
+        onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(it.id); } } },
+        h(Swatch, { kind: tab, item: it }),
+        h('div', { className: 'iname' }, h('b', null, it.name), h('span', null, own ? '持っている' : h(React.Fragment, null, h('i', { className: 'coin' }), it.price.toLocaleString())),
+          tab === 'plane' && h('span', { className: 'desc' }, it.desc),
+          tab === 'plane' && h('div', { className: 'pstats' },
+            [['速さ', it.maxSpeed / 120], ['加速', it.accel / 30], ['旋回', it.turn / 1.35], ['HP', it.hp / 5], ['連射', it.rate / 11]].map(([l, v]) =>
+              h('div', { key: l, className: 'pst' }, h('span', null, l), h('div', { className: 'pbar' }, h('i', { style: { width: Math.round(v * 100) + '%' } })))))),
+        action);
+    })),
+    h('p', { className: 'hg-note' }, tab === 'trail' ? '飛行機雲は飛んでいるときに出ます。' : 'タップすると見た目を確認できます。コインは撃墜・WAVEクリア・ミッションでたまります。'),
+    h('button', { className: 'cta', onClick: close }, unsaved ? '試すのをやめて戻る' : '戻る'));
+}
+
+function Title({ best, wallet, isTouch, onStart, onHangar, missions, done }){
+  return h('div', { className: 'overlay' },
+    h('div', { className: 'card' },
+      h('span', { className: 'eyebrow' }, '島々の空を守るドッグファイト'),
+      h('h1', { className: 'logo' }, 'SKY', h('span', null, 'TAXI')),
+      h('p', { className: 'lead' }, '空賊の戦闘機がつぎつぎにやってくる。撃ち落としてWAVEをクリアしよう。撃墜・WAVEクリア・ミッションでコインを集めて、ハンガーで強い飛行機を買おう。'),
+      isTouch
+        ? h('div', { className: 'tip' }, '左のボタンで旋回と上昇・下降、右の赤いボタンで射撃、緑で加速。「Uターン」で横に反転、「縦U」で上に回って反転、「宙返り」で縦に1回転、「回避」で弾をよけるロール、「後ろ」を押している間は後方を確認できます。')
+        : h('div', { className: 'ctrls' },
+            [['Space', '射撃（クリックでも）', 'fire'], ['W / S', '加速 / 減速'], ['A / D', '左旋回 / 右旋回'], ['↑ / ↓', '下降 / 上昇'], ['F', 'くるっとUターン（横）'], ['G', '縦Uターン（上に回って反転）'], ['T', '宙返り（縦に1回転）'], ['Q / E', '回避ロール（左 / 右）'], ['V', '押している間 後ろを見る'], ['R', '姿勢を安定させる'], ['C', '視点の切り替え']].map(([k, t, c]) => h('div', { key: k, className: c || '' }, h('kbd', null, k), t))),
+      h('div', { className: 'tip' }, '照準の近くに敵が入ると黄色の枠でロックオンされ、弾が敵に向かって飛びます。敵の弾はまっすぐ飛んでいると当たるので、左右に動いてよけよう。WAVEをクリアするとHPが1回復します。'),
+      h(RankCard, { done }),
+      h(MissionList, { missions }),
+      h('div', { className: 'ctarow' },
+        h('button', { className: 'cta', onClick: onStart, autoFocus: true }, '出撃'),
+        h('button', { className: 'cta2', onClick: onHangar }, 'ハンガー', h('span', null, h('i', { className: 'coin' }), wallet.toLocaleString()))),
+      best > 0 && h('span', { className: 'sub' }, 'ベストスコア ' + best),
+      h('a', { className: 'backlink', href: '../../' }, '← ゲーム一覧にもどる')
+    ));
+}
+
+function GameOver({ result, wallet, onRetry, onHangar, missions, done }){
+  return h('div', { className: 'overlay' },
+    h('div', { className: 'card', role: 'dialog', 'aria-label': 'ゲームオーバー' },
+      h('h2', { className: 'over-title' }, '撃墜された…'),
+      h('p', { className: 'lead' }, (result.cause === 'enemy' ? '敵機と衝突しました。' : '敵の弾を受けすぎました。') + 'このフライトで ' + result.coins + ' コイン手に入れました。'),
+      h('div', { className: 'results' },
+        h('div', null, h('span', { className: 'lbl' }, 'スコア'), h('span', { className: 'val' }, result.score)),
+        h('div', null, h('span', { className: 'lbl' }, '撃墜'), h('span', { className: 'val' }, result.kills, h('small', null, '機'))),
+        h('div', null, h('span', { className: 'lbl' }, 'WAVE'), h('span', { className: 'val' }, result.wave)),
+        h('div', null, h('span', { className: 'lbl' }, 'ベスト'), h('span', { className: 'val' }, result.best))
+      ),
+      h('div', { className: 'ctarow' },
+        h('button', { className: 'cta', onClick: onRetry, autoFocus: true }, 'もう一度出撃'),
+        h('button', { className: 'cta2', onClick: onHangar }, 'ハンガー', h('span', null, h('i', { className: 'coin' }), wallet.toLocaleString()))),
+      h(RankCard, { done }),
+      h(MissionList, { missions }),
+      h('span', { className: 'sub' }, 'Enter キーでも再出撃できます'),
+      h('a', { className: 'backlink', href: '../../' }, '← ゲーム一覧にもどる')
+    ));
+}
+
+function App(){
+  const mountRef = useRef(null), gameRef = useRef(null), toastId = useRef(0);
+  const [hud, setHud] = useState(null);
+  const [screen, setScreen] = useState('title');
+  const [result, setResult] = useState(null);
+  const [toasts, setToasts] = useState([]);
+  const [best, setBest] = useState(loadBest);
+  const [isTouch] = useState(() => (window.matchMedia && matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window);
+  const [error, setError] = useState('');
+  const [save, setSaveState] = useState(loadSave);
+  const saveRef = useRef(save);
+  useEffect(() => { storeSave(save); }, [save]);
+  // every save change goes through here so rapid game events never read a stale copy
+  const setSave = useCallback((fn) => {
+    const next = typeof fn === 'function' ? fn(saveRef.current) : fn;
+    if (next === saveRef.current) return;
+    saveRef.current = next; setSaveState(next);
+  }, []);
+  const addCoins = useCallback((n) => setSave((s) => Object.assign({}, s, { wallet: s.wallet + n })), [setSave]);
+
+  const pushToast = useCallback((text, kind) => {
+    const id = ++toastId.current;
+    setToasts((t) => t.slice(-2).concat({ id, text, kind }));
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 1800);
+  }, []);
+  const onStat = useCallback((stat) => {
+    const cur = saveRef.current;
+    const r = stepMissions(cur.missions, stat);
+    if (!r.done.length && r.ms.slots.every((s, k) => s.p === cur.missions.slots[k].p)) return;
+    const done = (cur.done || 0) + r.done.length;
+    const before = rankOf(cur.done || 0), after = rankOf(done);
+    const promoBonus = after > before ? 100 * after : 0;
+    setSave(Object.assign({}, cur, { missions: r.ms, wallet: cur.wallet + r.reward + promoBonus, done }));
+    r.done.forEach((m, k) => setTimeout(() => pushToast('ノルマ達成！ +' + m.reward, 'good'), 600 + k * 700));
+    if (after > before) setTimeout(() => pushToast('昇進！ ' + RANKS[after].name + '（+' + promoBonus + '）', 'rank'), 900 + r.done.length * 700);
+  }, [setSave, pushToast]);
+
+  useEffect(() => {
+    let g = null;
+    try {
+      g = new Game(mountRef.current, {
+        onHud: setHud,
+        onEvent: pushToast,
+        onCoins: addCoins,
+        onStat,
+        onGameOver: (r) => { setResult(r); setBest(r.best); setScreen('over'); },
+        skin: resolveSkin(saveRef.current.equip),
+      });
+      gameRef.current = g;
+    } catch (err) {
+      setError('3D表示（WebGL）を開始できませんでした。別のブラウザで開いてみてください。');
+    }
+    return () => { if (g) g.dispose(); gameRef.current = null; };
+  }, [pushToast, addCoins, onStat]);
+
+  const openHangar = useCallback(() => {
+    const g = gameRef.current;
+    if (g) {
+      if (g.state !== 'idle') g.toIdle();
+      const narrow = window.innerWidth <= 680;
+      g.setShowcase(true, narrow ? { x: 0, y: 0.27 } : { x: 0.17, y: 0 });
+    }
+    setToasts([]); setResult(null); setScreen('hangar');
+  }, []);
+  const closeHangar = useCallback(() => { if (gameRef.current) gameRef.current.setShowcase(false); setScreen('title'); }, []);
+  const start = useCallback(() => { onStat({ kind: 'run_reset' }); if (gameRef.current) gameRef.current.start(); setScreen('play'); }, [onStat]);
+  const retry = useCallback(() => { onStat({ kind: 'run_reset' }); setToasts([]); setResult(null); if (gameRef.current) gameRef.current.restart(); setScreen('play'); }, [onStat]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.repeat || (e.code !== 'Enter' && e.code !== 'Space')) return;
+      if (screen === 'title') { e.preventDefault(); start(); }
+      else if (screen === 'over') { e.preventDefault(); retry(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [screen, start, retry]);
+
+  return h('div', { className: 'app' },
+    h('div', { ref: mountRef, className: 'stage' }),
+    hud && screen === 'play' && h(Hud, { hud, game: gameRef, isTouch, onRetry: retry, missions: save.missions, done: save.done || 0 }),
+    screen === 'play' && h('div', { className: 'toasts', 'aria-live': 'polite' }, toasts.map((t) => h('div', { key: t.id, className: 'toast ' + (t.kind || '') }, t.text))),
+    screen === 'title' && h(Title, { best, wallet: save.wallet, isTouch, onStart: start, onHangar: openHangar, missions: save.missions, done: save.done || 0 }),
+    screen === 'over' && result && h(GameOver, { result, wallet: save.wallet, onRetry: retry, onHangar: openHangar, missions: save.missions, done: save.done || 0 }),
+    screen === 'hangar' && h(Hangar, { save, setSave, game: gameRef, onClose: closeHangar }),
+    error && h('div', { className: 'overlay' }, h('div', { className: 'card' }, h('p', { className: 'lead' }, error)))
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+})();
+</script>
+</body>
+</html>
