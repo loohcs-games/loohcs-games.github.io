@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#f1ecff">
+<meta name="robots" content="noindex, nofollow">
+<title>カラーポップ</title>
+<style>
+  :root {
+    --text: #1d1d1f;
+    --sub: #6e6e73;
+    --glass: rgba(255, 255, 255, 0.62);
+    --glass-strong: rgba(255, 255, 255, 0.82);
+    --stroke: rgba(255, 255, 255, 0.75);
+    --accent: #5b6cff;
+    --accent2: #a66bff;
+    --danger: #ff5a6e;
+    --bs: min(92vw, 440px, calc(100vh - 270px));
+  }
+  @supports (height: 100svh) {
+    :root { --bs: min(92vw, 440px, calc(100svh - 270px)); }
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
+    color: var(--text);
+    background: linear-gradient(155deg, #fde8f2 0%, #efe9ff 45%, #e2f3ff 100%);
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+  button { font-family: inherit; }
+
+  /* ---------- 背景のふんわりした光 ---------- */
+  .blobs { position: fixed; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+  .blob {
+    position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.55;
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+  .blob.b1 { width: 55vmax; height: 55vmax; background: #ffc6dc; top: -18vmax; left: -15vmax; }
+  .blob.b2 { width: 50vmax; height: 50vmax; background: #c9d6ff; bottom: -20vmax; right: -15vmax; animation-delay: -6s; }
+  .blob.b3 { width: 35vmax; height: 35vmax; background: #c6f3e4; top: 40%; left: 55%; animation-delay: -12s; opacity: 0.4; }
+  @keyframes drift {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(4vmax, 3vmax) scale(1.08); }
+  }
+
+  /* ---------- レイアウト ---------- */
+  #app {
+    position: relative; z-index: 1;
+    height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px;
+    padding: max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom));
+  }
+  .topbar {
+    width: var(--bs);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .brand {
+    font-size: 22px; font-weight: 800; letter-spacing: 0.02em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .brand-dots { display: inline-grid; grid-template-columns: repeat(2, 9px); gap: 3px; }
+  .brand-dots i { width: 9px; height: 9px; border-radius: 3px; display: block; }
+  .actions { display: flex; gap: 8px; }
+  .icon-btn {
+    width: 42px; height: 42px; border-radius: 14px; border: none;
+    background: var(--glass); color: var(--text);
+    backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%);
+    box-shadow: 0 4px 14px -6px rgba(70, 60, 140, 0.3), inset 0 0 0 1px var(--stroke);
+    display: grid; place-items: center; cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s;
+  }
+  .icon-btn:hover { background: var(--glass-strong); }
+  .icon-btn:active { transform: scale(0.92); }
+  .icon-btn svg { width: 20px; height: 20px; }
+  .icon-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .stats {
+    width: var(--bs);
+    display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 10px;
+  }
+  .stat {
+    background: var(--glass);
+    backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border-radius: 18px; padding: 10px 14px;
+    box-shadow: 0 6px 20px -10px rgba(70, 60, 140, 0.3), inset 0 0 0 1px var(--stroke);
+    display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  }
+  .stat .label { font-size: 11px; color: var(--sub); font-weight: 600; letter-spacing: 0.04em; }
+  .stat .value {
+    font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .stat .value.small { font-size: 20px; }
+  .bump { animation: bump 0.3s cubic-bezier(.34, 1.56, .64, 1); }
+  @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+  #score { display: inline-block; transform-origin: left center; }
+  #time.low { color: var(--danger); }
+
+  .timebar {
+    width: var(--bs); height: 8px; border-radius: 99px;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: inset 0 0 0 1px var(--stroke);
+    overflow: hidden;
+  }
+  #timefill {
+    height: 100%; width: 100%; border-radius: 99px;
+    background: linear-gradient(90deg, #6fd6ff, #5b6cff 55%, #a66bff);
+    transform-origin: left center;
+    transition: background 0.4s;
+  }
+  #timefill.low { background: linear-gradient(90deg, #ff9a7a, #ff5a6e); animation: pulse 0.8s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.55; } }
+
+  /* ---------- 盤面 ---------- */
+  #boardWrap { position: relative; width: var(--bs); height: var(--bs); }
+  #board {
+    position: absolute; inset: 0;
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(22px) saturate(170%); -webkit-backdrop-filter: blur(22px) saturate(170%);
+    box-shadow: 0 24px 60px -24px rgba(80, 70, 150, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.85);
+  }
+  #cells {
+    position: absolute; inset: 8px;
+    display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(6, 1fr);
+  }
+  #cells div { padding: 4px; }
+  #cells div::after {
+    content: ""; display: block; width: 100%; height: 100%;
+    border-radius: 28%; background: rgba(120, 110, 180, 0.07);
+  }
+  #grid {
+    position: absolute; inset: 8px;
+    clip-path: inset(0 -40px -40px -40px);
+    touch-action: none;
+    cursor: pointer;
+  }
+
+  .tile {
+    position: absolute; left: 0; top: 0;
+    width: calc(100% / 6); height: calc(100% / 6);
+    padding: 4px;
+    transition-property: transform;
+    transition-duration: 180ms;
+    transition-timing-function: cubic-bezier(.4, 0, .2, 1);
+    will-change: transform;
+  }
+  .block {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 28%;
+    display: grid; place-items: center;
+    background: linear-gradient(160deg, var(--hi) 0%, var(--base) 55%, var(--lo) 100%);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.55),
+      inset 0 -3px 6px rgba(0, 0, 0, 0.07),
+      0 5px 12px -4px var(--shadow);
+    transition: transform 0.2s cubic-bezier(.34, 1.56, .64, 1), box-shadow 0.2s, opacity 0.2s;
+  }
+  .block::before {
+    content: ""; position: absolute;
+    left: 14%; right: 14%; top: 7%; height: 38%;
+    border-radius: 999px 999px 40% 40%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
+    pointer-events: none;
+  }
+  .block svg {
+    position: relative; width: 40%; height: 40%;
+    fill: rgba(255, 255, 255, 0.82);
+    stroke: rgba(255, 255, 255, 0.82); stroke-width: 1.5; stroke-linejoin: round;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
+  }
+  .c0 { --base: #ff7d90; --hi: #ffadb9; --lo: #f2647b; --shadow: rgba(242, 100, 123, 0.5); }
+  .c1 { --base: #ffac55; --hi: #ffcb8a; --lo: #f7953a; --shadow: rgba(247, 149, 58, 0.5); }
+  .c2 { --base: #ffd44a; --hi: #ffe78c; --lo: #f5c02a; --shadow: rgba(230, 180, 30, 0.5); }
+  .c3 { --base: #5ed39a; --hi: #94e7bd; --lo: #3fbf82; --shadow: rgba(63, 191, 130, 0.5); }
+  .c4 { --base: #64a9ff; --hi: #9cc8ff; --lo: #4a90f5; --shadow: rgba(74, 144, 245, 0.5); }
+
+  .tile.selected { z-index: 3; }
+  .tile.selected .block {
+    box-shadow:
+      0 0 0 3px #fff,
+      0 0 0 6px var(--base),
+      0 12px 22px -6px var(--shadow);
+    animation: breathe 1s ease-in-out infinite;
+  }
+  @keyframes breathe { 0%, 100% { transform: scale(1.06); } 50% { transform: scale(1.12); } }
+
+  .tile.popping { z-index: 4; }
+  .tile.popping .block { animation: pop 0.3s cubic-bezier(.4, 0, .6, 1) forwards; }
+  @keyframes pop {
+    0% { transform: scale(1); filter: brightness(1); }
+    35% { transform: scale(1.25); filter: brightness(1.35); opacity: 1; }
+    100% { transform: scale(0); filter: brightness(1.6); opacity: 0; }
+  }
+  .tile.nope .block { animation: nope 0.32s ease; }
+  @keyframes nope {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6%); }
+    40% { transform: translateX(6%); }
+    60% { transform: translateX(-4%); }
+    80% { transform: translateX(4%); }
+  }
+  .tile.hint .block { animation: hint 1.3s ease-in-out infinite; }
+  @keyframes hint {
+    0%, 60%, 100% { transform: rotate(0) scale(1); }
+    70% { transform: rotate(-8deg) scale(1.06); }
+    80% { transform: rotate(8deg) scale(1.06); }
+    90% { transform: rotate(-4deg) scale(1.03); }
+  }
+  .tile.shrink .block { transform: scale(0); opacity: 0; }
+  body.is-paused .tile .block { animation-play-state: paused; }
+
+  /* ---------- 盤面上の演出テキスト ---------- */
+  .float-score {
+    position: absolute; z-index: 6; pointer-events: none;
+    transform: translate(-50%, -50%);
+    font-weight: 900; font-size: 22px; color: #fff;
+    text-shadow: 0 2px 8px rgba(60, 40, 120, 0.45), 0 0 2px rgba(60, 40, 120, 0.5);
+    animation: floatUp 0.9s cubic-bezier(.2, .8, .3, 1) forwards;
+    white-space: nowrap;
+  }
+  @keyframes floatUp {
+    0% { opacity: 0; transform: translate(-50%, -30%) scale(0.6); }
+    20% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); }
+    100% { opacity: 0; transform: translate(-50%, -160%) scale(1); }
+  }
+  #banner {
+    position: absolute; left: 50%; top: 50%; z-index: 7; pointer-events: none;
+    transform: translate(-50%, -50%);
+    padding: 10px 22px; border-radius: 999px;
+    font-size: 26px; font-weight: 900; letter-spacing: 0.03em; white-space: nowrap;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    box-shadow: 0 12px 30px -8px rgba(91, 108, 255, 0.6);
+    opacity: 0;
+  }
+  #banner.show { animation: banner 1s cubic-bezier(.34, 1.56, .64, 1) forwards; }
+  #banner.warm { background: linear-gradient(135deg, #ff8a5c, #ff5a8a); box-shadow: 0 12px 30px -8px rgba(255, 90, 120, 0.6); }
+  @keyframes banner {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+    35% { transform: translate(-50%, -50%) scale(1); }
+    75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -70%) scale(0.95); }
+  }
+
+  .hint-text { margin: 0; font-size: 13px; color: var(--sub); text-align: center; }
+
+  /* ---------- パーティクル ---------- */
+  #fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+
+  /* ---------- オーバーレイ画面 ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    background: rgba(245, 240, 255, 0.35);
+    backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+  }
+  .overlay.show { opacity: 1; visibility: visible; transition: opacity 0.3s ease, visibility 0s; }
+  .card {
+    width: min(100%, 380px);
+    background: var(--glass-strong);
+    border-radius: 30px;
+    padding: 30px 26px 26px;
+    box-shadow: 0 30px 80px -30px rgba(70, 50, 150, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+    text-align: center;
+    transform: translateY(16px) scale(0.96);
+    transition: transform 0.4s cubic-bezier(.34, 1.4, .64, 1);
+  }
+  .overlay.show .card { transform: none; }
+  .card h1 { margin: 6px 0 4px; font-size: 34px; font-weight: 900; letter-spacing: 0.02em; }
+  .card h2 { margin: 0 0 6px; font-size: 26px; font-weight: 900; }
+  .card p.lead { margin: 0 0 18px; color: var(--sub); font-size: 14px; }
+
+  .logo { display: inline-grid; grid-template-columns: repeat(3, 34px); gap: 6px; margin-bottom: 8px; }
+  .logo span {
+    width: 34px; height: 34px; border-radius: 11px;
+    background: linear-gradient(160deg, var(--hi), var(--base) 55%, var(--lo));
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 6px 12px -5px var(--shadow);
+    animation: logoBounce 2.4s ease-in-out infinite;
+  }
+  .logo span:nth-child(2) { animation-delay: 0.15s; }
+  .logo span:nth-child(3) { animation-delay: 0.3s; }
+  .logo span:nth-child(4) { animation-delay: 0.45s; }
+  .logo span:nth-child(5) { animation-delay: 0.6s; }
+  .logo span:nth-child(6) { animation-delay: 0.75s; }
+  @keyframes logoBounce {
+    0%, 70%, 100% { transform: translateY(0) scale(1); }
+    80% { transform: translateY(-8px) scale(1.06); }
+    90% { transform: translateY(0) scale(0.96); }
+  }
+
+  .howto {
+    list-style: none; margin: 0 0 20px; padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.6); border-radius: 18px;
+    text-align: left; font-size: 13.5px; line-height: 1.55; color: #3a3a3c;
+    display: grid; gap: 8px;
+  }
+  .howto li { display: flex; gap: 10px; align-items: flex-start; }
+  .howto .num {
+    flex: none; width: 22px; height: 22px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff;
+    font-size: 12px; font-weight: 800; display: grid; place-items: center; margin-top: 1px;
+  }
+
+  .btn {
+    display: block; width: 100%;
+    border: none; border-radius: 16px; padding: 15px 18px;
+    font-size: 17px; font-weight: 800; letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.2s, background 0.2s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.primary {
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    box-shadow: 0 12px 26px -10px rgba(91, 108, 255, 0.7);
+  }
+  .btn.primary:hover { box-shadow: 0 14px 30px -10px rgba(91, 108, 255, 0.85); }
+  .btn.ghost {
+    color: var(--text); background: rgba(255, 255, 255, 0.7);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+    margin-top: 10px;
+  }
+  .btn.ghost:hover { background: #fff; }
+
+  .best-line { margin-top: 14px; font-size: 13px; color: var(--sub); }
+  .best-line b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .sound-line {
+    margin-top: 10px; display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--sub); background: none; border: none; cursor: pointer; padding: 6px 10px; border-radius: 10px;
+  }
+  .sound-line:hover { background: rgba(255, 255, 255, 0.6); }
+  .sound-line svg { width: 16px; height: 16px; }
+
+  .final-score {
+    font-size: 58px; font-weight: 900; line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin: 4px 0 6px;
+  }
+  .record {
+    display: inline-block; margin-bottom: 12px;
+    padding: 5px 14px; border-radius: 99px;
+    font-size: 13px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, #ffb347, #ff5a8a);
+    box-shadow: 0 8px 18px -8px rgba(255, 90, 138, 0.8);
+    animation: recordPop 0.6s cubic-bezier(.34, 1.56, .64, 1) both 0.6s;
+  }
+  .record[hidden] { display: none; }
+  @keyframes recordPop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+  .result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 6px 0 20px; }
+  .result-grid div { background: rgba(255, 255, 255, 0.65); border-radius: 14px; padding: 10px 6px; }
+  .result-grid small { display: block; font-size: 11px; color: var(--sub); font-weight: 600; }
+  .result-grid b { font-size: 19px; font-variant-numeric: tabular-nums; }
+
+  a.btn { text-decoration: none; box-sizing: border-box; }
+  .back-link { display: block; margin-top: 6px; font-size: 13px; color: var(--accent); text-decoration: none; }
+  .back-link:hover { text-decoration: underline; }
+
+  .kbd-note { margin-top: 12px; font-size: 12px; color: var(--sub); }
+
+  @media (max-width: 380px) {
+    .stat { padding: 8px 10px; border-radius: 15px; }
+    .stat .value { font-size: 20px; }
+    .stat .value.small { font-size: 17px; }
+    .brand { font-size: 19px; }
+    .card { padding: 24px 18px 20px; }
+    .card h1 { font-size: 30px; }
+  }
+  @media (max-height: 620px) {
+    #app { gap: 10px; }
+    .hint-text { display: none; }
+    :root { --bs: min(92vw, 440px, calc(100vh - 220px)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .blob, .logo span { animation: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="blobs" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+  <main id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-dots" aria-hidden="true">
+          <i style="background:#ff7d90"></i><i style="background:#ffd44a"></i>
+          <i style="background:#5ed39a"></i><i style="background:#64a9ff"></i>
+        </span>
+        カラーポップ
+      </div>
+      <div class="actions">
+        <button id="soundBtn" class="icon-btn" aria-label="効果音の切り替え" title="効果音 ON/OFF"></button>
+        <button id="pauseBtn" class="icon-btn" aria-label="一時停止" title="一時停止 (Space)"></button>
+      </div>
+    </header>
+
+    <section class="stats">
+      <div class="stat"><span class="label">スコア</span><span class="value"><span id="score">0</span></span></div>
+      <div class="stat"><span class="label">ハイスコア</span><span id="best" class="value small">0</span></div>
+      <div class="stat"><span class="label">残り時間</span><span id="time" class="value">60</span></div>
+    </section>
+
+    <div class="timebar"><div id="timefill"></div></div>
+
+    <div id="boardWrap">
+      <div id="board">
+        <div id="cells" aria-hidden="true"></div>
+        <div id="grid" role="grid" aria-label="ゲーム盤面"></div>
+      </div>
+      <div id="banner"></div>
+    </div>
+
+    <p class="hint-text">隣り合うブロックをタップ、またはスワイプで入れ替え</p>
+  </main>
+
+  <canvas id="fx" aria-hidden="true"></canvas>
+
+  <!-- スタート画面 -->
+  <div id="startScreen" class="overlay show">
+    <div class="card">
+      <div class="logo" aria-hidden="true">
+        <span class="c0"></span><span class="c1"></span><span class="c2"></span>
+        <span class="c3"></span><span class="c4"></span><span class="c0"></span>
+      </div>
+      <h1>カラーポップ</h1>
+      <p class="lead">同じ色をそろえて、ポップに消そう！</p>
+      <ul class="howto">
+        <li><span class="num">1</span><span>隣り合うブロックを<b>タップ</b>または<b>スワイプ</b>して入れ替えます。</span></li>
+        <li><span class="num">2</span><span>同じ色が<b>3つ以上</b>縦か横に並ぶと消えます。そろわない入れ替えは元に戻ります。</span></li>
+        <li><span class="num">3</span><span>連鎖で消すと<b>コンボボーナス</b>！ 制限時間は<b>60秒</b>です。</span></li>
+      </ul>
+      <button id="startBtn" class="btn primary">スタート</button>
+      <div class="best-line">ハイスコア <b id="startBest">0</b></div>
+      <button id="startSound" class="sound-line"></button>
+      <a class="back-link" href="../../">← ゲーム一覧にもどる</a>
+    </div>
+  </div>
+
+  <!-- 一時停止画面 -->
+  <div id="pauseScreen" class="overlay">
+    <div class="card">
+      <h2>一時停止中</h2>
+      <p class="lead">ひと息ついたら再開しましょう。</p>
+      <button id="resumeBtn" class="btn primary">再開する</button>
+      <button id="restartBtn" class="btn ghost">最初からやり直す</button>
+      <button id="quitBtn" class="btn ghost">タイトルへ戻る</button>
+      <a class="btn ghost" href="../../">← ゲーム一覧にもどる</a>
+      <div class="kbd-note">Space キーでも再開できます</div>
+    </div>
+  </div>
+
+  <!-- 終了画面 -->
+  <div id="overScreen" class="overlay">
+    <div class="card">
+      <h2>タイムアップ！</h2>
+      <p class="lead">今回のスコア</p>
+      <div id="finalScore" class="final-score">0</div>
+      <div id="recordBadge" class="record" hidden>🎉 ハイスコア更新！</div>
+      <div class="result-grid">
+        <div><small>ハイスコア</small><b id="resBest">0</b></div>
+        <div><small>最大コンボ</small><b id="resCombo">0</b></div>
+        <div><small>消したブロック</small><b id="resCleared">0</b></div>
+      </div>
+      <button id="retryBtn" class="btn primary">リトライ</button>
+      <button id="titleBtn" class="btn ghost">タイトルへ戻る</button>
+      <a class="btn ghost" href="../../">← ゲーム一覧にもどる</a>
+    </div>
+  </div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* =========================================================
+     設定
+     ========================================================= */
+  const SIZE = 6;            // 盤面サイズ 6×6
+  const COLORS = 5;          // 色の数
+  const GAME_TIME = 60;      // 制限時間（秒）
+  const SWAP_MS = 180;       // 入れ替えアニメーション時間
+  const POP_MS = 300;        // 消えるアニメーション時間
+  const HINT_DELAY = 6000;   // ヒントが出るまでの待ち時間
+  const COLOR_HEX = ['#ff7d90', '#ffac55', '#ffd44a', '#5ed39a', '#64a9ff'];
+  const BEST_KEY = 'colorpop.best';
+  const SOUND_KEY = 'colorpop.sound';
+
+  // 色覚に配慮して、色ごとに形のマークを入れる
+  const SHAPES = [
+    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>',
+    '<svg viewBox="0 0 24 24"><path d="M12 4.5l7.5 7.5-7.5 7.5-7.5-7.5z"/></svg>',
+    '<svg viewBox="0 0 24 24"><path d="M12 3.6l2.5 5.2 5.7.8-4.1 4 1 5.7L12 16.6l-5.1 2.7 1-5.7-4.1-4 5.7-.8z"/></svg>',
+    '<svg viewBox="0 0 24 24"><path d="M12 5.5l7 12h-14z"/></svg>',
+    '<svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></svg>'
+  ];
+
+  const ICONS = {
+    soundOn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>',
+    soundOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="M22 9l-6 6M16 9l6 6"/></svg>',
+    pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>',
+    play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>'
+  };
+
+  /* =========================================================
+     ユーティリティ
+     ========================================================= */
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(key, fallback) {
+      try { const v = localStorage.getItem(key); return v === null ? fallback : v; }
+      catch (e) { return fallback; }
+    },
+    set(key, value) {
+      try { localStorage.setItem(key, String(value)); } catch (e) { /* 保存できない環境では無視 */ }
+    }
+  };
+  const randColor = () => Math.floor(Math.random() * COLORS);
+  const fmt = (n) => n.toLocaleString('ja-JP');
+
+  /* =========================================================
+     DOM
+     ========================================================= */
+  const el = {
+    grid: $('grid'), cells: $('cells'), banner: $('banner'), boardWrap: $('boardWrap'),
+    score: $('score'), best: $('best'), time: $('time'), timefill: $('timefill'),
+    soundBtn: $('soundBtn'), pauseBtn: $('pauseBtn'), startSound: $('startSound'),
+    startScreen: $('startScreen'), pauseScreen: $('pauseScreen'), overScreen: $('overScreen'),
+    startBtn: $('startBtn'), startBest: $('startBest'),
+    resumeBtn: $('resumeBtn'), restartBtn: $('restartBtn'), quitBtn: $('quitBtn'),
+    retryBtn: $('retryBtn'), titleBtn: $('titleBtn'),
+    finalScore: $('finalScore'), recordBadge: $('recordBadge'),
+    resBest: $('resBest'), resCombo: $('resCombo'), resCleared: $('resCleared'),
+    fx: $('fx')
+  };
+
+  // 背景のマス目
+  for (let i = 0; i < SIZE * SIZE; i++) el.cells.appendChild(document.createElement('div'));
+
+  /* =========================================================
+     ゲーム状態
+     ========================================================= */
+  // state: 'title' | 'playing' | 'paused' | 'ending' | 'over'
+  let state = 'title';
+  let grid = [];               // grid[r][c] = { color, el, r, c }
+  let busy = false;            // アニメーション中は操作を受け付けない
+  let token = 0;               // ゲームごとのID（古い非同期処理を無効化するため）
+  let timerActive = false;
+  let score = 0;
+  let best = parseInt(store.get(BEST_KEY, '0'), 10) || 0;
+  let timeLeft = GAME_TIME;
+  let lastFrame = performance.now();
+  let lastShownSecond = GAME_TIME;
+  let maxCombo = 0;
+  let clearedCount = 0;
+  let selected = null;         // { r, c }
+  let pointer = null;          // ポインタ操作の状態
+  let hintTimer = null;
+  let soundOn = store.get(SOUND_KEY, '1') === '1';
+  let resumeWaiters = [];
+
+  // 一時停止に対応した待機
+  async function wait(ms) {
+    await new Promise((res) => setTimeout(res, ms));
+    while (state === 'paused') {
+      await new Promise((res) => resumeWaiters.push(res));
+    }
+  }
+  function flushWaiters() {
+    const list = resumeWaiters;
+    resumeWaiters = [];
+    list.forEach((fn) => fn());
+  }
+
+  /* =========================================================
+     サウンド（Web Audio API で生成。外部ファイル不要）
+     ========================================================= */
+  const sfx = (() => {
+    let ctx = null;
+    let master = null;
+    function ensure() {
+      try {
+        if (!ctx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return null;
+          ctx = new AC();
+          master = ctx.createGain();
+          master.gain.value = 0.55;
+          master.connect(ctx.destination);
+        }
+        if (ctx.state === 'suspended') ctx.resume();
+        return ctx;
+      } catch (e) { return null; }
+    }
+    function tone(freq, dur, opt = {}) {
+      if (!soundOn) return;
+      const c = ensure();
+      if (!c) return;
+      const { type = 'sine', vol = 0.2, slide = 0, delay = 0 } = opt;
+      const t = c.currentTime + delay;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq * slide), t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(master);
+      o.start(t); o.stop(t + dur + 0.05);
+    }
+    const SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51];
+    return {
+      unlock() { if (soundOn) ensure(); },
+      select() { tone(700, 0.07, { type: 'triangle', vol: 0.12 }); },
+      swap() { tone(380, 0.13, { type: 'sine', vol: 0.14, slide: 1.6 }); },
+      invalid() {
+        tone(240, 0.12, { type: 'square', vol: 0.05, slide: 0.75 });
+        tone(190, 0.16, { type: 'square', vol: 0.045, slide: 0.75, delay: 0.09 });
+      },
+      pop(combo) {
+        const f = SCALE[Math.min(combo - 1, SCALE.length - 1)];
+        tone(f, 0.2, { type: 'triangle', vol: 0.22 });
+        tone(f * 1.5, 0.22, { type: 'sine', vol: 0.1, delay: 0.045 });
+        tone(f * 2, 0.1, { type: 'sine', vol: 0.06, delay: 0.015 });
+        tone(1800, 0.05, { type: 'sine', vol: 0.05, slide: 0.4 });
+      },
+      tick() { tone(1000, 0.05, { type: 'square', vol: 0.035 }); },
+      shuffle() { [440, 554, 659, 880].forEach((f, i) => tone(f, 0.1, { type: 'triangle', vol: 0.1, delay: i * 0.05 })); },
+      start() { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.2, { type: 'triangle', vol: 0.14, delay: i * 0.08 })); },
+      timeup() { [880, 698.46, 523.25].forEach((f, i) => tone(f, 0.25, { type: 'triangle', vol: 0.14, delay: i * 0.12 })); },
+      record() { [659.25, 783.99, 1046.5, 1318.51, 1568].forEach((f, i) => tone(f, 0.22, { type: 'triangle', vol: 0.13, delay: 0.5 + i * 0.07 })); }
+    };
+  })();
+
+  function renderSoundButtons() {
+    el.soundBtn.innerHTML = soundOn ? ICONS.soundOn : ICONS.soundOff;
+    el.soundBtn.setAttribute('aria-pressed', String(soundOn));
+    el.startSound.innerHTML = (soundOn ? ICONS.soundOn : ICONS.soundOff) + '<span>効果音：' + (soundOn ? 'ON' : 'OFF') + '</span>';
+  }
+  function toggleSound() {
+    soundOn = !soundOn;
+    store.set(SOUND_KEY, soundOn ? '1' : '0');
+    renderSoundButtons();
+    if (soundOn) { sfx.unlock(); sfx.select(); }
+  }
+
+  /* =========================================================
+     盤面ロジック（色の2次元配列で判定）
+     ========================================================= */
+  function colorGrid() {
+    return grid.map((row) => row.map((t) => (t ? t.color : -1)));
+  }
+
+  // 3つ以上並んだセルを探す
+  function findMatches(cg) {
+    const marked = new Set();
+    const groups = [];
+    // 横
+    for (let r = 0; r < SIZE; r++) {
+      let c = 0;
+      while (c < SIZE) {
+        const col = cg[r][c];
+        let e = c + 1;
+        if (col >= 0) while (e < SIZE && cg[r][e] === col) e++;
+        if (col >= 0 && e - c >= 3) {
+          const g = [];
+          for (let k = c; k < e; k++) { g.push([r, k]); marked.add(r * SIZE + k); }
+          groups.push(g);
+        }
+        c = e;
+      }
+    }
+    // 縦
+    for (let c = 0; c < SIZE; c++) {
+      let r = 0;
+      while (r < SIZE) {
+        const col = cg[r][c];
+        let e = r + 1;
+        if (col >= 0) while (e < SIZE && cg[e][c] === col) e++;
+        if (col >= 0 && e - r >= 3) {
+          const g = [];
+          for (let k = r; k < e; k++) { g.push([k, c]); marked.add(k * SIZE + c); }
+          groups.push(g);
+        }
+        r = e;
+      }
+    }
+    return { marked, groups };
+  }
+
+  // 消せる入れ替えが存在するか（あればその1手を返す）
+  function findMove(cg) {
+    const dirs = [[0, 1], [1, 0]];
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        for (const [dr, dc] of dirs) {
+          const r2 = r + dr, c2 = c + dc;
+          if (r2 >= SIZE || c2 >= SIZE) continue;
+          if (cg[r][c] === cg[r2][c2]) continue;
+          swapCells(cg, r, c, r2, c2);
+          const ok = findMatches(cg).marked.size > 0;
+          swapCells(cg, r, c, r2, c2);
+          if (ok) return [r, c, r2, c2];
+        }
+      }
+    }
+    return null;
+  }
+  function swapCells(cg, r1, c1, r2, c2) {
+    const t = cg[r1][c1]; cg[r1][c1] = cg[r2][c2]; cg[r2][c2] = t;
+  }
+
+  // 最初から消えている並びがなく、かつ手が存在する盤面を作る
+  function generateColors() {
+    let g = null;
+    for (let tries = 0; tries < 300; tries++) {
+      g = [];
+      for (let r = 0; r < SIZE; r++) {
+        g[r] = [];
+        for (let c = 0; c < SIZE; c++) {
+          let col, guard = 0;
+          do {
+            col = randColor();
+            guard++;
+          } while (guard < 50 && (
+            (c >= 2 && g[r][c - 1] === col && g[r][c - 2] === col) ||
+            (r >= 2 && g[r - 1][c] === col && g[r - 2][c] === col)
+          ));
+          g[r][c] = col;
+        }
+      }
+      if (findMatches(g).marked.size === 0 && findMove(g)) return g;
+    }
+    return g;
+  }
+
+  /* =========================================================
+     タイル（DOM）
+     ========================================================= */
+  function createTile(color, r, c, startRow) {
+    const tileEl = document.createElement('div');
+    tileEl.className = 'tile';
+    const block = document.createElement('div');
+    block.className = 'block c' + color;
+    block.innerHTML = SHAPES[color];
+    tileEl.appendChild(block);
+    const t = { color, el: tileEl, block, r, c };
+    setTransform(t, startRow, c);
+    el.grid.appendChild(tileEl);
+    return t;
+  }
+  function setTransform(t, r, c) {
+    t.el.style.transform = `translate(${c * 100}%, ${r * 100}%)`;
+  }
+  function moveTile(t, r, c, ms, easing) {
+    t.el.style.transitionDuration = ms + 'ms';
+    t.el.style.transitionDelay = '0ms';
+    t.el.style.transitionTimingFunction = easing || 'cubic-bezier(.4, 0, .2, 1)';
+    t.r = r; t.c = c;
+    setTransform(t, r, c);
+  }
+  function setTileColor(t, color) {
+    t.color = color;
+    t.block.className = 'block c' + color;
+    t.block.innerHTML = SHAPES[color];
+  }
+
+  /* =========================================================
+     表示更新
+     ========================================================= */
+  function updateScore(animate) {
+    el.score.textContent = fmt(score);
+    if (animate) {
+      el.score.classList.remove('bump');
+      void el.score.offsetWidth;
+      el.score.classList.add('bump');
+    }
+  }
+  function updateBest() {
+    el.best.textContent = fmt(best);
+    el.startBest.textContent = fmt(best);
+  }
+  function updateTime() {
+    const sec = Math.ceil(timeLeft);
+    el.time.textContent = sec;
+    el.timefill.style.transform = `scaleX(${Math.max(0, timeLeft / GAME_TIME)})`;
+    const low = timeLeft <= 10 && state !== 'title';
+    el.time.classList.toggle('low', low);
+    el.timefill.classList.toggle('low', low);
+    if (sec !== lastShownSecond) {
+      lastShownSecond = sec;
+      if (state === 'playing' && sec <= 5 && sec > 0) sfx.tick();
+    }
+  }
+  function renderPauseButton() {
+    el.pauseBtn.innerHTML = state === 'paused' ? ICONS.play : ICONS.pause;
+    el.pauseBtn.disabled = !(state === 'playing' || state === 'paused');
+  }
+
+  let bannerTimer = null;
+  function showBanner(text, warm) {
+    el.banner.textContent = text;
+    el.banner.classList.toggle('warm', !!warm);
+    el.banner.classList.remove('show');
+    void el.banner.offsetWidth;
+    el.banner.classList.add('show');
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => el.banner.classList.remove('show'), 1100);
+  }
+
+  function showFloatScore(text, rowF, colF) {
+    const d = document.createElement('div');
+    d.className = 'float-score';
+    d.textContent = text;
+    // 盤面の内側（padding 8px）を考慮して位置を決める
+    d.style.left = `calc(8px + (100% - 16px) * ${(colF + 0.5) / SIZE})`;
+    d.style.top = `calc(8px + (100% - 16px) * ${(rowF + 0.5) / SIZE})`;
+    el.boardWrap.appendChild(d);
+    const remove = () => d.remove();
+    d.addEventListener('animationend', remove, { once: true });
+    setTimeout(remove, 1500);
+  }
+
+  function showOverlay(which) {
+    [el.startScreen, el.pauseScreen, el.overScreen].forEach((o) => o.classList.toggle('show', o === which));
+  }
+
+  /* =========================================================
+     パーティクル
+     ========================================================= */
+  const fx = (() => {
+    const canvas = el.fx;
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let running = false;
+    let last = 0;
+    let dpr = 1;
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function burst(x, y, color, size, power) {
+      const count = 12;
+      for (let i = 0; i < count; i++) {
+        const a = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+        const sp = (160 + Math.random() * 260) * power;
+        particles.push({
+          kind: Math.random() < 0.5 ? 'dot' : 'sq',
+          x, y,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp - 120,
+          r: size * (0.07 + Math.random() * 0.08),
+          rot: Math.random() * Math.PI,
+          vr: (Math.random() - 0.5) * 10,
+          life: 0,
+          max: 0.55 + Math.random() * 0.35,
+          color
+        });
+      }
+      // キラッと光るリング
+      particles.push({ kind: 'ring', x, y, r: size * 0.3, grow: size * 1.6, life: 0, max: 0.4, color });
+      // 白いきらめき
+      for (let i = 0; i < 3; i++) {
+        particles.push({
+          kind: 'spark', x: x + (Math.random() - 0.5) * size * 0.5, y: y + (Math.random() - 0.5) * size * 0.5,
+          vx: (Math.random() - 0.5) * 80, vy: -60 - Math.random() * 80,
+          r: size * 0.12, life: 0, max: 0.5 + Math.random() * 0.2, color: '#ffffff'
+        });
+      }
+      if (particles.length > 900) particles = particles.slice(particles.length - 900);
+      if (!running) { running = true; last = performance.now(); requestAnimationFrame(frame); }
+    }
+
+    function frame(now) {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+      const next = [];
+      for (const p of particles) {
+        p.life += dt;
+        if (p.life >= p.max) continue;
+        const k = p.life / p.max;
+        ctx.globalAlpha = 1 - k * k;
+        if (p.kind === 'ring') {
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = 3 * (1 - k) + 0.5;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r + p.grow * easeOut(k), 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (p.kind === 'spark') {
+          p.x += p.vx * dt; p.y += p.vy * dt;
+          drawStar(p.x, p.y, p.r * (1 - k * 0.6), p.color);
+        } else {
+          p.vy += 900 * dt;
+          p.vx *= 0.985;
+          p.x += p.vx * dt; p.y += p.vy * dt;
+          p.rot += p.vr * dt;
+          const s = p.r * (1 - k * 0.5);
+          ctx.fillStyle = p.color;
+          if (p.kind === 'dot') {
+            ctx.beginPath(); ctx.arc(p.x, p.y, s, 0, Math.PI * 2); ctx.fill();
+          } else {
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+            roundRect(-s, -s, s * 2, s * 2, s * 0.5); ctx.fill();
+            ctx.restore();
+          }
+        }
+        next.push(p);
+      }
+      ctx.globalAlpha = 1;
+      particles = next;
+      if (particles.length) requestAnimationFrame(frame);
+      else { running = false; ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr); }
+    }
+    function easeOut(k) { return 1 - Math.pow(1 - k, 3); }
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+    function drawStar(x, y, r, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(x, y - r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.quadraticCurveTo(x, y, x, y + r);
+      ctx.quadraticCurveTo(x, y, x - r, y);
+      ctx.quadraticCurveTo(x, y, x, y - r);
+      ctx.fill();
+    }
+    return { burst };
+  })();
+
+  function burstAt(t, power) {
+    const rect = t.el.getBoundingClientRect();
+    fx.burst(rect.left + rect.width / 2, rect.top + rect.height / 2, COLOR_HEX[t.color], rect.width, power);
+  }
+
+  /* =========================================================
+     選択とヒント
+     ========================================================= */
+  function select(cell) {
+    clearSelection();
+    selected = { r: cell.r, c: cell.c };
+    const t = grid[cell.r][cell.c];
+    if (t) t.el.classList.add('selected');
+    sfx.select();
+  }
+  function clearSelection() {
+    if (selected) {
+      const t = grid[selected.r] && grid[selected.r][selected.c];
+      if (t) t.el.classList.remove('selected');
+    }
+    selected = null;
+    el.grid.querySelectorAll('.tile.selected').forEach((n) => n.classList.remove('selected'));
+  }
+  function clearHint() {
+    clearTimeout(hintTimer);
+    hintTimer = null;
+    el.grid.querySelectorAll('.tile.hint').forEach((n) => n.classList.remove('hint'));
+  }
+  function scheduleHint() {
+    clearHint();
+    const my = token;
+    hintTimer = setTimeout(() => {
+      if (my !== token || state !== 'playing' || busy) return;
+      const mv = findMove(colorGrid());
+      if (!mv) return;
+      const a = grid[mv[0]][mv[1]], b = grid[mv[2]][mv[3]];
+      if (a) a.el.classList.add('hint');
+      if (b) b.el.classList.add('hint');
+    }, HINT_DELAY);
+  }
+
+  /* =========================================================
+     入れ替え・消去・落下
+     ========================================================= */
+  function isAdjacent(a, b) {
+    return Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
+  }
+
+  function swapTiles(a, b) {
+    const ta = grid[a.r][a.c];
+    const tb = grid[b.r][b.c];
+    grid[a.r][a.c] = tb;
+    grid[b.r][b.c] = ta;
+    moveTile(ta, b.r, b.c, SWAP_MS);
+    moveTile(tb, a.r, a.c, SWAP_MS);
+    // 入れ替え中は手前に表示
+    ta.el.style.zIndex = '2';
+    tb.el.style.zIndex = '1';
+    return [ta, tb];
+  }
+
+  async function trySwap(a, b) {
+    if (busy || state !== 'playing') return;
+    if (!isAdjacent(a, b)) return;
+    if (!grid[a.r][a.c] || !grid[b.r][b.c]) return;
+    busy = true;
+    const my = token;
+    clearSelection();
+    clearHint();
+
+    const [ta, tb] = swapTiles(a, b);
+    sfx.swap();
+    await wait(SWAP_MS + 20);
+    if (my !== token) return;
+
+    if (findMatches(colorGrid()).marked.size === 0) {
+      // そろわなければ元に戻す
+      swapTiles(a, b);
+      sfx.invalid();
+      await wait(SWAP_MS + 10);
+      if (my !== token) return;
+      [ta, tb].forEach((t) => {
+        t.el.style.zIndex = '';
+        t.el.classList.remove('nope');
+        void t.el.offsetWidth;
+        t.el.classList.add('nope');
+        setTimeout(() => t.el.classList.remove('nope'), 360);
+      });
+      busy = false;
+      afterMove();
+      return;
+    }
+    ta.el.style.zIndex = '';
+    tb.el.style.zIndex = '';
+
+    await resolveBoard(my);
+    if (my !== token) return;
+    busy = false;
+    afterMove();
+  }
+
+  function afterMove() {
+    if (state === 'ending') { finishSoon(); return; }
+    if (state === 'playing' || state === 'paused') scheduleHint();
+  }
+
+  async function resolveBoard(my) {
+    let combo = 0;
+    while (true) {
+      const { marked, groups } = findMatches(colorGrid());
+      if (marked.size === 0) break;
+      combo++;
+      maxCombo = Math.max(maxCombo, combo);
+
+      // スコア計算：1ブロック10点 + 4つ以上の長い並びにボーナス、さらにコンボ倍率
+      let gained = marked.size * 10;
+      for (const g of groups) if (g.length >= 4) gained += (g.length - 3) * 30;
+      gained *= combo;
+      score += gained;
+      clearedCount += marked.size;
+      updateScore(true);
+
+      // 演出
+      let sr = 0, sc = 0;
+      const popped = [];
+      marked.forEach((key) => {
+        const r = Math.floor(key / SIZE), c = key % SIZE;
+        sr += r; sc += c;
+        const t = grid[r][c];
+        if (t) popped.push(t);
+      });
+      showFloatScore('+' + fmt(gained), sr / marked.size, sc / marked.size);
+      if (combo >= 2) showBanner(combo + ' コンボ！', combo >= 4);
+      sfx.pop(combo);
+      const power = 1 + Math.min(combo - 1, 4) * 0.15;
+      popped.forEach((t) => {
+        t.el.classList.remove('selected', 'hint');
+        t.el.classList.add('popping');
+        burstAt(t, power);
+      });
+
+      await wait(POP_MS);
+      if (my !== token) return;
+
+      popped.forEach((t) => {
+        t.el.remove();
+        if (grid[t.r][t.c] === t) grid[t.r][t.c] = null;
+      });
+
+      const fallMs = applyGravity();
+      await wait(fallMs + 40);
+      if (my !== token) return;
+    }
+
+    // 手詰まりならシャッフル
+    if (!findMove(colorGrid())) {
+      await shuffleBoard(my);
+    }
+  }
+
+  // ブロックを落とし、空いたところに新しいブロックを補充する
+  function applyGravity() {
+    let maxMs = 0;
+    const spawned = [];
+    const bounce = 'cubic-bezier(.3, 1.25, .55, 1)';
+    const fallTime = (d) => 140 + d * 55;
+
+    for (let c = 0; c < SIZE; c++) {
+      let write = SIZE - 1;
+      for (let r = SIZE - 1; r >= 0; r--) {
+        const t = grid[r][c];
+        if (!t) continue;
+        if (r !== write) {
+          grid[write][c] = t;
+          grid[r][c] = null;
+          const ms = fallTime(write - r);
+          moveTile(t, write, c, ms, bounce);
+          maxMs = Math.max(maxMs, ms);
+        }
+        write--;
+      }
+      const missing = write + 1;
+      for (let r = write; r >= 0; r--) {
+        const t = createTile(randColor(), r, c, r - missing);
+        t.el.style.transitionDuration = '0ms';
+        grid[r][c] = t;
+        spawned.push({ t, dist: missing });
+      }
+    }
+    if (spawned.length) {
+      void el.grid.offsetHeight; // 初期位置を確定させてからアニメーション
+      spawned.forEach(({ t, dist }) => {
+        const ms = fallTime(dist);
+        moveTile(t, t.r, t.c, ms, bounce);
+        maxMs = Math.max(maxMs, ms);
+      });
+    }
+    return maxMs;
+  }
+
+  async function shuffleBoard(my) {
+    showBanner('シャッフル！');
+    sfx.shuffle();
+    const all = grid.flat().filter(Boolean);
+    all.forEach((t) => t.el.classList.add('shrink'));
+    await wait(240);
+    if (my !== token) return;
+    const cg = generateColors();
+    for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+      if (grid[r][c]) setTileColor(grid[r][c], cg[r][c]);
+    }
+    all.forEach((t) => t.el.classList.remove('shrink'));
+    await wait(280);
+  }
+
+  /* =========================================================
+     入力（タップ／クリック／スワイプ）
+     ========================================================= */
+  function cellFromEvent(e) {
+    const rect = el.grid.getBoundingClientRect();
+    const c = Math.floor(((e.clientX - rect.left) / rect.width) * SIZE);
+    const r = Math.floor(((e.clientY - rect.top) / rect.height) * SIZE);
+    if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return null;
+    return { r, c };
+  }
+
+  el.grid.addEventListener('pointerdown', (e) => {
+    if (state !== 'playing' || busy) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    const cell = cellFromEvent(e);
+    if (!cell) return;
+    e.preventDefault();
+    sfx.unlock();
+    pointer = { ...cell, x: e.clientX, y: e.clientY, id: e.pointerId, swiped: false };
+    try { el.grid.setPointerCapture(e.pointerId); } catch (err) { /* 無視 */ }
+  });
+
+  el.grid.addEventListener('pointermove', (e) => {
+    if (!pointer || pointer.id !== e.pointerId || pointer.swiped) return;
+    const dx = e.clientX - pointer.x;
+    const dy = e.clientY - pointer.y;
+    const cellSize = el.grid.getBoundingClientRect().width / SIZE;
+    const th = Math.max(14, cellSize * 0.35);
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < th) return;
+    pointer.swiped = true;
+    const target = Math.abs(dx) > Math.abs(dy)
+      ? { r: pointer.r, c: pointer.c + Math.sign(dx) }
+      : { r: pointer.r + Math.sign(dy), c: pointer.c };
+    if (target.r < 0 || target.r >= SIZE || target.c < 0 || target.c >= SIZE) return;
+    trySwap({ r: pointer.r, c: pointer.c }, target);
+  });
+
+  el.grid.addEventListener('pointerup', (e) => {
+    if (!pointer || pointer.id !== e.pointerId) return;
+    const p = pointer;
+    pointer = null;
+    if (!p.swiped) handleTap({ r: p.r, c: p.c });
+  });
+  el.grid.addEventListener('pointercancel', () => { pointer = null; });
+  el.grid.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  function handleTap(cell) {
+    if (state !== 'playing' || busy) return;
+    if (!selected) { select(cell); scheduleHint(); return; }
+    if (selected.r === cell.r && selected.c === cell.c) { clearSelection(); return; }
+    if (isAdjacent(selected, cell)) { trySwap(selected, cell); return; }
+    select(cell);
+  }
+
+  /* =========================================================
+     ゲームの流れ
+     ========================================================= */
+  async function startGame() {
+    sfx.unlock();
+    token++;
+    const my = token;
+    state = 'playing';
+    document.body.classList.remove('is-paused');
+    flushWaiters();
+    clearTimeout(finishTimer);
+    clearHint();
+    selected = null;
+    pointer = null;
+    busy = true;
+    timerActive = false;
+
+    el.grid.innerHTML = '';
+    grid = [];
+    score = 0;
+    timeLeft = GAME_TIME;
+    lastShownSecond = GAME_TIME;
+    maxCombo = 0;
+    clearedCount = 0;
+    updateScore(false);
+    updateBest();
+    updateTime();
+    showOverlay(null);
+    renderPauseButton();
+
+    // 上から降ってくる登場演出
+    const cg = generateColors();
+    for (let r = 0; r < SIZE; r++) {
+      grid[r] = [];
+      for (let c = 0; c < SIZE; c++) {
+        const t = createTile(cg[r][c], r, c, r - SIZE - 1);
+        t.el.style.transitionDuration = '0ms';
+        grid[r][c] = t;
+      }
+    }
+    void el.grid.offsetHeight;
+    grid.flat().forEach((t) => {
+      moveTile(t, t.r, t.c, 520, 'cubic-bezier(.3, 1.2, .55, 1)');
+      t.el.style.transitionDelay = (t.c * 45 + (SIZE - 1 - t.r) * 30) + 'ms';
+    });
+    sfx.start();
+
+    await wait(950);
+    if (my !== token) return;
+    grid.flat().forEach((t) => { t.el.style.transitionDelay = '0ms'; });
+    showBanner('スタート！');
+    busy = false;
+    timerActive = true;
+    lastFrame = performance.now();
+    scheduleHint();
+  }
+
+  function pauseGame() {
+    if (state !== 'playing') return;
+    state = 'paused';
+    document.body.classList.add('is-paused');
+    pointer = null;
+    showOverlay(el.pauseScreen);
+    renderPauseButton();
+  }
+  function resumeGame() {
+    if (state !== 'paused') return;
+    state = 'playing';
+    document.body.classList.remove('is-paused');
+    lastFrame = performance.now();
+    showOverlay(null);
+    renderPauseButton();
+    flushWaiters();
+    if (!busy) scheduleHint();
+  }
+  function goTitle() {
+    token++;
+    state = 'title';
+    document.body.classList.remove('is-paused');
+    flushWaiters();
+    clearTimeout(finishTimer);
+    clearHint();
+    clearSelection();
+    busy = false;
+    timerActive = false;
+    updateBest();
+    renderPauseButton();
+    showOverlay(el.startScreen);
+  }
+
+  function onTimeUp() {
+    state = 'ending';
+    timerActive = false;
+    pointer = null;
+    clearSelection();
+    clearHint();
+    renderPauseButton();
+    showBanner('タイムアップ！', true);
+    sfx.timeup();
+    if (!busy) finishSoon();
+  }
+
+  let finishTimer = null;
+  function finishSoon() {
+    const my = token;
+    clearTimeout(finishTimer);
+    finishTimer = setTimeout(() => { if (my === token && state === 'ending') finishGame(); }, 1000);
+  }
+
+  function finishGame() {
+    state = 'over';
+    renderPauseButton();
+    const isRecord = score > best && score > 0;
+    if (isRecord) {
+      best = score;
+      store.set(BEST_KEY, best);
+      sfx.record();
+    }
+    updateBest();
+    el.resBest.textContent = fmt(best);
+    el.resCombo.textContent = maxCombo;
+    el.resCleared.textContent = fmt(clearedCount);
+    el.recordBadge.hidden = !isRecord;
+    // 再アニメーションのため一度付け直す
+    if (isRecord) { el.recordBadge.style.animation = 'none'; void el.recordBadge.offsetWidth; el.recordBadge.style.animation = ''; }
+    showOverlay(el.overScreen);
+    countUp(el.finalScore, score, 900);
+  }
+
+  function countUp(node, target, ms) {
+    const start = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - start) / ms);
+      const v = Math.round(target * (1 - Math.pow(1 - k, 3)));
+      node.textContent = fmt(v);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    node.textContent = '0';
+    requestAnimationFrame(step);
+  }
+
+  /* =========================================================
+     タイマー
+     ========================================================= */
+  // 描画ループ（rAF）とは独立したタイマーで、確実に時間を進める
+  function tickTimer() {
+    const now = performance.now();
+    const dt = Math.min(0.5, Math.max(0, (now - lastFrame) / 1000));
+    lastFrame = now;
+    if (state === 'playing' && timerActive) {
+      timeLeft = Math.max(0, timeLeft - dt);
+      updateTime();
+      if (timeLeft <= 0) onTimeUp();
+    }
+  }
+
+  /* =========================================================
+     イベント登録
+     ========================================================= */
+  el.startBtn.addEventListener('click', startGame);
+  el.retryBtn.addEventListener('click', startGame);
+  el.restartBtn.addEventListener('click', startGame);
+  el.titleBtn.addEventListener('click', goTitle);
+  el.quitBtn.addEventListener('click', goTitle);
+  el.resumeBtn.addEventListener('click', resumeGame);
+  el.pauseBtn.addEventListener('click', () => {
+    if (state === 'playing') pauseGame();
+    else if (state === 'paused') resumeGame();
+  });
+  el.soundBtn.addEventListener('click', toggleSound);
+  el.startSound.addEventListener('click', toggleSound);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.code === 'Escape' || e.key === 'p' || e.key === 'P') {
+      if (state === 'playing') { e.preventDefault(); pauseGame(); }
+      else if (state === 'paused') { e.preventDefault(); resumeGame(); }
+      else if (e.code === 'Space' && (state === 'title' || state === 'over')) { e.preventDefault(); startGame(); }
+    }
+  });
+
+  // 別タブに切り替えたら自動で一時停止
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && state === 'playing') pauseGame();
+  });
+
+  // iOS のダブルタップ拡大を防ぐ
+  document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+
+  /* =========================================================
+     初期化
+     ========================================================= */
+  // タイトル画面の裏に飾りの盤面を置いておく
+  (function decorate() {
+    const cg = generateColors();
+    grid = [];
+    for (let r = 0; r < SIZE; r++) {
+      grid[r] = [];
+      for (let c = 0; c < SIZE; c++) grid[r][c] = createTile(cg[r][c], r, c, r);
+    }
+  })();
+  renderSoundButtons();
+  renderPauseButton();
+  updateBest();
+  updateScore(false);
+  updateTime();
+  setInterval(tickTimer, 100);
+})();
+</script>
+</body>
+</html>
