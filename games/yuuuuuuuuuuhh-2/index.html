@@ -26,6 +26,8 @@
   .btn { display: block; width: 100%; margin-top: 12px; padding: 14px; font-size: 18px; font-weight: 800; border: 0; border-radius: 12px; background: #2d6cdf; color: #fff; cursor: pointer; font-family: inherit; }
   .btn.sub { background: #dde3ec; color: #26303f; font-size: 15px; padding: 10px; }
   .hidden { display: none !important; }
+  #bgmBtn { position: fixed; right: 14px; top: 12px; height: 40px; padding: 0 12px; border-radius: 12px; border: 0; background: rgba(0,0,0,.3); color: #fff; font-size: 14px; font-weight: 800; font-family: inherit; cursor: pointer; z-index: 11; }
+  body.touch #bgmBtn { top: 154px; width: 52px; padding: 0; font-size: 18px; }
   .card { max-height: calc(100% - 16px); overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
   @media (max-height: 520px) {
     .card { padding: 12px 18px; max-width: 560px; }
@@ -64,6 +66,8 @@
   <button id="cp1Btn" class="sbtn">①</button>
   <button id="cp2Btn" class="sbtn">②</button>
 </div>
+
+<button id="bgmBtn">♪ BGM オン</button>
 
 <div id="menu" class="overlay">
   <div class="card">
@@ -1054,6 +1058,15 @@ const SONGS = [
   { bpm: 56, chords: [[50, 57, 61, 66], [47, 54, 57, 62], [43, 50, 54, 59], [45, 52, 57, 61]] },   // 宇宙：Dmaj7 Bm7 Gmaj7 A
 ];
 let musicGain = null, nextBar = 0, barN = 0, muted = false;
+try { muted = localStorage.getItem('teppen_bgm') === 'off'; } catch (e) {}
+// BGM のオン・オフ（M キー か 画面右上のボタン。次にひらいたときも覚えている）
+function setMuted(v) {
+  muted = v;
+  try { localStorage.setItem('teppen_bgm', v ? 'off' : 'on'); } catch (e) {}
+  const b = document.getElementById('bgmBtn');
+  b.textContent = isTouch ? (v ? '🔇' : '♪') : (v ? '🔇 BGM オフ' : '♪ BGM オン');
+  if (musicGain && v) musicGain.gain.value = 0;
+}
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 function startMusic() {
   musicGain = ac.createGain(); musicGain.gain.value = muted ? 0 : 0.5;
@@ -1114,7 +1127,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyR' && !e.repeat) snapT = 0.35;
   if (e.code === 'Digit1' && !e.repeat) warpTo(0);
   if (e.code === 'Digit2' && !e.repeat) warpTo(1);
-  if (e.code === 'KeyM' && !e.repeat) { muted = !muted; toast(muted ? 'BGM オフ' : 'BGM オン'); }
+  if (e.code === 'KeyM' && !e.repeat) { setMuted(!muted); toast(muted ? 'BGM オフ' : 'BGM オン'); }
   if (e.code === 'KeyC' && !e.repeat) {
     camMode = { auto: 'free', free: 'chase', chase: 'auto' }[camMode];
     if (camMode === 'chase') moveYaw = faceYaw;
@@ -1157,6 +1170,12 @@ const tbtn = (id, down, up) => {
 tbtn('jumpBtn', () => { jumpBuf = 0.14; touchJumpHeld = true; }, () => { touchJumpHeld = false; });
 tbtn('dashBtn', () => { touchDash = true; }, () => { touchDash = false; });
 tbtn('pauseBtn', () => pause());
+if (isTouch) document.body.classList.add('touch');
+setMuted(muted);
+const bgmBtn = $('bgmBtn');
+bgmBtn.addEventListener('mousedown', e => e.stopPropagation());
+bgmBtn.addEventListener('click', e => { e.stopPropagation(); setMuted(!muted); toast(muted ? 'BGM オフ' : 'BGM オン'); bgmBtn.blur(); });
+bgmBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); setMuted(!muted); toast(muted ? 'BGM オフ' : 'BGM オン'); }, { passive: false });
 tbtn('cp1Btn', () => warpTo(0));
 tbtn('cp2Btn', () => warpTo(1));
 canvas.addEventListener('touchstart', e => {
@@ -1776,7 +1795,7 @@ function clear() {
 }
 $('howto').innerHTML = isTouch
   ? '左側をなぞる：いどう<br>右側をなぞる：カメラ<br>ジャンプ / ダッシュ ボタン<br>壁のふちに向かって跳ぶと、つかまってよじ登る<br>はしごに向かって進むとつかまる（上に倒すと登る）<br>屋上の<b>セーブ灯</b>にふれるとセーブ（2つまで）　① ②：もどる<br>光の柱は<b>無重力</b>。ジャンプ長おしで上へ'
-  : 'WASD：いどう　Shift：ダッシュ　スペース：ジャンプ<br>← →：カメラを回す　↑ ↓：上下　R：背中側へ<br>C：カメラのモード切りかえ（じどう / じぶんで回す / いつも背中側）<br>壁のふちに向かって跳ぶと、つかまってよじ登る（S ではなす）<br>マウスでもカメラを動かせます（なくても遊べます）<br>はしごに向かって進むとつかまる（W で上、スペースで跳びおりる）<br><b>屋上のセーブ灯にふれるとセーブ（2つまで）　1 / 2：そこへもどる</b><br>光の柱は<b>無重力</b>：中ではふわふわ浮く。スペース長おしで上へ<br>ホイール：ズーム　M：BGM　P：メニュー';
+  : 'WASD：いどう　Shift：ダッシュ　スペース：ジャンプ<br>← →：カメラを回す　↑ ↓：上下　R：背中側へ<br>C：カメラのモード切りかえ（じどう / じぶんで回す / いつも背中側）<br>壁のふちに向かって跳ぶと、つかまってよじ登る（S ではなす）<br>マウスでもカメラを動かせます（なくても遊べます）<br>はしごに向かって進むとつかまる（W で上、スペースで跳びおりる）<br><b>屋上のセーブ灯にふれるとセーブ（2つまで）　1 / 2：そこへもどる</b><br>光の柱は<b>無重力</b>：中ではふわふわ浮く。スペース長おしで上へ<br>ホイール：ズーム　<b>M か 右上のボタン：BGM オン・オフ</b>　P：メニュー';
 $('startBtn').onclick = start;
 $('resetBtn').onclick = () => { if (confirm('いまの高さをすてて、いちばん下からやりなおしますか？')) { resetRun(); start(); } };
 $('againBtn').onclick = () => { $('clear').classList.add('hidden'); cleared = false; resetRun(); start(); };
