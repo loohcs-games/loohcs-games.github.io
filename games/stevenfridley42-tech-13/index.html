@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>アメフト（開発中） — GRIDIRON 26</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Graduate&family=Oswald:wght@400;600;700&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- スコアボード -->
+<div id="hud" class="hidden">
+  <div id="scorebug">
+    <div class="sb-team" id="sb-away"><span class="sb-abbr"></span><span class="sb-score"></span><span class="sb-to"></span><span class="sb-poss">●</span></div>
+    <div class="sb-team" id="sb-home"><span class="sb-abbr"></span><span class="sb-score"></span><span class="sb-to"></span><span class="sb-poss">●</span></div>
+    <div class="sb-clock"><span id="sb-qtr"></span><span id="sb-time"></span><span id="sb-pc"></span></div>
+    <div class="sb-down" id="sb-down"></div>
+  </div>
+  <div id="ticker"></div>
+  <div id="banner"></div>
+  <div id="hint"></div>
+  <div id="playcard" class="hidden"><div class="pc-t"></div><div class="pc-d"></div><div class="pc-n"></div><div class="pc-k">Enter で次へ</div></div>
+</div>
+
+<div id="ui"></div>
+<div id="drawer" class="hidden"></div>
+<button id="menuBtn" title="メニュー"><span></span><span></span><span></span></button>
+<div id="userBadge"></div>
+<a id="backLink" href="../../">← ゲーム一覧にもどる</a>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/account.js"></script>
+<script src="js/teams_afc.js"></script>
+<script src="js/teams_nfc.js"></script>
+<script src="js/roster.js"></script>
+<script src="js/playbook.js"></script>
+<script src="js/coach.js"></script>
+<script src="js/sim_setup.js"></script>
+<script src="js/sim_ai.js"></script>
+<script src="js/sim_core.js"></script>
+<script src="js/sim_kick.js"></script>
+<script src="js/game.js"></script>
+<script src="js/career_data.js"></script>
+<script src="js/career_league.js"></script>
+<script src="js/career.js"></script>
+<script src="js/render.js"></script>
+<script src="js/input.js"></script>
+<script src="js/net.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/ui_game.js"></script>
+<script src="js/ui_career.js"></script>
+<script src="js/ui_career2.js"></script>
+<script src="js/ui_menu.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

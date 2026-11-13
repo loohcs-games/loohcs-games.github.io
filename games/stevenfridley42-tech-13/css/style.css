@@ -1,0 +1,284 @@
+:root{
+  --bg:#0b0f17; --panel:#121a28; --panel2:#18233a; --line:#2a3956;
+  --text:#eef3ff; --muted:#93a3c4; --accent:#ffc629; --accent2:#e2382f; --good:#3ddc84; --blue:#3b82f6;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);overflow:hidden;
+  font-family:"Noto Sans JP",system-ui,sans-serif;user-select:none}
+canvas#game{position:fixed;inset:0;width:100vw;height:100vh;display:block}
+.hidden{display:none!important}
+.oswald{font-family:Oswald,"Noto Sans JP",sans-serif}
+
+/* ===== 画面共通 ===== */
+#ui{position:fixed;inset:0;pointer-events:none}
+.screen{position:absolute;inset:0;pointer-events:auto;display:flex;flex-direction:column;align-items:center;
+  overflow-y:auto;padding:28px 16px 40px;
+  background:radial-gradient(ellipse at 50% -10%,#1d3a6b 0%,rgba(11,15,23,.97) 55%),var(--bg)}
+.screen.overlay{background:rgba(5,8,14,.72);backdrop-filter:blur(3px);justify-content:center}
+.screen h1{font-family:Oswald;font-size:76px;letter-spacing:4px;margin:30px 0 0;line-height:1;
+  background:linear-gradient(180deg,#fff 30%,var(--accent));-webkit-background-clip:text;color:transparent;
+  text-shadow:0 6px 30px rgba(255,198,41,.15)}
+.screen h2{font-family:Oswald;font-size:30px;letter-spacing:2px;margin:6px 0 18px}
+.screen h3{margin:14px 0 8px;font-size:15px;color:var(--muted);letter-spacing:1px}
+.sub{color:var(--muted);margin:8px 0 26px;letter-spacing:3px;font-family:Oswald}
+.menu{display:flex;flex-direction:column;gap:12px;width:min(420px,100%)}
+.btn{pointer-events:auto;cursor:pointer;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel2),var(--panel));
+  color:var(--text);padding:14px 18px;border-radius:10px;font:700 16px "Noto Sans JP";text-align:left;
+  transition:transform .08s,border-color .15s,background .15s;display:flex;align-items:center;gap:12px}
+.btn:hover,.btn.sel{border-color:var(--accent);background:linear-gradient(180deg,#22314f,#17223a);transform:translateY(-1px)}
+.btn .k{margin-left:auto;font:600 12px Oswald;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:2px 7px}
+.btn small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
+.btn.primary{background:linear-gradient(180deg,#ffd451,#e6a800);color:#1a1300;border-color:#ffd451;justify-content:center}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.small{padding:8px 12px;font-size:13px}
+.btn:disabled{opacity:.4;cursor:default;transform:none}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center}
+.back{position:absolute;left:18px;top:16px}
+.foot{color:var(--muted);font-size:12px;margin-top:20px}
+
+/* チーム選択 */
+.teamgrid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:8px;width:min(1100px,100%)}
+.divlabel{grid-column:1/-1;font:600 13px Oswald;color:var(--muted);letter-spacing:2px;margin-top:8px}
+.tcard{cursor:pointer;border-radius:9px;padding:9px 10px;border:2px solid transparent;display:flex;align-items:center;gap:9px;
+  background:var(--panel);transition:transform .08s}
+.tcard:hover{transform:translateY(-2px)}
+.tcard.sel{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,198,41,.25)}
+.tcard.sel2{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(226,56,47,.25)}
+.tlogo{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font:700 13px Oswald;flex:none;border:3px solid}
+.tname{font-weight:700;font-size:13px;line-height:1.2}
+.tname small{display:block;color:var(--muted);font-weight:400;font-size:11px}
+.tovr{margin-left:auto;font:700 15px Oswald;color:var(--accent)}
+.pickbar{display:flex;gap:16px;align-items:center;margin:4px 0 14px;flex-wrap:wrap;justify-content:center}
+.pickslot{min-width:250px;padding:10px 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.pickslot.active{border-color:var(--accent)}
+.vs{font:700 28px Oswald;color:var(--muted)}
+
+/* 選手選択 */
+.plist{display:grid;grid-template-columns:repeat(3,minmax(240px,1fr));gap:7px;width:min(1000px,100%)}
+.pcard{cursor:pointer;background:var(--panel);border:2px solid transparent;border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:10px}
+.pcard:hover{border-color:var(--line)}
+.pcard.sel{border-color:var(--accent)}
+.pnum{font:700 22px Oswald;width:40px;text-align:center}
+.ppos{font:600 12px Oswald;background:var(--panel2);border-radius:4px;padding:2px 6px;color:var(--accent)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}
+.tab{cursor:pointer;padding:7px 13px;border-radius:7px;background:var(--panel);border:1px solid var(--line);font:600 13px Oswald;letter-spacing:1px}
+.tab.sel{background:var(--accent);color:#111;border-color:var(--accent)}
+
+/* 設定 */
+.settings{width:min(560px,100%);display:flex;flex-direction:column;gap:10px}
+.setrow{display:flex;align-items:center;gap:10px;background:var(--panel);padding:10px 14px;border-radius:9px}
+.setrow label{flex:1;font-weight:700;font-size:14px}
+.setrow label small{display:block;color:var(--muted);font-weight:400;font-size:11px}
+.seg{display:flex;gap:4px}
+.seg button{cursor:pointer;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:600 13px "Noto Sans JP"}
+.seg button.on{background:var(--accent);color:#111;border-color:var(--accent)}
+
+/* 操作説明 */
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:min(980px,100%)}
+.cbox{background:var(--panel);border-radius:10px;padding:14px 16px;border:1px solid var(--line)}
+.cbox h4{margin:0 0 8px;font:700 16px Oswald;letter-spacing:1px;color:var(--accent)}
+.cbox table{width:100%;border-collapse:collapse;font-size:13px}
+.cbox td{padding:4px 0;border-bottom:1px solid #1e2a42}
+.cbox td:first-child{width:46%}
+kbd{font:600 12px Oswald;background:#0c1220;border:1px solid var(--line);border-bottom-width:3px;border-radius:5px;padding:1px 7px;margin-right:3px;color:#fff}
+
+/* オンライン */
+.lobby{width:min(560px,100%);display:flex;flex-direction:column;gap:12px}
+.code{font:700 44px Oswald;letter-spacing:10px;text-align:center;background:var(--panel);border:2px dashed var(--accent);border-radius:12px;padding:12px}
+input.txt{background:var(--panel);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:12px 14px;
+  font:700 26px Oswald;letter-spacing:8px;text-transform:uppercase;text-align:center;width:100%}
+.status{color:var(--muted);text-align:center;min-height:20px;font-size:13px}
+
+/* ===== プレーコール ===== */
+#playcall{position:absolute;left:0;right:0;bottom:68px;pointer-events:auto;padding:14px 18px 10px;max-height:calc(100vh - 140px);overflow-y:auto;
+  background:linear-gradient(0deg,rgba(6,10,18,.96) 80%,rgba(6,10,18,0));}
+.pc-head{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.pc-title{font:700 22px Oswald;letter-spacing:2px}
+.pc-sit{color:var(--muted);font-size:13px}
+.pc-clock{margin-left:auto;font:700 26px Oswald;color:var(--accent);min-width:56px;text-align:right}
+.pc-clock.warn{color:#ff5b4f}
+.pc-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+.pcc{cursor:pointer;background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:6px 8px 8px;position:relative;transition:transform .07s}
+.pcc:hover{transform:translateY(-2px)}
+.pcc.sel{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,198,41,.22)}
+.pcc canvas{width:100%;height:auto;aspect-ratio:356/184;max-height:96px;display:block;border-radius:6px;background:#1f5d2b}
+.pcc .nm{font-weight:700;font-size:13px;margin-top:5px}
+.pcc .ty{font:600 11px Oswald;color:var(--muted);letter-spacing:1px}
+.pcc .rec{position:absolute;top:4px;right:6px;background:var(--accent);color:#111;font:700 10px Oswald;padding:1px 6px;border-radius:4px}
+.pc-keys{color:var(--muted);font-size:12px;margin-top:8px;display:flex;gap:16px;flex-wrap:wrap}
+.pc-wait{font:600 18px Oswald;color:var(--muted);padding:30px;text-align:center}
+
+/* ===== HUD ===== */
+#hud{position:fixed;inset:0;pointer-events:none}
+#scorebug{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:stretch;
+  font-family:Oswald;border-radius:8px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.5);background:#0d1424;border:1px solid #2b3b5c}
+.sb-team{display:flex;align-items:center;gap:10px;padding:6px 12px;min-width:150px;font-weight:700;position:relative}
+.sb-abbr{font-size:20px;letter-spacing:1px}
+.sb-score{font-size:28px;margin-left:auto}
+.sb-to{position:absolute;bottom:2px;left:12px;font-size:9px;letter-spacing:2px;color:#ffe08a}
+.sb-poss{color:var(--accent);font-size:10px;visibility:hidden}
+.sb-team.poss .sb-poss{visibility:visible}
+.sb-clock{display:flex;align-items:center;gap:12px;padding:0 14px;font-size:22px;font-weight:600;background:#0d1424}
+#sb-pc{font-size:15px;color:var(--accent);min-width:22px}
+.sb-down{display:flex;align-items:center;padding:0 14px;background:var(--accent);color:#111;font-size:19px;font-weight:700;min-width:140px;justify-content:center}
+#ticker{position:absolute;left:50%;bottom:78px;transform:translateX(-50%);font-size:14px;background:rgba(10,15,26,.82);
+  padding:5px 14px;border-radius:6px;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+#ticker:empty{display:none}
+#banner{position:absolute;left:0;right:0;top:22%;text-align:center;font:700 64px Oswald;letter-spacing:4px;
+  text-shadow:0 4px 24px rgba(0,0,0,.7);opacity:0;transition:opacity .25s,transform .25s;transform:scale(.9)}
+#banner.show{opacity:1;transform:scale(1)}
+#banner small{display:block;font-size:22px;letter-spacing:2px;font-family:"Noto Sans JP";font-weight:700;margin-top:4px}
+#hint{position:absolute;top:14px;left:50%;transform:translateX(-50%);font-size:13px;color:#dfe7ff;
+  background:rgba(10,15,26,.72);padding:6px 14px;border-radius:20px;white-space:nowrap}
+#hint:empty{display:none}
+
+/* ボックススコア */
+.box{width:min(900px,100%);background:var(--panel);border-radius:12px;padding:16px;border:1px solid var(--line)}
+.box table{width:100%;border-collapse:collapse;font-size:13px}
+.box th{text-align:left;color:var(--muted);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--line)}
+.box td{padding:4px 6px;border-bottom:1px solid #1d2840}
+.final{font:700 56px Oswald;display:flex;gap:28px;align-items:center;justify-content:center;margin:6px 0 12px}
+.final .t{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:18px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:900px){.teamgrid{grid-template-columns:repeat(2,1fr)}.plist{grid-template-columns:1fr 1fr}.controls,.cols{grid-template-columns:1fr}}
+
+/* ===== キャリアモード ===== */
+.muted{color:var(--muted);font-size:12px}
+.cgrid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;width:min(1100px,100%)}
+.hubgrid{display:grid;grid-template-columns:260px minmax(0,1fr) minmax(0,1fr);gap:14px;width:min(1200px,100%)}
+.cpanel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.cpanel h3{margin:8px 0 4px}
+.cprev{align-items:stretch}
+.portrait{display:block;margin:0 auto;max-width:100%;border-radius:10px;background:radial-gradient(ellipse at 50% 30%,#22314f,#0c1220)}
+.abar{display:flex;align-items:center;gap:8px;font-size:12px}
+.abar .al{width:78px;color:var(--muted)}
+.at{flex:1;height:8px;background:#0c1220;border-radius:4px;overflow:hidden;min-width:60px}
+.at>div{height:100%;border-radius:4px}
+.abar .av{width:26px;text-align:right;font:700 13px Oswald}
+.ovr{display:flex;flex-direction:column;align-items:center;justify-content:center;width:62px;height:62px;border-radius:12px;background:linear-gradient(160deg,#ffd451,#c99700);color:#1a1300;font:700 28px Oswald;line-height:1}
+.ovr small{font-size:10px;letter-spacing:1px}
+.slot{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+.slot .sn{font:700 13px Oswald;color:var(--accent);width:56px}
+.tin{background:#0c1220;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:8px 10px;font:600 14px "Noto Sans JP";min-width:0}
+.posgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.posgrid .tab{display:flex;flex-direction:column;align-items:center;font-size:15px}
+.posgrid .tab small{font:400 10px "Noto Sans JP";color:inherit;opacity:.8}
+.rng{width:220px;accent-color:var(--accent)}
+.rv{font:600 13px "Noto Sans JP";min-width:150px}
+.sw{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:4px;vertical-align:-2px;border:1px solid #fff5}
+.pts{font-size:14px;margin-bottom:6px}.pts b{color:var(--accent);font-size:20px}
+.uprow{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #1d2840;font-size:13px}
+.uprow .al{width:84px}.uprow .abar{flex:1}
+.uprow .abar .al{display:none}
+.skillgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.skill{background:var(--panel2);border:2px solid transparent;border-radius:9px;padding:8px 10px;cursor:pointer;display:flex;flex-direction:column;gap:3px;font-size:13px}
+.skill small{color:var(--muted)}.skill.sel{border-color:var(--accent)}
+.skill .btn{align-self:flex-start;margin-top:4px}
+.draftres{min-height:120px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px;background:var(--panel);border-radius:12px}
+.draftres .tlogo{width:70px;height:70px;font-size:22px}
+.big{font:700 34px Oswald;color:var(--accent)}.big2{font:700 22px Oswald}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;color:var(--muted);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:4px 6px;border-bottom:1px solid #1d2840}
+.tbl tr.me td{background:rgba(255,198,41,.14);color:#ffe08a;font-weight:700}
+.hubhead{display:flex;align-items:center;gap:14px;width:min(1200px,100%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:12px;flex-wrap:wrap}
+.hubhead .tlogo{width:52px;height:52px}
+.hn{font:700 24px Oswald;letter-spacing:1px}
+.lvbox{min-width:150px;font:700 16px Oswald}
+.xpb{height:8px;background:#0c1220;border-radius:4px;overflow:hidden;margin-top:4px}
+.xpb>div{height:100%;background:linear-gradient(90deg,#3b82f6,#7dd3fc)}
+.xpb.big{height:14px}
+.yr{margin-left:auto;font:700 26px Oswald;display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+.yr small{font:600 13px "Noto Sans JP";color:var(--muted)}
+.toast{background:#1f3a24;border:1px solid #3ddc84;color:#cfffe0;padding:8px 14px;border-radius:8px;margin-bottom:10px}
+.role{background:var(--panel2);border-radius:8px;padding:8px 10px;margin:6px 0}
+.skl{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:2px 9px;font-size:12px}
+.chip.gold{background:linear-gradient(180deg,#ffd451,#c99700);color:#1a1300;border-color:#ffd451;font-weight:700}
+.matchup{display:flex;align-items:center;justify-content:center;gap:16px;margin:6px 0}
+.matchup .tlogo{width:64px;height:64px;font-size:18px}
+.statline{font:600 15px "Noto Sans JP";background:var(--panel2);border-radius:8px;padding:8px 10px}
+.news{display:flex;flex-direction:column;gap:5px;font-size:13px;max-height:300px;overflow-y:auto}
+.hubnav{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px}
+.xpgain{font:700 22px Oswald;color:#7dd3fc;text-align:center;margin-top:8px}
+.award{background:linear-gradient(90deg,#3a2d00,#1a1500);border:1px solid #c9a227;color:#ffe08a;border-radius:8px;padding:8px 12px;margin-top:8px;font-weight:700}
+.leadgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;width:min(1200px,100%)}
+.trophies{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;width:min(900px,100%);margin-top:12px}
+.trophy{background:var(--panel);border:1px solid #6b5a1a;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px}
+.trophy .ti{font-size:30px}
+.awn{font:700 26px Oswald;color:var(--accent);margin-bottom:4px}
+.winner{margin-top:10px;font:700 20px "Noto Sans JP";text-align:center;padding:10px;border-radius:10px;background:var(--panel2)}
+.winner.mine{background:linear-gradient(90deg,#ffd451,#c99700);color:#1a1300}
+@media (max-width:1000px){.hubgrid,.cgrid{grid-template-columns:1fr}}
+#playcard{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);min-width:min(520px,90vw);max-width:90vw;text-align:center;
+  background:linear-gradient(180deg,rgba(12,18,30,.94),rgba(8,12,22,.94));border:1px solid #3a4a6a;border-top:4px solid var(--accent);border-radius:12px;padding:12px 20px;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:cardIn .3s ease-out}
+#playcard .pc-t{font:700 30px Oswald;letter-spacing:3px;color:var(--accent)}
+#playcard .pc-d{font:700 17px "Noto Sans JP";margin:2px 0 6px}
+#playcard .pc-n{font:600 14px "Noto Sans JP";color:#9fd8ff}
+#playcard .pc-k{font:600 11px Oswald;color:var(--muted);margin-top:6px;letter-spacing:1px}
+@keyframes cardIn{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+
+/* ===== アメフト風デザイン ===== */
+:root{--turf1:#2b6e2f;--turf2:#307a34;--chalk:rgba(255,255,255,.85);--pig:#7a3d17;--goal:#ffd400}
+.screen{background:
+  linear-gradient(180deg,rgba(4,12,6,.78),rgba(4,10,8,.92)),
+  repeating-linear-gradient(90deg,transparent 0 118px,rgba(255,255,255,.35) 118px 121px),
+  repeating-linear-gradient(90deg,var(--turf1) 0 120px,var(--turf2) 120px 240px)}
+.screen.overlay{background:rgba(4,10,8,.82);backdrop-filter:blur(3px)}
+.screen.title{background:radial-gradient(ellipse at 50% 0%,rgba(255,250,210,.22),transparent 55%),linear-gradient(180deg,rgba(3,8,5,.35),rgba(3,8,5,.85) 75%)}
+.screen h1{font-family:Graduate,Oswald,serif;font-size:72px;letter-spacing:6px;background:linear-gradient(180deg,#fff 20%,var(--goal) 85%);-webkit-background-clip:text;color:transparent;
+  filter:drop-shadow(0 4px 0 #3d1d08) drop-shadow(0 10px 24px rgba(0,0,0,.6));margin-top:6px}
+.screen h2{font-family:Graduate,Oswald,"Noto Sans JP",serif;letter-spacing:3px;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.5)}
+.sub{color:#cfe8c8;letter-spacing:6px}
+.logo{margin-top:18px}.logo .fb{width:96px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.6));animation:spin 6s ease-in-out infinite}
+@keyframes spin{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(12deg)}}
+.btn{background:linear-gradient(180deg,#1c2a22,#121c16);border:1px solid rgba(255,255,255,.18);border-left:5px solid var(--goal);border-radius:8px}
+.btn:hover,.btn.sel{background:linear-gradient(180deg,#24382c,#17241c);border-color:var(--goal);box-shadow:0 0 0 2px rgba(255,212,0,.15)}
+.btn.primary{background:linear-gradient(180deg,#ffe25a,#e0b200);border:none;color:#1d1400;text-transform:none;box-shadow:0 4px 0 #8a6d00}
+.btn.primary:active{transform:translateY(2px);box-shadow:0 2px 0 #8a6d00}
+.btn.danger{border-left-color:#e2382f}.btn.danger:hover{border-color:#e2382f}
+.btn small{color:#a9c7b0}
+.tab{background:#13201a;border:1px solid rgba(255,255,255,.18)}.tab.sel{background:var(--goal);border-color:var(--goal);color:#1d1400}
+.cpanel,.box,.lobby .setrow,.setrow,.slot,.pickslot,.tcard,.pcard,.cbox{background:linear-gradient(180deg,#16241c,#101b15)!important;border:1px solid rgba(255,255,255,.14)!important}
+.box,.cpanel{box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),0 8px 22px rgba(0,0,0,.35)}
+.pcc{background:#16241c;border-color:rgba(255,255,255,.15)}.pcc canvas{background:#1d2e22}
+#playcall{background:linear-gradient(0deg,rgba(6,14,9,.96) 80%,rgba(6,14,9,0))}
+kbd{background:#0a120d;border-color:rgba(255,255,255,.25)}
+/* ☰メニュー */
+#menuBtn{position:fixed;top:12px;right:14px;z-index:60;width:46px;height:42px;border-radius:9px;border:1px solid rgba(255,255,255,.25);
+  background:rgba(10,18,13,.85);cursor:pointer;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px}
+#menuBtn span{display:block;width:22px;height:3px;border-radius:2px;background:#fff}
+#menuBtn:hover{border-color:var(--goal)}#menuBtn:hover span{background:var(--goal)}
+#drawer{position:fixed;inset:0;z-index:55}
+.drawerwrap{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;justify-content:flex-end}
+.drawerpanel{width:min(380px,92vw);height:100%;overflow-y:auto;background:linear-gradient(180deg,#14221a,#0b140f);border-left:3px solid var(--goal);
+  padding:64px 16px 20px;display:flex;flex-direction:column;gap:8px;animation:slideIn .2s ease-out}
+@keyframes slideIn{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
+.dhead{display:flex;align-items:center;justify-content:space-between;font:700 22px Graduate,Oswald;letter-spacing:3px;margin-bottom:6px}
+.dsep{color:#a9c7b0;font-size:12px;margin-top:10px;border-top:1px solid rgba(255,255,255,.12);padding-top:8px}
+.mi{width:24px;text-align:center;font-size:17px}
+#drawer .screen{position:absolute;inset:0;z-index:2}
+#userBadge{position:fixed;top:20px;right:72px;z-index:60;font-size:12px;color:#cfe8c8;background:rgba(10,18,13,.7);padding:4px 10px;border-radius:14px}
+#userBadge:empty{display:none}
+/* ログイン */
+.logincard{width:min(420px,100%);display:flex;flex-direction:column;gap:10px;background:linear-gradient(180deg,rgba(22,36,28,.95),rgba(12,20,15,.95));
+  border:1px solid rgba(255,255,255,.18);border-top:4px solid var(--goal);border-radius:12px;padding:18px}
+.logincard .tin{font-size:15px;padding:11px 12px}
+.logincard .tabs{justify-content:stretch}.logincard .tab{flex:1;text-align:center}
+.err{background:#3a1212;border:1px solid #e2382f;color:#ffd6d3;border-radius:8px;padding:8px 10px;font-size:13px}
+.or{text-align:center;position:relative;color:#a9c7b0;font-size:12px}.or:before{content:'';position:absolute;left:0;right:0;top:50%;border-top:1px solid rgba(255,255,255,.15)}
+.or span{position:relative;background:#132019;padding:0 10px}
+.gbtn{justify-content:center;background:#fff!important;color:#333!important;border:1px solid #ddd!important}
+.gbtn .g{font:700 18px Arial;color:#4285f4}.gbtn .soon{color:#999!important;margin-left:6px}
+/* ルールブック */
+.rbtitle{display:flex;align-items:center;gap:12px;font:700 26px "Noto Sans JP";margin:8px 0 12px}.rbtitle .fb{width:54px}
+.rbook{width:min(860px,100%);background:#f3ead7;color:#2a2116;border-radius:10px;padding:18px 22px;box-shadow:0 10px 30px rgba(0,0,0,.5);
+  border:6px solid #5a2e10;font-size:15px;line-height:1.8;min-height:300px}
+.rbook h3{color:#5a2e10!important;font:700 22px "Noto Sans JP";margin:0 0 8px;border-bottom:2px solid #c9a227}
+.rbook .tbl td{border-bottom:1px solid #d8c9a6;color:#2a2116}.rbook kbd{background:#2a2116;color:#fff}
+.rbsvg{width:100%;border-radius:6px;margin:6px 0}
+.chk{display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer}
+
+#backLink{position:fixed;top:14px;left:14px;z-index:60;font:600 13px "Noto Sans JP";color:#cfe8c8;background:rgba(10,18,13,.8);padding:6px 12px;border-radius:16px;border:1px solid rgba(255,255,255,.2);text-decoration:none}
+#backLink:hover{color:#ffd400;border-color:#ffd400}
