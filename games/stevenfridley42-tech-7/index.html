@@ -161,6 +161,13 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:2px}
 .tbtn.mv{width:62px;height:46px;font-size:11px}
 .tbtn.mv .ic{font-size:17px}
 .val.super{color:var(--coral)}
+.secret-tag.top{background:#0b1d2c;color:#5fc8ff}
+.codewrap{z-index:6;background:rgba(11,29,44,.55)}
+.codebox{width:min(360px,100%);gap:12px}
+.codelbl{font-family:var(--f-display);font-weight:700;font-size:22px}
+.codein{font-family:var(--f-display);font-size:24px;letter-spacing:.2em;text-align:center;padding:10px 12px;border-radius:12px;border:2px solid var(--line);background:var(--white);color:var(--ink);text-transform:uppercase;user-select:text;-webkit-user-select:text}
+.codein:focus{outline:3px solid var(--sea);outline-offset:1px}
+.codebad{color:var(--coral);font-weight:800;font-size:13px}
 .secret-tag{margin-left:6px;font-size:10px;font-weight:800;letter-spacing:.08em;background:var(--ink);color:var(--taxi);border-radius:5px;padding:1px 5px;vertical-align:2px}
 .item.secret-locked{cursor:default;background:repeating-linear-gradient(45deg,#f4f6f8 0 8px,#ffffff 8px 16px)}
 .qmark{font-family:var(--f-display);font-weight:700;font-size:22px;color:var(--ink-soft)}
@@ -312,6 +319,12 @@ const ACE_COLORS = { body: 0xc4182c, wing: 0x1d232b, trim: 0xffd23f };
 const CAM_NAMES = ['三人称', '一人称', '上空'];
 const MACH = 340;          // speed of sound, m/s
 const SECRET_RANK = 11;    // 1等空尉 unlocks the secret jet
+// the hidden plane's code is only stored as a hash (FNV-1a of the normalised code)
+const HYPER_HASH = 0x3a2ae7a8, HYPER_LEN = 7;
+function fnv1a(str){ let h = 2166136261; for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619) >>> 0; return h >>> 0; }
+// full-width → half-width, upper case, drop spaces and dashes
+function normCode(str){ return String(str || '').normalize('NFKC').toUpperCase().replace(/[\s\-ー_]/g, ''); }
+function isHyperCode(str){ const n = normCode(str); return n.length === HYPER_LEN && fnv1a(n) === HYPER_HASH; }
 
 /* ---- hangar catalogue: price 0 = owned from the start ---- */
 const SHOP = {
@@ -324,6 +337,8 @@ const SHOP = {
     { id: 'racer', name: 'ソニックプロップ', price: 4000, desc: 'いちばん速いレース機',       maxSpeed: 120, accel: 30, turn: 1.15, hp: 3, rate: 10 },
     // secret: hidden until unlocked (rank 1等空尉 or the secret command), then free
     { id: 'jet', name: 'MACH-X', price: 0, secret: true, desc: 'シークレット機。マッハ1を超えるジェット', maxSpeed: 380, accel: 75, turn: 1.0, hp: 5, rate: 14 },
+    // hidden: not listed at all until the secret code is entered. 2778 m/s = 10,000 km/h
+    { id: 'hyper', name: 'X-10000', price: 0, hidden: true, desc: '裏コードで手に入る極秘機。時速10,000km', maxSpeed: 10000 / 3.6, accel: 560, turn: 2.0, hp: 6, rate: 16 },
   ],
   paint: [
     { id: 'taxi',   name: 'タクシーイエロー', price: 0,    body: 0xffc82e, wing: 0xffc82e, trim: 0xffffff, check: [0x1d232b, 0xffffff] },
@@ -424,7 +439,7 @@ function stepMissions(ms, stat){
 
 const SAVE_KEY = 'skytaxi-save';
 function loadSave(){
-  const base = { wallet: 0, owned: [], equip: Object.assign({}, DEFAULT_EQUIP), missions: NEW_MISSIONS(), done: 0, secret: false };
+  const base = { wallet: 0, owned: [], equip: Object.assign({}, DEFAULT_EQUIP), missions: NEW_MISSIONS(), done: 0, secret: false, hyper: false };
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
     if (s && typeof s.wallet === 'number') {
@@ -436,13 +451,14 @@ function loadSave(){
       if (m && m.v === MISSION_VERSION && typeof m.next === 'number' && Array.isArray(m.slots) && m.slots.length === 3 && m.slots.every((x) => x && typeof x.i === 'number' && typeof x.p === 'number')) base.missions = m;
       base.done = typeof s.done === 'number' ? Math.max(0, Math.floor(s.done)) : Math.max(0, base.missions.next - 3);
       base.secret = s.secret === true || rankOf(base.done) >= SECRET_RANK;
+      base.hyper = s.hyper === true;
       const eqIn = Object.assign({}, s.equip || {});
       if (eqIn.style && !eqIn.plane) eqIn.plane = eqIn.style;
       delete eqIn.style;
       const eq = Object.assign({}, DEFAULT_EQUIP, eqIn);
       for (const k of Object.keys(DEFAULT_EQUIP)) {
         const it = findItem(k, eq[k]);
-        const ok = it.secret ? base.secret : (it.price === 0 || base.owned.includes(k + ':' + it.id));
+        const ok = it.hidden ? base.hyper : it.secret ? base.secret : (it.price === 0 || base.owned.includes(k + ':' + it.id));
         eq[k] = ok ? it.id : DEFAULT_EQUIP[k];
       }
       base.equip = eq;
@@ -489,13 +505,25 @@ function makeJet(c, opts){
   const canopy = mesh(new THREE.BoxGeometry(1.0, 0.7, 2.2), glass, 0, 0.95, -2.0, g); canopy.castShadow = false;
   for (const sd of [-1, 1]) { const gun = mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.4, 6), dark, sd * 2.2, -0.3, -1.9, g); gun.rotation.x = Math.PI / 2; }
   const noz = mesh(new THREE.CylinderGeometry(0.62, 0.74, 1.1, 10), dark, 0, 0, 5.0, g); noz.rotation.x = Math.PI / 2;
-  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.55, 3, 10), new THREE.MeshBasicMaterial({ color: 0xffa23a, transparent: true, opacity: 0.85, depthWrite: false }));
+  const hyper = opts.style === 'hyper';
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.55, 3, 10), new THREE.MeshBasicMaterial({ color: hyper ? 0x5fc8ff : 0xffa23a, transparent: true, opacity: 0.85, depthWrite: false }));
   flame.rotation.x = Math.PI / 2; flame.position.z = 7.0; g.add(flame);
   const core = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.8, 8), new THREE.MeshBasicMaterial({ color: 0xfff6c8, transparent: true, opacity: 0.95, depthWrite: false }));
   core.rotation.x = Math.PI / 2; core.position.z = 6.3; g.add(core);
   for (const sd of [-1, 1]) {
     mesh(new THREE.BoxGeometry(0.14, 0.7, 0.14), dark, sd * 0.9, -0.95, -1.0, g);
     const w = mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.3, 10), dark, sd * 0.95, -1.1, -1.0, g); w.rotation.z = Math.PI / 2;
+  }
+  if (hyper) {
+    // longer, flatter dart with glowing wing edges and twin canted fins
+    g.scale.set(0.92, 0.82, 1.38);
+    const glow = new THREE.MeshBasicMaterial({ color: 0x5fc8ff });
+    for (const sd of [-1, 1]) {
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 6.3), glow);
+      edge.position.set(sd * 3.0, -0.05, 0.5); edge.rotation.y = sd * 0.83; g.add(edge);
+      const f2 = mesh(new THREE.BoxGeometry(0.18, 2.0, 1.6), trim, sd * 1.1, 1.2, 3.8, g); f2.rotation.set(-0.45, 0, -sd * 0.35);
+    }
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), glow); tip.position.z = -7.1; g.add(tip);
   }
   if (opts.taxi) {
     const ck = opts.check || [0x1d232b, 0xffffff];
@@ -512,7 +540,7 @@ function makeJet(c, opts){
 
 function makePlane(c, opts){
   opts = opts || {};
-  if (opts.style === 'jet') return makeJet(c, opts);
+  if (opts.style === 'jet' || opts.style === 'hyper') return makeJet(c, opts);
   const taxi = !!opts.taxi, style = opts.style || 'std';
   const g = new THREE.Group();
   const body = mat(c.body), wing = mat(c.wing), trim = mat(c.trim), dark = mat(0x2a2f36), glass = mat(0x8fdcff, { transparent: true, opacity: 0.75 });
@@ -844,7 +872,7 @@ class Game {
     this.hp = this.stats.hp; this.invuln = 0; this.shake = 0; this.hitFlash = 0;
     this.wave = 0; this.waveState = 'break'; this.breakT = 3; this.damagedThisWave = false;
     this.distAcc = 0; this.cause = ''; this.lock = null; this.fireT = 0; this.firedOnce = false;
-    this.man = null; this.manCD = 0; this.dodgeT = 0; this.lookBack = false; this.supersonic = false; this.thrHeld = 0;
+    this.man = null; this.manCD = 0; this.dodgeT = 0; this.lookBack = false; this.supersonic = false; this.thrHeld = 0; this.hypersonic = false; this.topSpeedShown = false;
     this.state = 'idle';
     if (fly) this.startTakeoff();
     this.camOff.copy(F).multiplyScalar(-17); this.camOff.y = 5.5;
@@ -1037,7 +1065,11 @@ class Game {
     if (p.pos.y < g) { p.pos.y = g; if (!this.man && p.pitch < 0) p.pitch = damp(p.pitch, 0.05, 10, dt); }
     if (p.pos.y > C.maxAlt) { p.pos.y = C.maxAlt; if (!this.man && p.pitch > 0) p.pitch = damp(p.pitch, 0, 6, dt); }
     this.out = Math.hypot(p.pos.x, p.pos.z) > C.worldR;
-    if (this.out) {
+    // too fast to turn back at the edge: wrap around to the far side of the map instead
+    if (p.speed > 600 && Math.hypot(p.pos.x, p.pos.z) > C.worldR + 600) {
+      p.pos.x *= -0.92; p.pos.z *= -0.92;
+      this.out = false;
+    } else if (this.out) {
       const home = Math.atan2(p.pos.x, p.pos.z);
       const diff = wrap(home - p.yaw);
       p.yaw = wrap(p.yaw + diff * (1 - Math.exp(-1.6 * dt)));
@@ -1047,6 +1079,10 @@ class Game {
     const sup = p.speed >= MACH;
     if (sup && !this.supersonic) this.sonicBoom();
     this.supersonic = sup;
+    const hyperNow = p.speed >= MACH * 5;
+    if (hyperNow && !this.hypersonic) { this.cb.onEvent('マッハ5突破！ 極超音速', 'rank'); this.shake = Math.max(this.shake, 0.5); }
+    this.hypersonic = hyperNow;
+    if (p.speed >= 2770 && !this.topSpeedShown) { this.topSpeedShown = true; this.cb.onEvent('時速 10,000 km 到達！', 'rank'); }
     this.distance += p.speed * dt;
     this.score += p.speed * dt * 0.02;
     this.distAcc += p.speed * dt;
@@ -1476,7 +1512,7 @@ class Game {
     if (this.shake > 0) { const s = this.shake * 1.6; cam.position.x += (Math.random() - 0.5) * s; cam.position.y += (Math.random() - 0.5) * s; cam.position.z += (Math.random() - 0.5) * s; }
     if (cam.position.y < 1.5) cam.position.y = 1.5;
     cam.quaternion.slerp(rig.quaternion, a);
-    const fov = this.showcase ? 50 : this.lookBack ? 66 : this.camMode === 1 ? 72 : 60 + sf * 12;
+    const fov = this.showcase ? 50 : this.lookBack ? 66 : this.camMode === 1 ? 72 : 60 + sf * 12 + clamp((p.speed - MACH) / (MACH * 7), 0, 1) * 16;
     if (Math.abs(cam.fov - fov) > 0.05) { cam.fov = damp(cam.fov, fov, 3, dt); cam.updateProjectionMatrix(); }
   }
 
@@ -1486,6 +1522,21 @@ class Game {
     c.setTransform(this.odpr, 0, 0, this.odpr, 0, 0);
     c.clearRect(0, 0, W, H);
     if (this.showcase || (this.state !== 'flying' && this.state !== 'takeoff')) return;
+    const spd = this.p.speed;
+    if (spd > MACH * 1.5 && !this.lookBack) {
+      const k = clamp((spd - MACH * 1.5) / (MACH * 6), 0, 1);
+      const n = Math.round(10 + k * 40);
+      c.strokeStyle = 'rgba(255,255,255,' + (0.15 + k * 0.45).toFixed(2) + ')';
+      c.lineWidth = 1.5 + k * 1.5;
+      c.beginPath();
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * TAU, r0 = (0.32 + Math.random() * 0.3) * Math.max(W, H) * 0.5;
+        const r1 = r0 + (40 + k * 140) * (0.6 + Math.random() * 0.8);
+        c.moveTo(W / 2 + Math.cos(a) * r0, H / 2 + Math.sin(a) * r0);
+        c.lineTo(W / 2 + Math.cos(a) * r1, H / 2 + Math.sin(a) * r1);
+      }
+      c.stroke();
+    }
     const cam = this.camera; cam.updateMatrixWorld();
     const v = this.tmpO;
     // reticle where the guns converge
@@ -1756,7 +1807,8 @@ function StyleIcon({ id }){
     id === 'twin' && h('circle', { cx: 17, cy: 14, r: 4, fill: ink }),
     id === 'twin' && h('circle', { cx: 43, cy: 14, r: 4, fill: ink }),
     id === 'racer' && h('path', { d: 'M30 1 L36 10 L24 10 Z', fill: '#ff4b5c' }),
-    id === 'jet' && h('path', { d: 'M30 0 L50 24 L10 24 Z', fill: '#ff8a1f' }));
+    id === 'jet' && h('path', { d: 'M30 0 L50 24 L10 24 Z', fill: '#ff8a1f' }),
+    id === 'hyper' && h('path', { d: 'M30 0 L44 28 L16 28 Z', fill: '#5fc8ff' }));
 }
 function Swatch({ kind, item }){
   if (kind === 'paint') return h('div', { className: 'sw' }, [item.body, item.wing, item.trim].map((c, i) => h('i', { key: i, style: { background: hex(c) } })));
@@ -1793,7 +1845,7 @@ function Hangar({ save, setSave, game, onClose }){
       h('div', { className: 'wallet' }, h('i', { className: 'coin' }), save.wallet.toLocaleString())),
     h('div', { className: 'tabs', role: 'tablist' }, SHOP_TABS.map(([k, label]) =>
       h('button', { key: k, role: 'tab', 'aria-selected': tab === k, className: 'tab' + (tab === k ? ' on' : ''), onClick: () => setTab(k) }, label))),
-    h('div', { className: 'items' }, SHOP[tab].map((it) => {
+    h('div', { className: 'items' }, SHOP[tab].filter((it) => !it.hidden || save.hyper).map((it) => {
       const own = owns(tab, it), equipped = save.equip[tab] === it.id, viewing = preview[tab] === it.id;
       const short = it.price - save.wallet;
       if (locked(it)) {
@@ -1810,7 +1862,7 @@ function Hangar({ save, setSave, game, onClose }){
       return h('div', { key: it.id, className: 'item' + (viewing ? ' viewing' : ''), onClick: () => choose(it.id), role: 'button', tabIndex: 0,
         onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(it.id); } } },
         h(Swatch, { kind: tab, item: it }),
-        h('div', { className: 'iname' }, h('b', null, it.name, it.secret && h('span', { className: 'secret-tag' }, 'SECRET')), h('span', null, own ? '持っている' : h(React.Fragment, null, h('i', { className: 'coin' }), it.price.toLocaleString())),
+        h('div', { className: 'iname' }, h('b', null, it.name, (it.secret || it.hidden) && h('span', { className: 'secret-tag' + (it.hidden ? ' top' : '') }, it.hidden ? 'TOP SECRET' : 'SECRET')), h('span', null, own ? '持っている' : h(React.Fragment, null, h('i', { className: 'coin' }), it.price.toLocaleString())),
           tab === 'plane' && h('span', { className: 'desc' }, it.desc),
           tab === 'plane' && h('div', { className: 'pstats' },
             [['速さ', it.maxSpeed / 120], ['加速', it.accel / 30], ['旋回', it.turn / 1.35], ['HP', it.hp / 5], ['連射', it.rate / 11]].map(([l, v]) =>
@@ -1821,11 +1873,39 @@ function Hangar({ save, setSave, game, onClose }){
     h('button', { className: 'cta', onClick: close }, unsaved ? '試すのをやめて戻る' : '戻る'));
 }
 
-function Title({ best, wallet, isTouch, onStart, onHangar, missions, done, onLogoTap }){
+// hold the logo for 1.5 s to open a hidden code box (works on phones too)
+function useLongPress(ms, fn){
+  const tm = useRef(0);
+  const cancel = () => { clearTimeout(tm.current); };
+  return {
+    onPointerDown: () => { cancel(); tm.current = setTimeout(fn, ms); },
+    onPointerUp: cancel, onPointerLeave: cancel, onPointerCancel: cancel,
+    onContextMenu: (e) => e.preventDefault(),
+  };
+}
+
+function CodeBox({ onSubmit, onClose }){
+  const [txt, setTxt] = useState('');
+  const [bad, setBad] = useState(false);
+  const send = (e) => { e.preventDefault(); if (!onSubmit(txt)) { setBad(true); setTxt(''); } };
+  return h('div', { className: 'overlay codewrap', onClick: (e) => { if (e.target === e.currentTarget) onClose(); } },
+    h('form', { className: 'card codebox', onSubmit: send, role: 'dialog', 'aria-label': '裏コード入力' },
+      h('span', { className: 'eyebrow' }, 'CLASSIFIED'),
+      h('label', { htmlFor: 'secret-code', className: 'codelbl' }, '裏コードを入力'),
+      h('input', { id: 'secret-code', className: 'codein', value: txt, autoFocus: true, autoComplete: 'off', autoCapitalize: 'characters', spellCheck: false, maxLength: 20,
+        onChange: (e) => { setTxt(e.target.value); setBad(false); } }),
+      bad && h('span', { className: 'codebad' }, 'コードがちがいます'),
+      h('div', { className: 'ctarow' },
+        h('button', { type: 'submit', className: 'cta' }, '決定'),
+        h('button', { type: 'button', className: 'cta2', onClick: onClose }, 'やめる'))));
+}
+
+function Title({ best, wallet, isTouch, onStart, onHangar, missions, done, onLogoTap, onLogoHold }){
+  const hold = useLongPress(1500, onLogoHold);
   return h('div', { className: 'overlay' },
     h('div', { className: 'card' },
       h('span', { className: 'eyebrow' }, '島々の空を守るドッグファイト'),
-      h('h1', { className: 'logo', onClick: onLogoTap }, 'SKY', h('span', null, 'TAXI')),
+      h('h1', Object.assign({ className: 'logo', onClick: onLogoTap }, hold), 'SKY', h('span', null, 'TAXI')),
       h('p', { className: 'lead' }, '空賊の戦闘機がつぎつぎにやってくる。撃ち落としてWAVEをクリアしよう。撃墜・WAVEクリア・ミッションでコインを集めて、ハンガーで強い飛行機を買おう。'),
       isTouch
         ? h('div', { className: 'tip' }, '左のボタンで旋回と上昇・下降、右の赤いボタンで射撃、緑で加速。「Uターン」で横に反転、「縦U」で上に回って反転、「宙返り」で縦に1回転、「回避」で弾をよけるロール、「後ろ」を押している間は後方を確認できます。')
@@ -1869,9 +1949,12 @@ function useSecretCommand(active, unlock){
   useEffect(() => {
     if (!active) return undefined;
     const onKey = (e) => {
-      if (!/^Key[A-Z]$/.test(e.code)) return;
-      buf.current = (buf.current + e.code.slice(3)).slice(-4);
-      if (buf.current === 'MACH') { buf.current = ''; unlock(); }
+      if (e.target && e.target.tagName === 'INPUT') return;
+      const ch = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3) : /^(Digit|Numpad)[0-9]$/.test(e.code) ? e.code.slice(-1) : '';
+      if (!ch) return;
+      buf.current = (buf.current + ch).slice(-12);
+      if (buf.current.slice(-4) === 'MACH') { buf.current = ''; unlock('mach'); }
+      else if (isHyperCode(buf.current.slice(-HYPER_LEN))) { buf.current = ''; unlock('hyper'); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1879,7 +1962,7 @@ function useSecretCommand(active, unlock){
   return useCallback(() => {
     const now = performance.now();
     taps.current = taps.current.filter((t) => now - t < 2500).concat(now);
-    if (taps.current.length >= 5) { taps.current = []; unlock(); }
+    if (taps.current.length >= 5) { taps.current = []; unlock('mach'); }
   }, [unlock]);
 }
 
@@ -1950,11 +2033,23 @@ function App(){
     setToasts([]); setResult(null); setScreen('hangar');
   }, []);
   const closeHangar = useCallback(() => { if (gameRef.current) gameRef.current.setShowcase(false); setScreen('title'); }, []);
-  const unlockSecret = useCallback(() => {
+  const unlockSecret = useCallback((which) => {
+    if (which === 'hyper') {
+      if (saveRef.current.hyper) { pushToast('X-10000 はもう持っています', 'info'); return; }
+      setSave((s) => Object.assign({}, s, { hyper: true }));
+      pushToast('極秘機 X-10000 を入手！ ハンガーを見てみよう', 'rank');
+      return;
+    }
     if (saveRef.current.secret) { pushToast('MACH-X はもう解放されています', 'info'); return; }
     setSave((s) => Object.assign({}, s, { secret: true }));
     pushToast('シークレット機 MACH-X が解放された！', 'rank');
   }, [setSave, pushToast]);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const submitCode = useCallback((txt) => {
+    if (isHyperCode(txt)) { setCodeOpen(false); unlockSecret('hyper'); return true; }
+    if (normCode(txt) === 'MACH') { setCodeOpen(false); unlockSecret('mach'); return true; }
+    return false;
+  }, [unlockSecret]);
   const onLogoTap = useSecretCommand(screen === 'title', unlockSecret);
   const start = useCallback(() => { onStat({ kind: 'run_reset' }); if (gameRef.current) gameRef.current.start(); setScreen('play'); }, [onStat]);
   const retry = useCallback(() => { onStat({ kind: 'run_reset' }); setToasts([]); setResult(null); if (gameRef.current) gameRef.current.restart(); setScreen('play'); }, [onStat]);
@@ -1962,6 +2057,7 @@ function App(){
   useEffect(() => {
     const onKey = (e) => {
       if (e.repeat || (e.code !== 'Enter' && e.code !== 'Space')) return;
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON')) return;
       if (screen === 'title') { e.preventDefault(); start(); }
       else if (screen === 'over') { e.preventDefault(); retry(); }
     };
@@ -1973,7 +2069,8 @@ function App(){
     h('div', { ref: mountRef, className: 'stage' }),
     hud && screen === 'play' && h(Hud, { hud, game: gameRef, isTouch, onRetry: retry, missions: save.missions, done: save.done || 0 }),
     (screen === 'play' || screen === 'title') && h('div', { className: 'toasts', 'aria-live': 'polite' }, toasts.map((t) => h('div', { key: t.id, className: 'toast ' + (t.kind || '') }, t.text))),
-    screen === 'title' && h(Title, { best, wallet: save.wallet, isTouch, onStart: start, onHangar: openHangar, missions: save.missions, done: save.done || 0, onLogoTap }),
+    screen === 'title' && h(Title, { best, wallet: save.wallet, isTouch, onStart: start, onHangar: openHangar, missions: save.missions, done: save.done || 0, onLogoTap, onLogoHold: () => setCodeOpen(true) }),
+    screen === 'title' && codeOpen && h(CodeBox, { onSubmit: submitCode, onClose: () => setCodeOpen(false) }),
     screen === 'over' && result && h(GameOver, { result, wallet: save.wallet, onRetry: retry, onHangar: openHangar, missions: save.missions, done: save.done || 0 }),
     screen === 'hangar' && h(Hangar, { save, setSave, game: gameRef, onClose: closeHangar }),
     error && h('div', { className: 'overlay' }, h('div', { className: 'card' }, h('p', { className: 'lead' }, error)))
