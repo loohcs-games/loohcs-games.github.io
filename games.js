@@ -37,6 +37,7 @@ window.GAMES = [
   { id: "stevenfridley42-tech-7", title: "SKY TAXI", author: "stevenfridley42-tech", description: "島々の空で空賊の戦闘機と戦う3Dドッグファイト。宙返り・Uターン・回避ロールで敵の後ろをとる。撃墜でコインを集めて新しい飛行機を買い、ノルマ達成で航空自衛隊の階級が上がる。スマホ・PC 両対応" },
   { id: "stevenfridley42-tech-8", title: "始祖の大地", author: "stevenfridley42-tech", description: "1000万年前のアフリカで、類人猿の一族を率いる。地図も目印もない土地を嗅いで・聞いて・確かめ、試行錯誤で神経（スキル）を芽生えさせ、世代を重ねてホモ・ハビリスへ進化する。セーブあり。PC のキーボード向け（スマホはタッチ操作）" },
   { id: "stevenfridley42-tech-9", title: "カラーポップ", author: "stevenfridley42-tech", description: "隣り合うブロックを入れ替えて、同じ色を3つ以上そろえて消す60秒のパズル。連鎖でコンボボーナス。ハイスコア保存・一時停止つき。スマホ・PC 両対応。音あり" },
+  { id: "stevenfridley42-tech-10", title: "PROJECT ORBIT", author: "stevenfridley42-tech", description: "ロケットを組み立てて、地球周回・月・火星をめざす3D宇宙開発シミュレーション。軌道マップ、ドッキング、宇宙ステーション・基地、資金と研究で進めるキャリアモード、チュートリアルつき。セーブあり。PC のキーボード・マウス向け" },
 
   // ---- mineiyuki ----
   // { id: "mineiyuki", title: "ゲームの名前", author: "mineiyuki", description: "ひとこと説明" },
