@@ -3,13 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="robots" content="noindex, nofollow">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="てっぺん">
 <title>てっぺん</title>
 <style>
   * { box-sizing: border-box; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe3f7; font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif; touch-action: none; }
   canvas { display: block; }
-  #hud { position: fixed; left: 18px; top: 14px; color: #fff; text-shadow: 0 0 4px rgba(0,0,0,.6), 0 2px 8px rgba(0,0,0,.4); pointer-events: none; }
+  #hud { position: fixed; left: calc(18px + env(safe-area-inset-left)); top: calc(14px + env(safe-area-inset-top)); color: #fff; text-shadow: 0 0 4px rgba(0,0,0,.6), 0 2px 8px rgba(0,0,0,.4); pointer-events: none; }
   #height { font-size: 46px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
   #height small { font-size: 20px; margin-left: 3px; }
   #sub { font-size: 13px; margin-top: 6px; opacity: .9; }
@@ -26,8 +30,8 @@
   .btn { display: block; width: 100%; margin-top: 12px; padding: 14px; font-size: 18px; font-weight: 800; border: 0; border-radius: 12px; background: #2d6cdf; color: #fff; cursor: pointer; font-family: inherit; }
   .btn.sub { background: #dde3ec; color: #26303f; font-size: 15px; padding: 10px; }
   .hidden { display: none !important; }
-  #bgmBtn { position: fixed; right: 14px; top: 12px; height: 40px; padding: 0 12px; border-radius: 12px; border: 0; background: rgba(0,0,0,.3); color: #fff; font-size: 14px; font-weight: 800; font-family: inherit; cursor: pointer; z-index: 11; }
-  body.touch #bgmBtn { top: 154px; width: 52px; padding: 0; font-size: 18px; }
+  #bgmBtn { position: fixed; right: calc(14px + env(safe-area-inset-right)); top: calc(12px + env(safe-area-inset-top)); height: 40px; padding: 0 12px; border-radius: 12px; border: 0; background: rgba(0,0,0,.3); color: #fff; font-size: 14px; font-weight: 800; font-family: inherit; cursor: pointer; z-index: 11; }
+  body.touch #bgmBtn { top: calc(154px + env(safe-area-inset-top)); width: 52px; padding: 0; font-size: 18px; }
   .card { max-height: calc(100% - 16px); overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
   @media (max-height: 520px) {
     .card { padding: 12px 18px; max-width: 560px; }
@@ -40,12 +44,12 @@
   #joyBase { position: fixed; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%; background: rgba(255,255,255,.15); border: 2px solid rgba(255,255,255,.4); display: none; }
   #joyKnob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(255,255,255,.7); }
   .tbtn { position: fixed; border-radius: 50%; background: rgba(255,255,255,.3); border: 3px solid rgba(255,255,255,.7); color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; pointer-events: auto; text-shadow: 0 1px 3px rgba(0,0,0,.5); }
-  #jumpBtn { right: 24px; bottom: 30px; width: 90px; height: 90px; font-size: 17px; }
-  #dashBtn { right: 126px; bottom: 44px; width: 64px; height: 64px; font-size: 14px; }
+  #jumpBtn { right: calc(24px + env(safe-area-inset-right)); bottom: calc(30px + env(safe-area-inset-bottom)); width: 90px; height: 90px; font-size: 17px; }
+  #dashBtn { right: calc(126px + env(safe-area-inset-right)); bottom: calc(44px + env(safe-area-inset-bottom)); width: 64px; height: 64px; font-size: 14px; }
   #cp { font-size: 13px; margin-top: 4px; opacity: .95; }
-  .sbtn { position: fixed; right: 14px; width: 52px; height: 40px; border-radius: 12px; border: 0; background: rgba(0,0,0,.3); color: #fff; font-size: 14px; font-weight: 800; pointer-events: auto; font-family: inherit; }
-  #cp1Btn { top: 62px; } #cp2Btn { top: 108px; }
-  #pauseBtn { position: fixed; right: 14px; top: 12px; width: 40px; height: 40px; border-radius: 12px; border: 0; background: rgba(0,0,0,.25); color: #fff; font-size: 18px; pointer-events: auto; }
+  .sbtn { position: fixed; right: calc(14px + env(safe-area-inset-right)); width: 52px; height: 40px; border-radius: 12px; border: 0; background: rgba(0,0,0,.3); color: #fff; font-size: 14px; font-weight: 800; pointer-events: auto; font-family: inherit; }
+  #cp1Btn { top: calc(62px + env(safe-area-inset-top)); } #cp2Btn { top: calc(108px + env(safe-area-inset-top)); }
+  #pauseBtn { position: fixed; right: calc(14px + env(safe-area-inset-right)); top: calc(12px + env(safe-area-inset-top)); width: 40px; height: 40px; border-radius: 12px; border: 0; background: rgba(0,0,0,.25); color: #fff; font-size: 18px; pointer-events: auto; }
 </style>
 </head>
 <body>
@@ -74,6 +78,7 @@
     <h1>てっぺん</h1>
     <p>街の上空に積み上がったガラクタを、ひたすら上へ。<br>落ちたら、落ちたところから。</p>
     <p id="newNote" class="hidden" style="color:#ffd34d;font-weight:800">コースが新しくなって 300m に！ 240m の先に「宇宙（無重力）」エリアが追加。</p>
+    <p id="fsNote" class="hidden" style="font-size:12px;color:#5a6577"></p>
     <div class="keys" id="howto"></div>
     <button class="btn" id="startBtn">はじめる</button>
     <button class="btn sub hidden" id="resetBtn">いちばん下からやりなおす</button>
@@ -1171,6 +1176,23 @@ tbtn('jumpBtn', () => { jumpBuf = 0.14; touchJumpHeld = true; }, () => { touchJu
 tbtn('dashBtn', () => { touchDash = true; }, () => { touchDash = false; });
 tbtn('pauseBtn', () => pause());
 if (isTouch) document.body.classList.add('touch');
+{
+  // ホーム画面に追加したときのアイコン（その場で描く）
+  try {
+    const ic = document.createElement('canvas'); ic.width = ic.height = 180;
+    const c2 = ic.getContext('2d'), gr = c2.createLinearGradient(0, 0, 0, 180);
+    gr.addColorStop(0, '#1c2f66'); gr.addColorStop(1, '#5d9ff0'); c2.fillStyle = gr; c2.fillRect(0, 0, 180, 180);
+    c2.fillStyle = '#c89a5e'; c2.fillRect(40, 120, 40, 40); c2.fillStyle = '#2a5ea8'; c2.fillRect(85, 90, 50, 30); c2.fillStyle = '#ffd34d'; c2.beginPath(); c2.arc(120, 50, 16, 0, 7); c2.fill();
+    c2.fillStyle = '#fff'; c2.font = 'bold 34px sans-serif'; c2.textAlign = 'center'; c2.fillText('てっぺん', 90, 172);
+    const ln = document.createElement('link'); ln.rel = 'apple-touch-icon'; ln.href = ic.toDataURL('image/png'); document.head.appendChild(ln);
+  } catch (e) {}
+  // iPhone の Safari は全画面にできないので、ホーム画面に追加する方法を案内する
+  const iOS = /iPhone|iPod/.test(navigator.userAgent);
+  const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  const canFs = document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen;
+  if (iOS && !standalone) { $('fsNote').innerHTML = '全画面で遊ぶには：下の <b>共有ボタン</b> →「<b>ホーム画面に追加</b>」→ ホーム画面のアイコンからひらく'; $('fsNote').classList.remove('hidden'); }
+  else if (isTouch && canFs && !standalone) { $('fsNote').textContent = '「はじめる」をおすと全画面になります'; $('fsNote').classList.remove('hidden'); }
+}
 setMuted(muted);
 const bgmBtn = $('bgmBtn');
 bgmBtn.addEventListener('mousedown', e => e.stopPropagation());
@@ -1777,7 +1799,13 @@ function pause() {
   $('hint').classList.add('hidden');
   save();
 }
+function goFullscreen() {
+  const d = document.documentElement, fs = d.requestFullscreen || d.webkitRequestFullscreen;
+  if (!isTouch || !fs || document.fullscreenElement || document.webkitFullscreenElement) return;
+  try { const r = fs.call(d, { navigationUI: 'hide' }); if (r && r.catch) r.catch(() => {}); } catch (e) {}
+}
 function start() {
+  goFullscreen();
   initAudio();
   $('menu').classList.add('hidden');
   running = true;
