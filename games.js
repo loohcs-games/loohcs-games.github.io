@@ -40,6 +40,7 @@ window.GAMES = [
   { id: "stevenfridley42-tech-9", title: "カラーポップ", author: "stevenfridley42-tech", description: "隣り合うブロックを入れ替えて、同じ色を3つ以上そろえて消す60秒のパズル。連鎖でコンボボーナス。ハイスコア保存・一時停止つき。スマホ・PC 両対応。音あり" },
   { id: "stevenfridley42-tech-10", title: "PROJECT ORBIT", author: "stevenfridley42-tech", description: "ロケットを組み立てて、地球周回・月・火星をめざす3D宇宙開発シミュレーション。軌道マップ、ドッキング、宇宙ステーション・基地、資金と研究で進めるキャリアモード、チュートリアルつき。セーブあり。PC のキーボード・マウス向け" },
   { id: "stevenfridley42-tech-11", title: "コンコの雪山", author: "stevenfridley42-tech", description: "キツネのコンコがジャンプで頭上の氷を割り、雪山の頂上をめざすファミコン風アクション。全30の山とエンドレス、ランクと金のベリーでやり込める。← → で移動、Z でジャンプ、X でハンマー。スマホ・PC 両対応。音あり" },
+  { id: "stevenfridley42-tech-12", title: "STRATO LANCER", author: "stevenfridley42-tech", description: "南洋の島々の上を飛ぶ、ドット絵の縦スクロール・シューティング。宙返りで弾をかわし、編隊を全滅させてパワーアップ。勲章・撃墜率ボーナス・2周目・実績でやり込める。矢印で移動、Z でショット、X で宙返り。スマホ・PC 両対応。音あり" },
 
   // ---- mineiyuki ----
   // { id: "mineiyuki", title: "ゲームの名前", author: "mineiyuki", description: "ひとこと説明" },
