@@ -1,0 +1,45 @@
+# 学生の Pull Request を確かめて、問題がなければ自動で main に取り込み、公開する。
+# 確かめる中身は .github/scripts/auto-publish.cjs。
+# pull_request_target なので、動くのは main にあるこのファイルと main のスクリプト。Pull Request 側のコードは実行しない。
+name: 自動公開
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull Request の番号
+        required: true
+      dry_run:
+        description: 確かめるだけで、取り込まない
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  pages: write
+
+concurrency:
+  group: auto-publish-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # main を取り出す（pull_request_target と workflow_dispatch の既定）。Pull Request の中身は取り出さない
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: .github/scripts
+      - uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        with:
+          script: |
+            const run = require('./.github/scripts/auto-publish.cjs').run;
+            await run({ github, context, core, prNumber: Number(process.env.PR_NUMBER), dryRun: process.env.DRY_RUN === 'true' });
