@@ -42,6 +42,7 @@ window.GAMES = [
   { id: "stevenfridley42-tech-11", title: "コンコの雪山", author: "stevenfridley42-tech", description: "キツネのコンコがジャンプで頭上の氷を割り、雪山の頂上をめざすファミコン風アクション。全30の山とエンドレス、ランクと金のベリーでやり込める。← → で移動、Z でジャンプ、X でハンマー。スマホ・PC 両対応。音あり" },
   { id: "stevenfridley42-tech-12", title: "STRATO LANCER", author: "stevenfridley42-tech", description: "南洋の島々の上を飛ぶ、ドット絵の縦スクロール・シューティング。宙返りで弾をかわし、編隊を全滅させてパワーアップ。勲章・撃墜率ボーナス・2周目・実績でやり込める。矢印で移動、Z でショット、X で宙返り。スマホ・PC 両対応。音あり" },
   { id: "stevenfridley42-tech-13", title: "アメフト（開発中）", author: "stevenfridley42-tech", description: "NFL全32チーム・実在選手で遊ぶアメリカンフットボール。チーム対戦、1人の選手を操作する個人モード、オリジナル選手で殿堂入りをめざすキャリアモード、オンライン対戦。PC のキーボード・マウス向け。音あり" },
+  { id: "stevenfridley42-tech-14", title: "ラスベガス・ポーカー", author: "stevenfridley42-tech", description: "テキサスホールデムとファイブカードドローを、AIや友達と遊ぶノーリミット・ポーカー。部屋を作って6桁の番号を伝えれば、友達も自分のスマホやPCから参加できる（部屋は作った人のブラウザで動く）。ルールブックつき。スマホ・PC 両対応。音あり" },
 
   // ---- mineiyuki ----
   // { id: "mineiyuki", title: "ゲームの名前", author: "mineiyuki", description: "ひとこと説明" },
