@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>渋谷3D探索</title>
+    <script type="module" crossorigin src="./assets/index-pXkDyP1s.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BBlLUktF.css">
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <canvas id="minimap" width="400" height="400"></canvas>
+
+    <div id="guide" class="panel">
+      <div class="guide-title">操作ガイド <span class="dim">（Hで表示切替）</span></div>
+      <table>
+        <tr><td>移動</td><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></td></tr>
+        <tr><td>向き</td><td>マウス</td></tr>
+        <tr><td>走る</td><td><kbd>Shift</kbd> 長押し</td></tr>
+        <tr><td>ジャンプ</td><td><kbd>Space</kbd></td></tr>
+        <tr><td>飛行 ON/OFF</td><td><kbd>F</kbd></td></tr>
+        <tr><td>上昇 / 下降（飛行中）</td><td><kbd>Space</kbd> / <kbd>C</kbd></td></tr>
+        <tr><td>加速（飛行中）</td><td><kbd>Shift</kbd> 長押し</td></tr>
+        <tr><td>昼 / 夜</td><td><kbd>N</kbd></td></tr>
+        <tr><td>操作ガイド</td><td><kbd>H</kbd></td></tr>
+        <tr><td>一時停止</td><td><kbd>Esc</kbd></td></tr>
+      </table>
+    </div>
+
+    <div id="pause" class="overlay">
+      <div class="overlay-box">
+        <div id="pause-title" class="overlay-title">渋谷3D探索</div>
+        <div class="overlay-sub">読み込み中…</div>
+      </div>
+    </div>
+
+    <a id="back" href="../../">← ゲーム一覧にもどる</a>
+    <div id="credit">3D都市モデル：国土交通省 Project PLATEAU（渋谷区 2025年度）を加工して作成</div>
+
+    <div id="notice" class="panel hidden"></div>
+
+  </body>
+</html>
