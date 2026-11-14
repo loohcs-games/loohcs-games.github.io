@@ -1,0 +1,558 @@
+[
+ {
+  "url": "tiles/building_3_-5.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_2_-5.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_1_-5.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_0_-5.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-1_-5.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-2_-5.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-3_-5.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-4_-5.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-5_-5.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_3_-4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_2_-4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_2_-3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_3_-2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_2_-2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_4_-1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_3_-1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_2_-1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_3_0.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_2_0.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_4_0.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_4_1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_3_1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_2_1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_1_-4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_1_-3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_0_-4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-1_-4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_0_-3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-1_-3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_1_-2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_0_-2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-1_-2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-2_-4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-2_-3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-3_-4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-3_-3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-2_-2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-3_-2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_1_-1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_1_0.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_0_-1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_0_0.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-1_0.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_1_1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_0_1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-1_1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-1_-1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-2_-1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-2_0.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-3_-1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-3_0.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-2_1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-3_1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_4_2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_3_2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_2_2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_4_3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_4_4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_3_3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_2_3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_3_4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_2_4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_1_2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_0_2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-1_2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_1_3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_1_4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_0_3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-1_3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_0_4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-1_4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-2_2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-3_2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-2_3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-4_-4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-5_-4.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-4_-3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-5_-3.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-4_-2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-5_-2.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-4_-1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-5_-1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-4_0.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/building_-4_1.glb",
+  "kind": "building"
+ },
+ {
+  "url": "tiles/bridge_-1_-4.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_-1_-3.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_0_-3.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_-1_-2.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_-3_1.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_-3_0.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_-2_0.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_-1_-1.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_-1_0.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_1_-2.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_0_-2.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_0_-1.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_0_0.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_1_-1.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_1_0.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_1_1.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/bridge_1_2.glb",
+  "kind": "bridge"
+ },
+ {
+  "url": "tiles/road3d_2_-2.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_1_-2.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_2_-1.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_1_-1.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_2_0.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_1_0.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_1_1.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_0_-3.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-1_-3.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-2_-3.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-3_-3.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_0_-2.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-1_-1.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-1_-2.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-2_-2.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-2_-1.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_0_0.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-1_0.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_0_1.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-2_0.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-1_1.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-2_1.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-3_-2.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-3_-1.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-3_0.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-4_1.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/road3d_-3_1.glb",
+  "kind": "road3d"
+ },
+ {
+  "url": "tiles/furniture_1_-1.glb",
+  "kind": "furniture"
+ },
+ {
+  "url": "tiles/furniture_1_0.glb",
+  "kind": "furniture"
+ },
+ {
+  "url": "tiles/furniture_0_-1.glb",
+  "kind": "furniture"
+ },
+ {
+  "url": "tiles/furniture_0_0.glb",
+  "kind": "furniture"
+ },
+ {
+  "url": "tiles/furniture_0_-2.glb",
+  "kind": "furniture"
+ },
+ {
+  "url": "tiles/tree_0_-2.glb",
+  "kind": "tree"
+ },
+ {
+  "url": "tiles/plant_0_-2.glb",
+  "kind": "plant"
+ },
+ {
+  "url": "tiles/water_10_-24.glb",
+  "kind": "water"
+ },
+ {
+  "url": "tiles/water_-16_-22.glb",
+  "kind": "water"
+ },
+ {
+  "url": "tiles/water_7_14.glb",
+  "kind": "water"
+ },
+ {
+  "url": "tiles/water_-17_14.glb",
+  "kind": "water"
+ }
+]
