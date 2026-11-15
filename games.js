@@ -12,6 +12,7 @@ window.GAMES = [
   { id: "keybeat", title: "キーボードビート", author: "loohcskshirasaki", date: "2026-11-06 03:10", description: "落ちてくる音を、線の上で D F J K を押して鳴らす音ゲー。押した音がそのまま曲になる。約1分、難しさ3段階、最後に転調。音あり" },
   { id: "sensuikan", title: "潜水艦バトル", author: "loohcskshirasaki", date: "2026-11-06 03:10", description: "海の上の船から爆雷を落として、潜水艦を沈める。レーダーつき、全4海域、最後に巨大潜水艦。昔の「Super Depth」の海の面が手本。音あり" },
   { id: "tamatsuki", title: "夜のビリヤード", author: "loohcskshirasaki", date: "2026-11-12 15:54", description: "閉店まぎわの撞球場で、ナインボールを三番勝負。← → でねらい、↑ ↓ で強さ、Space で撞く。キーボードだけで遊べる。最後の相手は奥の間に。小さな音あり" },
+  { id: "akikan", title: "空き缶撃ち", author: "loohcskshirasaki", date: "2026-11-15 09:35", description: "夕方の空き地で、柵の上の空き缶を撃つ FPS。マウスでも、キーボードだけでもねらえる。空中の缶を撃つとまた浮く。全5面、最後に跳ねて近づく大缶。音あり" },
   // ---- yuuuuuuuuuuhh ----
   { id: "yuuuuuuuuuuhh", title: "モチモチグランプリ", author: "yuuuuuuuuuuhh", date: "2026-10-29 14:40", description: "おもちのモチが食べものレーサーと走る3Dカートレース。1人・2人・オンライン対戦" },
   { id: "yuuuuuuuuuuhh-2", title: "てっぺん", author: "yuuuuuuuuuuhh", date: "2026-10-29 16:05", description: "街の上空に積み上がったガラクタを、ひたすら上へ。落ちたら、落ちたところから" },
