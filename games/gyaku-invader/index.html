@@ -1,0 +1,1886 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>逆インベーダー</title>
+<style>
+  :root { --ink: #fbf3ec; --dim: #c9b9ad; --bg: #1a1424; --accent: #d97757; }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden;
+    font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; }
+  .screen {
+    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    gap: 14px; padding: 20px 16px; box-sizing: border-box; text-align: center; background: rgba(26, 20, 36, .88); overflow-y: auto;
+  }
+  .screen > :first-child { margin-top: auto; }
+  .screen > :last-child { margin-bottom: auto; }
+  .screen[hidden] { display: none; }
+  h1 { font-size: clamp(40px, 9vw, 80px); margin: 0; font-weight: 800; line-height: 1.1; letter-spacing: .04em; }
+  h1 i { font-style: normal; color: var(--accent); }
+  p { margin: 0; line-height: 1.8; font-size: 15px; }
+  .dim { color: var(--dim); font-size: 12.5px; }
+  .how { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 980px; }
+  .card {
+    width: 300px; padding: 12px 14px 14px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 12px;
+    background: rgba(255, 255, 255, .05); text-align: left; font-size: 13.5px; line-height: 1.9; box-sizing: border-box;
+  }
+  .card b.t { display: block; font-size: 15px; margin-bottom: 2px; text-align: center; }
+  .card canvas { position: static; width: 100%; height: 96px; display: block; margin: 2px 0 6px; border-radius: 8px; }
+  kbd {
+    font: 800 13px ui-monospace, Menlo, monospace; min-width: 24px; height: 24px; padding: 0 4px; display: inline-grid; place-items: center;
+    border: 1.5px solid var(--ink); border-bottom-width: 3px; border-radius: 6px; margin: 0 1px; box-sizing: border-box; vertical-align: middle;
+  }
+  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  button.big {
+    font: inherit; font-size: 18px; font-weight: 800; color: var(--bg); background: var(--ink);
+    border: 0; border-radius: 999px; padding: 13px 34px; cursor: pointer;
+  }
+  button.big:hover, button.big:focus-visible { background: #ffc9a8; outline: none; }
+  button.sub { font: inherit; font-size: 14px; color: var(--ink); background: none; border: 1px solid var(--dim); border-radius: 999px; padding: 8px 22px; cursor: pointer; }
+  #verdict { font-size: clamp(34px, 8vw, 64px); font-weight: 800; letter-spacing: .1em; }
+  #stats { font-variant-numeric: tabular-nums; font-size: 15px; line-height: 2; }
+  #stats b { font-size: 28px; }
+  #pad { position: fixed; left: 0; right: 0; bottom: 10px; display: flex; justify-content: space-between; padding: 0 10px; pointer-events: none; z-index: 3; }
+  #pad[hidden] { display: none; }
+  #pad div { display: flex; gap: 8px; }
+  #pad button {
+    pointer-events: auto; width: 66px; height: 66px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .8);
+    background: rgba(26, 20, 36, .55); color: #fff; font: 800 15px system-ui, sans-serif; touch-action: none;
+  }
+  #pad button.on { background: rgba(255, 255, 255, .85); color: #1a1424; }
+  #back { position: fixed; left: 14px; top: 12px; z-index: 5; color: var(--dim); text-decoration: none; font-size: 13px; }
+  #back:hover { color: var(--ink); }
+  #back[hidden] { display: none; }
+  #test {
+    position: fixed; left: 16px; top: 44px; z-index: 9; margin: 0; padding: 12px 16px; text-align: left;
+    background: rgba(0, 0, 0, .88); color: #fff; font: 13px/1.7 ui-monospace, Menlo, monospace;
+    border-radius: 6px; white-space: pre-wrap; max-width: calc(100vw - 64px); max-height: calc(100vh - 80px); overflow: auto;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="back" href="../../" hidden>← ゲーム一覧にもどる</a>
+
+<div id="title" class="screen">
+  <h1>逆<i>インベーダー</i></h1>
+  <p>こんどは、こっちが UFO。空から弾を落として、街をブロックごと更地にする。</p>
+  <div class="how">
+    <div class="card">
+      <b class="t">そうさ</b>
+      <canvas id="howc1" width="540" height="192"></canvas>
+      <kbd>←</kbd><kbd>→</kbd> 左右に動く（<kbd>A</kbd><kbd>D</kbd> でも）<br>
+      上下には動けない。横に動いてよける<br>
+      <kbd>Z</kbd> 押しっぱなしで弾を落とす（<kbd>Space</kbd><kbd>J</kbd> でも）<br>
+      <kbd>X</kbd> 必殺ゲージが満タンのとき、レーザー（<kbd>Shift</kbd><kbd>K</kbd> でも）<br>
+      <kbd>Esc</kbd> 一時停止　<kbd>M</kbd> 音を消す
+    </div>
+    <div class="card">
+      <b class="t">削る</b>
+      <canvas id="howc2" width="540" height="192"></canvas>
+      弾1発で、ビルのいちばん上のブロックが1つ欠ける<br>
+      ビル1棟を地面まで削ると「解体」+500点<br>
+      弾で削るほど必殺ゲージがたまる。レーザーは5秒間、真下を軒並み削る（レーザーで削った分はゲージにならない）<br>
+      街をぜんぶ更地にすると……
+    </div>
+    <div class="card">
+      <b class="t">地上からの反撃</b>
+      <span class="dot" style="background:#ff4f7b"></span>屋上の砲台：対空弾。空中ではじけて、破片が散る<br>
+      <span class="dot" style="background:#ffffff"></span>地上の発射台：追いかけてくるミサイル。弾で撃ち落とせる<br>
+      <span class="dot" style="background:#9aa36b"></span>トラック：発射台を置いていく<br>
+      当たると <span style="color:#ff6b8b">♥</span> が1つ減る（5つ）。浮いてきた <span style="color:#ff6b8b">♥</span> にふれると1つ戻る<br>
+      赤い線や赤い帯が出たら、そこから逃げる
+    </div>
+  </div>
+  <button class="big" id="start">はじめる（Z キーでも）</button>
+  <p class="dim">キーボードだけで遊べる。音あり。</p>
+</div>
+
+<div id="pause" class="screen" hidden>
+  <p style="font-size:28px;font-weight:800">一時停止</p>
+  <p>Esc でつづける</p>
+</div>
+
+<div id="result" class="screen" hidden>
+  <div id="verdict">侵略完了</div>
+  <div id="stats"></div>
+  <button class="big" id="retry">もう一度（Z キーでも）</button>
+  <button class="sub" id="retry0" hidden>最初の街からやり直す（R キー）</button>
+</div>
+
+<div id="pad" hidden>
+  <div><button data-k="l">◀</button><button data-k="r">▶</button></div>
+  <div><button data-k="fire">弾</button><button data-k="laser">必殺</button></div>
+</div>
+<pre id="test" hidden></pre>
+
+<script>
+'use strict';
+/*
+  逆インベーダー。自分が UFO になり、空から弾を落として、地上のビル群を1ブロックずつ削る。
+  1面：街。ぜんぶ更地にすると、地面が二つに割れて都市要塞が出てくる。
+  2面：都市要塞。装甲を削ってコアを壊す。主砲は溜めてから太いレーザーを撃つ。
+  倒すと、更地に草が生え、木が育ち、花が咲く。
+  UFO の形は、放射状の光（星形）をした円盤。
+  ?test       自己テスト
+  ?seed=3     街の並びを固定
+  ?stage=2    要塞から始める（確認用）
+  ?ending     エンディングだけ見る（確認用）
+  ?skip=20    自動操作で20秒進めたところから始める（確認用）
+  ?cheat      やられない（確認用）
+  ?touch      画面のボタンを出す
+*/
+
+// ---------- 道具 ----------
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : 1 - Math.pow(1 - t, 3);
+const pop = t => t <= 0 ? 0 : t >= 1 ? 1 : 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2); // すこし行き過ぎて戻る
+function rng32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function hash(a, b) {
+  let h = Math.imul(a * 374761393 + b * 668265263, 1274126177);
+  h ^= h >>> 13; h = Math.imul(h, 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function mix(c1, c2, t) { // '#rrggbb' どうしを混ぜる
+  const a = parseInt(c1.slice(1), 16), b = parseInt(c2.slice(1), 16);
+  const ch = s => Math.round(lerp((a >> s) & 255, (b >> s) & 255, clamp(t, 0, 1)));
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
+}
+
+// ---------- 決まりごと ----------
+const VW = 960, VH = 600;    // 画面（中での単位）
+const GY = 540;              // 地面の高さ
+const B = 10;                // ブロックの大きさ
+const COLS = VW / B;         // 96 列
+const UY = 72;               // UFO の高さ（上下には動かない）
+const MAXHP = 5;
+const GAUGE_N = 90;          // 弾で削ったブロックこの数で、必殺ゲージが満タン
+const LASER_T = 5;           // レーザーの長さ（秒）
+const LASER_HALF = 16;       // レーザーの太さの半分
+const BOSS_HP = 200;
+const CORE_TOP = 14, CORE_BOT = 8; // 要塞のコアがある段（下から数えて 8〜13 段目）
+const TOWER_H = 30;
+const CANNON = { x: 480, y: GY - TOWER_H * B - 14 }; // 主砲の根元
+const MUZZLE_LEN = 46;
+const isCoreCol = c => (c >= 34 && c <= 44) || (c >= 51 && c <= 61);
+const isTower = c => c >= 45 && c <= 50;
+function fProfile(c) { // 要塞の列ごとの高さ（左右対称）
+  if (c < 14 || c > 81) return 0;
+  const m = Math.min(c, 95 - c);
+  if (m <= 19) return m === 14 ? 8 : 10;
+  if (m <= 33) return m === 20 ? 16 : m === 21 ? 18 : m >= 32 ? 19 : 20;
+  if (m <= 44) return 18;
+  return TOWER_H;
+}
+const fMin = c => isCoreCol(c) ? CORE_TOP : isTower(c) ? TOWER_H : 6;
+
+// ---------- 世界 ----------
+function makeWorld(seed, opts) {
+  opts = opts || {};
+  const w = {
+    R: rng32(seed), seed, cheat: !!opts.cheat, phase: 'title', t: 0, time: 0, stage: 1,
+    ufo: { x: VW / 2, vx: 0, hp: MAXHP, inv: 0, cd: 0, alt: 0 },
+    gauge: 0, gaugeFull: false, laser: 0, lcol: new Float32Array(COLS), beamTop: GY,
+    h: new Int16Array(COLS), h0: new Int16Array(COLS), bid: new Int16Array(COLS).fill(-1), blds: [],
+    turrets: [], launchers: [], trucks: [], bombs: [], shots: [], missiles: [], items: [],
+    parts: [], pops: [], sfx: [], shake: 0, flash: 0, msg: null,
+    score: 0, stats: { blocks: 0, razed: 0, hits: 0, kills: 0, lasers: 0 }, total0: 0, removed: 0,
+    split: 0, rise: 1, boss: null, end: null, spawnT: 6, truckT: 7, reachedBoss: false, collapseT: 0,
+  };
+  buildCity(w);
+  return w;
+}
+const PAL = [['#56657d', '#3f4b5e'], ['#7d6b5b', '#5e5044'], ['#4d6d72', '#3a5457'], ['#6c5f80', '#514662'],
+  ['#8b806d', '#6a6252'], ['#5a6678', '#434c5b'], ['#80606a', '#5f4750']];
+function buildCity(w) {
+  const R = w.R;
+  let c = 1;
+  while (c < COLS - 1) {
+    let wd = 3 + Math.floor(R() * 6);
+    if (c + wd > COLS - 1) wd = COLS - 1 - c;
+    if (wd < 2) break;
+    let ht = 7 + Math.floor(R() * 17);
+    if (R() < .22) ht = 25 + Math.floor(R() * 10);
+    const p = PAL[Math.floor(R() * PAL.length)];
+    w.blds.push({ c0: c, c1: c + wd - 1, h: ht, col: p[0], dk: p[1], win: Math.floor(R() * 3), alive: true, cx: (c + wd / 2) * B });
+    for (let i = c; i < c + wd; i++) { w.h[i] = ht; w.h0[i] = ht; w.bid[i] = w.blds.length - 1; }
+    c += wd + (R() < .3 ? 1 + Math.floor(R() * 2) : 0);
+  }
+  w.total0 = w.h.reduce((a, b) => a + b, 0);
+}
+const progress = w => w.total0 ? w.removed / w.total0 : 0;
+const colTop = (w, c) => GY - w.h[c] * B;
+const turretY = (w, t) => GY - Math.max(w.h[t.c], w.h[t.c + 1]) * B;
+
+function addTurret(w, c, rising) {
+  const t = { c, x: (c + 1) * B, y: 0, hp: 2, cd: 1.5 + w.R() * 2.5, ang: -Math.PI / 2, rise: rising ? 0 : 1, hit: 0 };
+  t.y = turretY(w, t);
+  w.turrets.push(t);
+  return t;
+}
+function startGame(w, stage) {
+  const u = w.ufo;
+  u.x = VW / 2; u.vx = 0; u.hp = MAXHP; u.inv = 0; u.cd = 0;
+  w.bombs.length = w.shots.length = w.missiles.length = w.items.length = w.parts.length = w.pops.length = 0;
+  w.turrets.length = w.launchers.length = w.trucks.length = 0;
+  w.gauge = 0; w.gaugeFull = false; w.laser = 0; w.time = 0; w.t = 0; w.msg = null; w.boss = null; w.end = null;
+  if (stage === 1) {
+    w.stage = 1; w.phase = 'intro'; w.split = 0; w.rise = 1;
+    const cands = w.blds.filter(b => b.c1 - b.c0 >= 2);
+    for (let i = 0; i < 5 && cands.length; i++) {
+      const b = cands.splice(Math.floor(w.R() * cands.length), 1)[0];
+      addTurret(w, b.c0 + Math.floor((b.c1 - b.c0 - 1) / 2), false);
+    }
+    w.msg = { text: '街を、更地にせよ', sub: '弾でビルを1ブロックずつ削る', t: 0, dur: 2.4 };
+  } else if (stage === 2) {
+    w.stage = 2; w.h.fill(0); w.removed = w.total0; for (const b of w.blds) b.alive = false;
+    w.reachedBoss = true; w.phase = 'split'; w.t = 0; w.split = 0; w.rise = 1;
+  } else if (stage === 3) { // エンディングだけ
+    w.stage = 2; w.h.fill(0); w.removed = w.total0; for (const b of w.blds) b.alive = false;
+    w.reachedBoss = true; startEnding(w);
+  }
+}
+
+// ---------- 細かいもの ----------
+function particle(w, o) { if (w.parts.length < 1400) w.parts.push(o); }
+function debris(w, x, y, col, n) {
+  const R = w.R;
+  for (let i = 0; i < n; i++) particle(w, { k: 'deb', x: x + (R() - .5) * 8, y: y + (R() - .5) * 6, vx: (R() - .5) * 220, vy: -60 - R() * 200,
+    life: .9 + R() * .6, max: 1.5, s: 2 + R() * 3, col, rot: R() * TAU, vr: (R() - .5) * 14 });
+  particle(w, { k: 'dust', x, y, vx: (R() - .5) * 30, vy: -20 - R() * 20, life: .9, max: .9, s: 8 + R() * 6, col: '#b9a99a' });
+}
+function sparks(w, x, y, col, n, sp) {
+  const R = w.R;
+  for (let i = 0; i < n; i++) {
+    const a = R() * TAU, v = (sp || 160) * (.4 + R());
+    particle(w, { k: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: .25 + R() * .3, max: .55, s: 1.5 + R() * 1.5, col });
+  }
+}
+function explode(w, x, y, size) {
+  const R = w.R;
+  particle(w, { k: 'ring', x, y, vx: 0, vy: 0, life: .45, max: .45, s: size });
+  particle(w, { k: 'fire', x, y, vx: 0, vy: 0, life: .5, max: .5, s: size * .8 });
+  sparks(w, x, y, '#ffd37a', 10 + size / 3, 140 + size * 4);
+  for (let i = 0; i < 3 + size / 12; i++) particle(w, { k: 'smoke', x: x + (R() - .5) * size, y: y + (R() - .5) * size * .6, vx: (R() - .5) * 40, vy: -30 - R() * 40, life: 1.3 + R(), max: 2.3, s: size * .4 + R() * 10 });
+}
+function popText(w, x, y, text, col, size) { w.pops.push({ x, y, text, col: col || '#fff', size: size || 15, life: 1.2, max: 1.2 }); }
+function addScore(w, n) { w.score += n; }
+function addGauge(w, n) {
+  if (w.laser > 0) return;
+  w.gauge = Math.min(1, w.gauge + n);
+  if (w.gauge >= 1 && !w.gaugeFull) { w.gaugeFull = true; w.sfx.push('full'); popText(w, w.ufo.x, UY + 40, '必殺技OK！ X', '#ffb38a', 17); }
+}
+function dropHeart(w, x, y) { w.items.push({ x, y, vy: -60, t: 0, life: 9 }); }
+function hurt(w, why) {
+  const u = w.ufo;
+  if (u.inv > 0 || w.cheat || w.phase === 'dead') return;
+  w.why = w.why || {}; w.why[why || '?'] = (w.why[why || '?'] || 0) + 1;
+  u.hp--; u.inv = 1.6; w.stats.hits++; w.shake = Math.max(w.shake, .7); w.flash = Math.max(w.flash, .35); w.sfx.push('hurt');
+  sparks(w, u.x, UY, '#ffffff', 14, 220);
+  if (u.hp <= 0) { w.phase = 'dead'; w.t = 0; explode(w, u.x, UY, 46); w.sfx.push('dead'); w.laser = 0; }
+}
+const hitsUfo = (w, x, y, r) => { const dx = (x - w.ufo.x) / (13 + r), dy = (y - UY) / (7 + r); return dx * dx + dy * dy < 1; };
+
+// ---------- 街を削る ----------
+function removeBlock(w, c, byBomb) {
+  if (w.h[c] <= 0) return;
+  const b = w.blds[w.bid[c]];
+  w.h[c]--; w.removed++; w.stats.blocks++; addScore(w, 10);
+  const y = GY - (w.h[c] + 1) * B;
+  debris(w, c * B + 5, y + 5, b ? b.col : '#777', byBomb ? 5 : 2);
+  if (byBomb) addGauge(w, 1 / GAUGE_N);
+  w.sfx.push('crunch');
+  if (b && b.alive) {
+    let left = 0;
+    for (let i = b.c0; i <= b.c1; i++) left += w.h[i];
+    if (left === 0) {
+      b.alive = false; w.stats.razed++; addScore(w, 500);
+      popText(w, b.cx, GY - 40, '解体！ +500', '#ffe08a', 18); w.sfx.push('raze');
+      for (let i = 0; i < 6; i++) particle(w, { k: 'dust', x: b.c0 * B + w.R() * (b.c1 - b.c0 + 1) * B, y: GY - 6, vx: (w.R() - .5) * 60, vy: -20, life: 1.6, max: 1.6, s: 14 + w.R() * 10, col: '#c8b8a6' });
+      if (w.R() < .3) dropHeart(w, b.cx, GY - 20);
+    }
+  }
+}
+function killTurret(w, t) {
+  t.hp = 0; w.stats.kills++; addScore(w, 200); addGauge(w, .06);
+  explode(w, t.x, t.y - 6, 26); w.sfx.push('boom'); popText(w, t.x, t.y - 26, '+200', '#ffd0a0');
+}
+function killLauncher(w, l) { l.hp = 0; w.stats.kills++; addScore(w, 300); addGauge(w, .06); explode(w, l.x, GY - 8, 30); w.sfx.push('boom'); popText(w, l.x, GY - 30, '+300', '#ffd0a0'); }
+function killTruck(w, tr) { tr.hp = 0; w.stats.kills++; addScore(w, 150); explode(w, tr.x, GY - 8, 24); w.sfx.push('boom'); popText(w, tr.x, GY - 30, '+150', '#ffd0a0'); }
+
+function bombHitCity(w, b) {
+  for (const t of w.turrets) if (t.hp > 0 && Math.abs(b.x - t.x) < 12 && b.y >= t.y - 14) {
+    t.hp--; t.hit = .12; sparks(w, b.x, t.y - 8, '#ffe0a0', 6);
+    if (t.hp <= 0) killTurret(w, t); else w.sfx.push('clink');
+    return true;
+  }
+  for (const l of w.launchers) if (l.hp > 0 && Math.abs(b.x - l.x) < 13 && b.y >= GY - 16) { killLauncher(w, l); return true; }
+  for (const tr of w.trucks) if (tr.hp > 0 && Math.abs(b.x - tr.x) < 17 && b.y >= GY - 16) { killTruck(w, tr); return true; }
+  const c = clamp(Math.floor(b.x / B), 0, COLS - 1);
+  if (w.h[c] > 0 && b.y >= colTop(w, c)) { removeBlock(w, c, true); return true; }
+  if (b.y >= GY) { particle(w, { k: 'dust', x: b.x, y: GY - 2, vx: 0, vy: -10, life: .5, max: .5, s: 6, col: '#a89888' }); return true; }
+  return false;
+}
+
+// ---------- 要塞 ----------
+function makeBoss(w) {
+  const fh = new Int16Array(COLS), fh0 = new Int16Array(COLS);
+  for (let c = 0; c < COLS; c++) { fh[c] = fh0[c] = fProfile(c); }
+  const part = (id, kind, c0, c1, hp) => ({ id, kind, c0, c1, x: (c0 + c1 + 1) / 2 * B, y: GY - fh0[c0] * B, hp, max: hp, cd: 2 + Math.random() * 0, hit: 0, alive: true, ang: -Math.PI / 2 });
+  w.boss = {
+    hp: BOSS_HP, max: BOSS_HP, fh, fh0, ph: 1, t: 0, atk: null, next: 3.2, inv: 0, repair: 0, coreHit: 0, aim: -Math.PI / 2, glow: 0,
+    parts: [part('tL', 'turret', 15, 18, 22), part('tR', 'turret', 77, 80, 22), part('pL', 'pod', 23, 30, 28), part('pR', 'pod', 65, 72, 28)],
+  };
+  const bo = w.boss;
+  bo.parts[0].cd = 2.4; bo.parts[1].cd = 3.4; bo.parts[2].cd = 4.0; bo.parts[3].cd = 5.5;
+}
+function partHit(w, p, dmg) {
+  if (!p.alive) return;
+  p.hp -= dmg; p.hit = .1;
+  if (p.hp <= 0) {
+    p.alive = false; w.stats.kills++; addScore(w, 2000); addGauge(w, .2);
+    explode(w, p.x, p.y - 10, 56); w.shake = Math.max(w.shake, .8); w.sfx.push('bigboom');
+    popText(w, p.x, p.y - 40, (p.kind === 'pod' ? 'ミサイル庫' : '砲台') + ' 撃破 +2000', '#ffe08a', 18);
+    dropHeart(w, p.x, p.y - 20);
+  }
+}
+function coreHit(w, dmg, x, y) {
+  const bo = w.boss;
+  if (bo.inv > 0) { if (x != null) sparks(w, x, y, '#9ad7ff', 4); return; }
+  bo.hp = Math.max(0, bo.hp - dmg); bo.coreHit = .12; addScore(w, Math.round(dmg * 30));
+  if (x != null) { sparks(w, x, y, '#ffb36b', 8, 200); w.sfx.push('corehit'); }
+  const r = bo.hp / bo.max;
+  if (bo.hp <= 0) { /* 倒れたら形は変えない */ }
+  else if (bo.ph === 1 && r <= .66) phaseUp(w, 2);
+  else if (bo.ph === 2 && r <= .33) phaseUp(w, 3);
+  if (bo.hp <= 0) {
+    w.phase = 'bossdie'; w.t = 0; bo.atk = null; w.shots.length = 0; w.missiles.length = 0; w.laser = 0;
+    w.sfx.push('bossdie'); addScore(w, 30000); popText(w, 480, 300, '+30000', '#fff4c0', 26);
+  }
+}
+function phaseUp(w, ph) {
+  const bo = w.boss;
+  bo.ph = ph; bo.inv = 2.2; bo.repair = 2.0; bo.atk = null; bo.next = 3.0;
+  w.flash = .6; w.shake = 1; w.sfx.push('alarm');
+  w.msg = ph === 2 ? { text: '装甲修復', sub: '要塞が本気を出しはじめた', t: 0, dur: 2.2 } : { text: '暴走', sub: '赤い帯の側にいると、なぎはらわれる', t: 0, dur: 2.4 };
+}
+function bombHitBoss(w, b) {
+  const bo = w.boss;
+  for (const p of bo.parts) if (p.alive && b.x >= p.c0 * B && b.x < (p.c1 + 1) * B && b.y >= p.y - (p.kind === 'pod' ? 26 : 22)) {
+    partHit(w, p, 1); sparks(w, b.x, b.y, '#ffe0a0', 5); w.sfx.push('clink'); addGauge(w, 1 / GAUGE_N); return true;
+  }
+  const c = clamp(Math.floor(b.x / B), 0, COLS - 1);
+  if (isTower(c)) {
+    if (b.y >= CANNON.y - 26) { sparks(w, b.x, b.y, '#cfe8ff', 5); w.sfx.push('clink'); return true; }
+    return false;
+  }
+  if (bo.fh[c] > 0 && b.y >= GY - bo.fh[c] * B) {
+    const y = GY - bo.fh[c] * B;
+    if (isCoreCol(c) && bo.fh[c] <= CORE_TOP) { coreHit(w, 1, b.x, y); addGauge(w, 1 / GAUGE_N); return true; }
+    if (bo.fh[c] > fMin(c)) {
+      bo.fh[c]--; addScore(w, 10); addGauge(w, 1 / GAUGE_N);
+      debris(w, c * B + 5, y + 5, isCoreCol(c) ? '#7b6a73' : '#596274', 5); w.sfx.push('crunch');
+      return true;
+    }
+    sparks(w, b.x, y, '#cfe8ff', 5); w.sfx.push('clink'); return true;
+  }
+  if (b.y >= GY) return true;
+  return false;
+}
+// 主砲のビーム。根元から (tx, UY) を通って、空の端までのびる
+function beamDir(tx) { const dx = tx - CANNON.x, dy = UY - CANNON.y, l = Math.hypot(dx, dy); return { dx: dx / l, dy: dy / l }; }
+function beamHits(tx, half, x, y) {
+  const d = beamDir(tx), px = x - CANNON.x, py = y - CANNON.y;
+  const proj = px * d.dx + py * d.dy;
+  if (proj < 0) return false;
+  return Math.abs(px * d.dy - py * d.dx) < half + 7;
+}
+const podAlive = (bo, id) => bo.parts.some(p => p.id === id && p.alive);
+
+function chooseAttack(w) {
+  const bo = w.boss, R = w.R, pods = podAlive(bo, 'pL') || podAlive(bo, 'pR');
+  let pool;
+  if (bo.ph === 1) pool = ['lock', 'lock', 'ring1'];
+  else if (bo.ph === 2) pool = ['lock3', 'ring', 'lock', pods ? 'pillars' : 'lock3'];
+  else pool = ['sweep', 'sweep', 'lock3', 'ring', pods ? 'pillars' : 'sweep'];
+  if (bo.last) pool = pool.filter(a => a !== bo.last).concat(pool.length > 1 ? [] : [bo.last]);
+  const kind = pool[Math.floor(R() * pool.length)] || 'lock';
+  bo.last = kind;
+  const fast = bo.ph === 3 ? .85 : 1;
+  if (kind === 'lock') bo.atk = { kind, t: 0, n: 1, i: 0, charge: 1.9 * fast, lockAt: 1.4 * fast, fire: 1.0, half: 30, tx: w.ufo.x };
+  else if (kind === 'lock3') bo.atk = { kind: 'lock', t: 0, n: 3, i: 0, charge: 1.05 * fast, lockAt: .72 * fast, fire: .5, half: 22, tx: w.ufo.x };
+  else if (kind === 'ring1') bo.atk = { kind: 'ring', t: 0, n: 2, i: 0, gap: .7, dur: 2.0 };
+  else if (kind === 'ring') bo.atk = { kind: 'ring', t: 0, n: 4, i: 0, gap: .5, dur: 2.6 };
+  else if (kind === 'pillars') bo.atk = { kind, t: 0, warn: 1.3, dur: 2.8, L: podAlive(bo, 'pL'), Rr: podAlive(bo, 'pR') };
+  else if (kind === 'sweep') bo.atk = { kind, t: 0, warn: 1.6, dur: 1.4, hold: .35, side: w.ufo.x < 480 ? -1 : 1, tx: 0, half: 30, twice: R() < .4 };
+  w.sfx.push(bo.atk.kind === 'ring' ? 'vent' : 'charge');
+}
+function pillarXs(a) {
+  const k = clamp((a.t - a.warn) / a.dur, 0, 1), xs = [];
+  if (a.L) xs.push(270 - k * 230);
+  if (a.Rr) xs.push(690 + k * 230);
+  return xs;
+}
+function stepBoss(w, dt) {
+  const bo = w.boss, u = w.ufo, R = w.R;
+  bo.t += dt; bo.inv = Math.max(0, bo.inv - dt); bo.coreHit = Math.max(0, bo.coreHit - dt);
+  for (const p of bo.parts) p.hit = Math.max(0, p.hit - dt);
+  if (bo.repair > 0) { // 装甲が戻る
+    bo.repair -= dt;
+    for (let k = 0; k < 3; k++) {
+      const c = 34 + Math.floor(R() * 28);
+      if (isCoreCol(c) && bo.fh[c] < bo.fh0[c]) { bo.fh[c]++; sparks(w, c * B + 5, GY - bo.fh[c] * B, '#9ad7ff', 2, 80); }
+    }
+    if (bo.repair <= 0) for (let c = 0; c < COLS; c++) if (isCoreCol(c)) bo.fh[c] = bo.fh0[c];
+  }
+  const pf = bo.ph === 1 ? 1 : bo.ph === 2 ? 1.25 : 1.55;
+  // 砲台とミサイル庫
+  for (const p of bo.parts) {
+    if (!p.alive) continue;
+    p.ang = Math.atan2(UY - p.y, u.x - p.x);
+    p.cd -= dt * pf;
+    if (p.cd > 0) continue;
+    if (p.kind === 'turret') {
+      p.cd = 2.6 + R() * 1.2;
+      const a = Math.atan2(UY - (p.y - 12), u.x + u.vx * .3 - p.x), sp = 330;
+      w.shots.push({ k: 'flak', x: p.x, y: p.y - 12, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 5, by: UY + 50 + R() * 40, life: 4 });
+      if (bo.ph >= 2) for (const da of [-.22, .22]) w.shots.push({ k: 'bul', x: p.x, y: p.y - 12, vx: Math.cos(a + da) * 250, vy: Math.sin(a + da) * 250, r: 4, life: 4 });
+      w.sfx.push('flak');
+    } else {
+      p.cd = 4.6 + R() * 1.5;
+      for (let i = 0; i < 2; i++) w.missiles.push({ x: p.x + (i ? 14 : -14), y: p.y - 24, ang: -Math.PI / 2 + (i ? .5 : -.5), sp: 90, life: 6.5, hp: 1, delay: i * .25 });
+      w.sfx.push('launch');
+    }
+  }
+  if (bo.ph === 3 && Math.floor(bo.t * 1.4) !== Math.floor((bo.t - dt) * 1.4)) { // 暴走：コアの横から細かい弾
+    for (const sx of [390, 570]) {
+      const a = Math.atan2(UY - 360, u.x - sx);
+      w.shots.push({ k: 'bul', x: sx, y: 360, vx: Math.cos(a) * 230, vy: Math.sin(a) * 230, r: 4, life: 4 });
+    }
+  }
+  // 大技
+  bo.aim = lerp(bo.aim, Math.atan2(UY - CANNON.y, (bo.atk && bo.atk.tx != null ? bo.atk.tx : u.x) - CANNON.x), Math.min(1, dt * 6));
+  if (!bo.atk) {
+    if (bo.repair <= 0) { bo.next -= dt; if (bo.next <= 0) chooseAttack(w); }
+    return;
+  }
+  const a = bo.atk;
+  a.t += dt;
+  if (a.kind === 'lock') {
+    if (a.t < a.lockAt) a.tx = lerp(a.tx, u.x, Math.min(1, dt * 10));
+    if (a.t - dt < a.lockAt && a.t >= a.lockAt) w.sfx.push('lock');
+    if (a.t - dt < a.charge && a.t >= a.charge) { w.sfx.push('beam'); w.shake = Math.max(w.shake, .8); w.flash = Math.max(w.flash, .25); }
+    a.firing = a.t >= a.charge && a.t < a.charge + a.fire;
+    if (a.firing) {
+      if (beamHits(a.tx, a.half, u.x, UY)) hurt(w, 'lock');
+      cancelInBeam(w, a.tx, a.half);
+    }
+    if (a.t >= a.charge + a.fire) {
+      a.i++;
+      if (a.i < a.n) { a.t = 0; a.firing = false; w.sfx.push('charge'); }
+      else { bo.atk = null; bo.next = bo.ph === 1 ? 2.4 : 1.6; }
+    }
+  } else if (a.kind === 'ring') {
+    if (a.i < a.n && a.t >= a.i * a.gap) {
+      const n = bo.ph === 1 ? 12 : 16, off = a.i * .5 + R() * .3;
+      for (const [sx, sy] of [[390, 356], [570, 356]]) for (let k = 0; k < n; k++) {
+        const ang = Math.PI + (k / (n - 1)) * Math.PI + off * 0; // 上半分だけに撒く
+        const aa = ang + (a.i % 2 ? Math.PI / (n - 1) / 2 : 0);
+        w.shots.push({ k: 'bul', x: sx, y: sy, vx: Math.cos(aa) * 135, vy: Math.sin(aa) * 135, r: 4, life: 5 });
+      }
+      a.i++; w.sfx.push('ring');
+    }
+    if (a.t >= a.dur) { bo.atk = null; bo.next = 1.4; }
+  } else if (a.kind === 'pillars') {
+    a.on = a.t >= a.warn && a.t < a.warn + a.dur;
+    if (a.t - dt < a.warn && a.t >= a.warn) { w.sfx.push('beam'); w.shake = Math.max(w.shake, .5); }
+    if (a.on) for (const x of pillarXs(a)) if (Math.abs(u.x - x) < 24 + 8) hurt(w, 'pillar');
+    if (a.t >= a.warn + a.dur) { bo.atk = null; bo.next = 1.5; }
+  } else if (a.kind === 'sweep') {
+    const edge = a.side < 0 ? -60 : VW + 60;
+    const k = clamp((a.t - a.warn) / a.dur, 0, 1);
+    a.tx = a.t < a.warn ? edge : lerp(edge, 480, ease(k));
+    if (a.t - dt < a.warn && a.t >= a.warn) { w.sfx.push('beam'); w.shake = Math.max(w.shake, 1); w.flash = Math.max(w.flash, .25); }
+    a.firing = a.t >= a.warn && a.t < a.warn + a.dur + a.hold;
+    if (a.firing) { if (beamHits(a.tx, a.half, u.x, UY)) hurt(w, 'sweep'); cancelInBeam(w, a.tx, a.half); }
+    if (a.t >= a.warn + a.dur + a.hold) {
+      if (a.twice) { a.twice = false; a.side = -a.side; a.t = 0; a.firing = false; w.sfx.push('charge'); }
+      else { bo.atk = null; bo.next = 1.8; }
+    }
+  }
+}
+function cancelInBeam(w, tx, half) {
+  for (const s of w.shots) if (beamHits(tx, half, s.x, s.y)) s.dead = true;
+}
+
+// ---------- 1歩 ----------
+// k: { l, r, fire, laser } が押されているか
+function step(w, dt, k) {
+  k = k || {};
+  w.time += dt; w.t += dt;
+  w.shake = Math.max(0, w.shake - dt * 2); w.flash = Math.max(0, w.flash - dt * 1.6);
+  if (w.msg) { w.msg.t += dt; if (w.msg.t > w.msg.dur) w.msg = null; }
+  stepParts(w, dt);
+  const ph = w.phase;
+  if (ph === 'title' || ph === 'over' || ph === 'clear') return;
+  const u = w.ufo;
+  // UFO
+  if (ph !== 'dead') {
+    const dir = (k.r ? 1 : 0) - (k.l ? 1 : 0);
+    const top = 420;
+    u.vx = dir ? clamp(u.vx + dir * 3200 * dt, -top, top) : u.vx * Math.pow(.0005, dt);
+    if (Math.abs(u.vx) < 4 && !dir) u.vx = 0;
+    u.x += u.vx * dt;
+    if (u.x < 18) { u.x = 18; u.vx = 0; } if (u.x > VW - 18) { u.x = VW - 18; u.vx = 0; }
+    u.inv = Math.max(0, u.inv - dt); u.cd -= dt;
+  }
+  const fighting = ph === 'play' || ph === 'intro' || ph === 'boss';
+  if (fighting) {
+    if (k.laser && w.gauge >= 1 && w.laser <= 0) {
+      w.laser = LASER_T; w.gauge = 0; w.gaugeFull = false; w.stats.lasers++; w.sfx.push('laseron'); w.shake = Math.max(w.shake, .5);
+      w.lcol.fill(0);
+    }
+    if (k.fire && u.cd <= 0 && w.laser <= 0) {
+      w.bombs.push({ x: u.x, y: UY + 12, vy: 560 });
+      u.cd = .11; w.sfx.push('drop');
+    }
+  }
+  if (ph === 'ending') {
+    if (k.fire && u.cd <= 0) { w.bombs.push({ x: u.x, y: UY + 12, vy: 200, seed: true }); u.cd = .16; }
+    stepEnding(w, dt, k);
+  }
+  // 弾
+  for (const b of w.bombs) {
+    b.vy = b.seed ? Math.min(420, b.vy + 600 * dt) : Math.min(1500, b.vy + 2200 * dt); b.y += b.vy * dt;
+    for (const m of w.missiles) if (m.hp > 0 && Math.abs(m.x - b.x) < 10 && m.y > b.y - b.vy * dt - 10 && m.y < b.y + 10) {
+      m.hp = 0; b.dead = true; addScore(w, 50); explode(w, m.x, m.y, 18); w.sfx.push('pop'); popText(w, m.x, m.y - 14, '+50', '#ffd0a0', 13); break;
+    }
+    if (b.dead) continue;
+    if (w.boss && (ph === 'boss')) { if (bombHitBoss(w, b)) b.dead = true; }
+    else if (ph === 'ending') { if (b.y >= GY - 2) { b.dead = true; plantFlower(w, b.x, true); } }
+    else if (bombHitCity(w, b)) b.dead = true;
+    if (b.y > VH + 20) b.dead = true;
+  }
+  w.bombs = w.bombs.filter(b => !b.dead);
+  // レーザー
+  if (w.laser > 0) {
+    w.laser -= dt;
+    if (ph === 'dead' || !(ph === 'play' || ph === 'boss' || ph === 'intro')) w.laser = 0;
+    stepLaser(w, dt);
+  }
+  if (ph === 'intro' && w.t > 2.2) { w.phase = 'play'; w.t = 0; }
+  if (ph === 'play' || ph === 'intro') stepCity(w, dt, ph === 'play');
+  else if (ph === 'collapse') stepCollapse(w, dt);
+  else if (ph === 'quake') { w.shake = Math.max(w.shake, .9); if (w.t > 1.6) { w.phase = 'split'; w.t = 0; w.sfx.push('split'); } stepCity(w, dt, false); }
+  else if (ph === 'split') {
+    w.split = ease(w.t / 2.2); w.shake = Math.max(w.shake, .6);
+    if (Math.floor(w.t * 8) !== Math.floor((w.t - dt) * 8)) particle(w, { k: 'dust', x: 480 + (w.R() - .5) * w.split * 700, y: GY, vx: 0, vy: -30, life: 1.4, max: 1.4, s: 20, col: '#9c8a7a' });
+    if (w.t > 2.4) { w.phase = 'rise'; w.t = 0; makeBoss(w); w.rise = 1; w.sfx.push('rise'); }
+  } else if (ph === 'rise') {
+    w.rise = 1 - ease(w.t / 4.2); w.shake = Math.max(w.shake, .5);
+    if (Math.floor(w.t * 10) !== Math.floor((w.t - dt) * 10)) particle(w, { k: 'smoke', x: 120 + w.R() * 720, y: GY + 10, vx: (w.R() - .5) * 40, vy: -50, life: 2, max: 2, s: 24, col: '#6a5c56' });
+    if (w.t > 4.4) {
+      w.phase = 'boss'; w.t = 0; w.rise = 0; w.reachedBoss = true; w.stage = 2;
+      u.hp = Math.min(MAXHP, u.hp + 2);
+      w.msg = { text: '都市要塞', sub: '装甲を削って、まん中の両脇にあるコアを撃て', t: 0, dur: 3 };
+    }
+  } else if (ph === 'boss') stepBoss(w, dt);
+  else if (ph === 'bossdie') {
+    w.shake = Math.max(w.shake, 1);
+    if (Math.floor(w.t * 9) !== Math.floor((w.t - dt) * 9)) { explode(w, 160 + w.R() * 640, GY - w.R() * 300, 30 + w.R() * 40); w.sfx.push('boom'); }
+    if (w.t > 3.8) { w.flash = 1.4; startEnding(w); w.sfx.push('flash'); }
+  } else if (ph === 'dead') { if (w.t > 2.2) w.phase = 'over'; }
+  // 敵の弾
+  for (const s of w.shots) {
+    s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
+    if (s.k === 'flak' && s.y <= s.by) { // 空中ではじける
+      s.dead = true;
+      const n = 8, off = w.R() * TAU;
+      for (let i = 0; i < n; i++) { const a = off + i / n * TAU; w.shots.push({ k: 'frag', x: s.x, y: s.y, vx: Math.cos(a) * 120, vy: Math.sin(a) * 120, r: 4, life: 1.5 }); }
+      particle(w, { k: 'ring', x: s.x, y: s.y, vx: 0, vy: 0, life: .3, max: .3, s: 26, col: '#ff8fae' });
+      w.sfx.push('burst');
+      continue;
+    }
+    if (s.life <= 0 || s.y < -20 || s.y > VH + 20 || s.x < -20 || s.x > VW + 20) { s.dead = true; continue; }
+    if (ph !== 'dead' && hitsUfo(w, s.x, s.y, s.r)) { s.dead = true; hurt(w, s.k); }
+  }
+  w.shots = w.shots.filter(s => !s.dead);
+  // ミサイル
+  for (const m of w.missiles) {
+    if (m.delay > 0) { m.delay -= dt; continue; }
+    m.life -= dt; m.sp = Math.min(260, m.sp + 140 * dt);
+    const want = Math.atan2(UY - m.y, u.x - m.x);
+    let d = want - m.ang; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
+    if (m.y > UY + 20) m.ang += clamp(d, -1.5 * dt, 1.5 * dt);
+    m.x += Math.cos(m.ang) * m.sp * dt; m.y += Math.sin(m.ang) * m.sp * dt;
+    if (w.R() < .7) particle(w, { k: 'smoke', x: m.x - Math.cos(m.ang) * 8, y: m.y - Math.sin(m.ang) * 8, vx: 0, vy: 0, life: .7, max: .7, s: 4, col: '#d9d3cf' });
+    if (m.hp > 0 && ph !== 'dead' && hitsUfo(w, m.x, m.y, 5)) { m.hp = 0; explode(w, m.x, m.y, 20); hurt(w, 'missile'); }
+    if (m.life <= 0 || m.y < -30 || m.x < -40 || m.x > VW + 40) m.hp = 0;
+  }
+  w.missiles = w.missiles.filter(m => m.hp > 0);
+  // ♥
+  for (const it of w.items) {
+    it.t += dt; it.life -= dt;
+    if (it.y > UY + 4) it.y += it.vy * dt; else it.y = UY + Math.sin(it.t * 3) * 4;
+    if (ph !== 'dead' && Math.abs(it.x - u.x) < 26 && Math.abs(it.y - UY) < 22) {
+      it.life = 0; if (u.hp < MAXHP) u.hp++; w.sfx.push('heal'); popText(w, it.x, UY + 30, '♥ +1', '#ff8fae', 16);
+    }
+  }
+  w.items = w.items.filter(it => it.life > 0);
+  for (const p of w.pops) { p.life -= dt; p.y -= 26 * dt; }
+  w.pops = w.pops.filter(p => p.life > 0);
+}
+
+function stepLaser(w, dt) {
+  const x = w.ufo.x, R = w.R;
+  let top = GY;
+  if (w.boss && w.phase === 'boss') {
+    const bo = w.boss;
+    let hitPart = null;
+    for (const p of bo.parts) if (p.alive && x + LASER_HALF > p.c0 * B && x - LASER_HALF < (p.c1 + 1) * B) { hitPart = p; top = Math.min(top, p.y - 22); }
+    if (hitPart) partHit(w, hitPart, 9 * dt);
+    for (let c = 0; c < COLS; c++) {
+      if (Math.abs(c * B + 5 - x) > LASER_HALF) continue;
+      if (isTower(c)) { top = Math.min(top, CANNON.y - 20); continue; }
+      if (bo.fh[c] <= 0) continue;
+      top = Math.min(top, GY - bo.fh[c] * B);
+      if (hitPart && c >= hitPart.c0 && c <= hitPart.c1) continue;
+      w.lcol[c] -= dt;
+      if (w.lcol[c] > 0) continue;
+      w.lcol[c] = .06;
+      if (isCoreCol(c) && bo.fh[c] <= CORE_TOP) coreHit(w, .95, null, null);
+      else if (bo.fh[c] > fMin(c)) { bo.fh[c]--; debris(w, c * B + 5, GY - bo.fh[c] * B, '#596274', 2); addScore(w, 10); }
+    }
+    if (bo.coreHit > 0 && R() < .5) sparks(w, x, top, '#ffb36b', 2, 180);
+  } else {
+    for (const t of w.turrets) if (t.hp > 0 && Math.abs(t.x - x) < LASER_HALF + 10) { t.hp -= dt * 8; if (t.hp <= 0) killTurret(w, t); }
+    for (const l of w.launchers) if (l.hp > 0 && Math.abs(l.x - x) < LASER_HALF + 12) killLauncher(w, l);
+    for (const tr of w.trucks) if (tr.hp > 0 && Math.abs(tr.x - x) < LASER_HALF + 16) killTruck(w, tr);
+    for (let c = 0; c < COLS; c++) {
+      if (Math.abs(c * B + 5 - x) > LASER_HALF) continue;
+      if (w.h[c] > 0) top = Math.min(top, colTop(w, c));
+      w.lcol[c] -= dt;
+      if (w.lcol[c] > 0 || w.h[c] <= 0) continue;
+      w.lcol[c] = .055;
+      removeBlock(w, c, false);
+    }
+  }
+  w.beamTop = top;
+  for (const s of w.shots) if (Math.abs(s.x - x) < LASER_HALF + 4 && s.y > UY) s.dead = true;
+  for (const m of w.missiles) if (m.hp > 0 && Math.abs(m.x - x) < LASER_HALF + 4 && m.y > UY) { m.hp = 0; explode(w, m.x, m.y, 16); addScore(w, 50); }
+  if (R() < .8) sparks(w, x + (R() - .5) * LASER_HALF * 2, top, '#ffd2b8', 2, 160);
+  w.shake = Math.max(w.shake, .25);
+}
+
+function stepCity(w, dt, active) {
+  const u = w.ufo, R = w.R, prog = progress(w), hard = 1 + .8 * prog;
+  for (const t of w.turrets) {
+    if (t.hp <= 0) continue;
+    t.hit = Math.max(0, t.hit - dt);
+    const ty = turretY(w, t);
+    t.y = t.y < ty ? Math.min(ty, t.y + 400 * dt) : ty; // 下が削れたら落ちる
+    if (t.rise < 1) { t.rise = Math.min(1, t.rise + dt); continue; }
+    t.ang = lerp(t.ang, Math.atan2(UY - t.y, u.x - t.x), Math.min(1, dt * 5));
+    if (!active) continue;
+    t.cd -= dt * hard;
+    if (t.cd > 0) continue;
+    t.cd = 3 + R() * 2;
+    const sy = t.y - 12;
+    if (R() < .55) {
+      const a = Math.atan2(UY - sy, u.x + u.vx * .25 - t.x), sp = 300;
+      w.shots.push({ k: 'flak', x: t.x, y: sy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 5, by: UY + 65 + R() * 45, life: 4 });
+      w.sfx.push('flak');
+    } else {
+      const a = Math.atan2(UY - sy, u.x - t.x), n = prog > .45 ? 3 : 1;
+      for (let i = 0; i < n; i++) { const aa = a + (i - (n - 1) / 2) * .16; w.shots.push({ k: 'bul', x: t.x, y: sy, vx: Math.cos(aa) * 240, vy: Math.sin(aa) * 240, r: 4, life: 4 }); }
+      w.sfx.push('shot');
+    }
+  }
+  w.turrets = w.turrets.filter(t => t.hp > 0);
+  for (const l of w.launchers) {
+    if (l.hp <= 0) continue;
+    l.up = Math.min(1, (l.up || 0) + dt * 1.5);
+    if (!active || l.up < 1) continue;
+    l.cd -= dt * hard;
+    if (l.cd > 0) continue;
+    l.cd = 5 + R() * 2.5;
+    w.missiles.push({ x: l.x, y: GY - 16, ang: -Math.PI / 2, sp: 80, life: 6, hp: 1, delay: 0 });
+    w.sfx.push('launch');
+  }
+  w.launchers = w.launchers.filter(l => l.hp > 0);
+  for (const tr of w.trucks) {
+    if (tr.hp <= 0) continue;
+    if (tr.wait > 0) {
+      tr.wait -= dt;
+      if (tr.wait <= 0 && !tr.done) { tr.done = true; w.launchers.push({ x: tr.tx, hp: 1, cd: 2.5, up: 0 }); w.sfx.push('deploy'); }
+    } else {
+      tr.x += tr.dir * 75 * dt;
+      if (!tr.done && Math.abs(tr.x - tr.tx) < 3) tr.wait = 1.0;
+    }
+    if (tr.x < -60 || tr.x > VW + 60) tr.hp = 0;
+  }
+  w.trucks = w.trucks.filter(tr => tr.hp > 0);
+  if (!active) return;
+  // 増援：屋上に砲台がせり上がる、トラックが発射台を置いていく
+  w.spawnT -= dt;
+  if (w.spawnT <= 0) {
+    w.spawnT = 6 - 2.5 * prog;
+    if (w.turrets.length < 3 + Math.round(3 * prog)) {
+      for (let tries = 0; tries < 12; tries++) {
+        const c = 1 + Math.floor(R() * (COLS - 3));
+        if (w.h[c] >= 3 && w.h[c + 1] >= 3 && !w.turrets.some(t => Math.abs(t.c - c) < 4) && Math.abs((c + 1) * B - u.x) > 60) { addTurret(w, c, true); break; }
+      }
+    }
+  }
+  w.truckT -= dt;
+  if (w.truckT <= 0) {
+    w.truckT = 10 - 4 * prog;
+    if (w.launchers.length + w.trucks.length < 1 + Math.round(3 * prog)) {
+      const spots = [];
+      for (let c = 1; c < COLS - 2; c++) if (w.h[c] === 0 && w.h[c + 1] === 0) {
+        const x = (c + 1) * B;
+        if (!w.launchers.some(l => Math.abs(l.x - x) < 50)) spots.push(x);
+      }
+      if (spots.length) {
+        const tx = spots[Math.floor(R() * spots.length)], dir = tx < 480 ? 1 : -1;
+        w.trucks.push({ x: dir > 0 ? -40 : VW + 40, dir, tx, hp: 1, wait: 0, done: false });
+      }
+    }
+  }
+  if (prog >= .96 && w.phase === 'play') {
+    w.phase = 'collapse'; w.t = 0; w.collapseT = 0; w.laser = 0;
+    w.msg = { text: '街が、崩れ落ちる', sub: '', t: 0, dur: 2.2 }; w.sfx.push('collapse');
+    for (const t of w.turrets) killTurret(w, t);
+    for (const l of w.launchers) killLauncher(w, l);
+    for (const tr of w.trucks) killTruck(w, tr);
+    w.shots.length = 0; w.missiles.length = 0;
+  }
+}
+function stepCollapse(w, dt) {
+  w.shake = Math.max(w.shake, .5);
+  w.collapseT -= dt;
+  if (w.collapseT <= 0) {
+    w.collapseT = .045;
+    let any = false;
+    for (let c = 0; c < COLS; c++) if (w.h[c] > 0) { removeBlock(w, c, false); any = true; }
+    if (!any) {
+      w.turrets.length = w.launchers.length = w.trucks.length = 0;
+      w.phase = 'quake'; w.t = 0; w.sfx.push('quake');
+      w.msg = { text: '更地', sub: '……地面がゆれている', t: 0, dur: 2.4 };
+    }
+  }
+}
+
+// ---------- エンディング ----------
+function startEnding(w) {
+  const R = w.R;
+  w.phase = 'ending'; w.t = 0; w.boss = null; w.split = 0; w.rise = 1; w.laser = 0;
+  w.shots.length = w.missiles.length = w.bombs.length = 0;
+  const trees = [], xs = w.blds.map(b => b.cx);
+  while (xs.length < 14) xs.push(40 + R() * 880);
+  for (const x0 of xs) {
+    const x = clamp(x0 + (R() - .5) * 20, 20, 940);
+    trees.push({ x, d: 3.6 + Math.abs(x - 480) / 480 * 3 + R() * .8, h: 50 + R() * 80, kind: R() < .3 ? 'pine' : 'round', g: ['#3f8f4a', '#4fa35a', '#2f7a44', '#5bb36a'][Math.floor(R() * 4)], s: .8 + R() * .5 });
+  }
+  trees.sort((a, b) => a.h - b.h);
+  const flowers = [];
+  for (let i = 0; i < 90; i++) flowers.push(makeFlower(w, 10 + R() * 940, 6.5 + R() * 6));
+  const flies = [];
+  for (let i = 0; i < 7; i++) flies.push({ x: R() * VW, y: 380 + R() * 120, ph: R() * TAU, c: ['#ffe066', '#ffffff', '#ffb3d1', '#a0d8ff'][i % 4], sp: 30 + R() * 30 });
+  w.end = { t: 0, trees, flowers, flies, seedCd: 0, sun: 0 };
+  w.msg = null;
+}
+function makeFlower(w, x, delay) {
+  const R = w.R;
+  return { x, d: delay, h: 6 + R() * 12, c: ['#ff6b8b', '#ffd166', '#ffffff', '#c792ea', '#ff9f68', '#7fd1ff'][Math.floor(R() * 6)], p: 5 + Math.floor(R() * 2), s: 3 + R() * 2.2 };
+}
+function plantFlower(w, x, now) {
+  const e = w.end;
+  if (!e) return;
+  if (e.flowers.length < 400) e.flowers.push(makeFlower(w, x, now ? e.t : e.t + .2));
+  for (let i = 0; i < 6; i++) particle(w, { k: 'glit', x: x + (w.R() - .5) * 20, y: GY - 6 - w.R() * 10, vx: (w.R() - .5) * 40, vy: -40 - w.R() * 40, life: 1.2, max: 1.2, s: 2.5, col: ['#fff6b0', '#ffd1e8', '#c8f7ff'][i % 3] });
+  w.sfx.push('bloom');
+}
+function stepEnding(w, dt, k) {
+  const e = w.end, R = w.R;
+  e.t += dt;
+  if (e.t > 2.5 && R() < .6) particle(w, { k: 'glit', x: R() * VW, y: GY - R() * 40, vx: (R() - .5) * 10, vy: -20 - R() * 40, life: 2.4, max: 2.4, s: 1.5 + R() * 2, col: ['#fff6b0', '#ffd1e8', '#c8f7ff', '#ffffff'][Math.floor(R() * 4)] });
+  for (const f of e.flies) { f.ph += dt * 6; f.x += Math.cos(e.t * .4 + f.ph * .05) * f.sp * dt + dt * 12; f.y = 400 + Math.sin(e.t * .7 + f.ph * .1) * 60; if (f.x > VW + 20) f.x = -20; }
+  for (const tr of e.trees) if (e.t - dt < tr.d + 1 && e.t >= tr.d + 1) w.sfx.push('grow');
+  const lines = [[3, 'L1'], [7, 'L2'], [10.5, 'L3'], [14, 'HE']];
+  for (const [at, id] of lines) if (e.t - dt < at && e.t >= at) w.sfx.push(id === 'HE' ? 'happy' : 'chime');
+  if (e.t > 16 && k.laser) { w.phase = 'clear'; w.t = 0; }
+  if (e.t > 45) { w.phase = 'clear'; w.t = 0; }
+}
+
+function stepParts(w, dt) {
+  for (const p of w.parts) {
+    p.life -= dt;
+    if (p.k === 'deb') { p.vy += 700 * dt; p.rot += p.vr * dt; if (p.y > GY - 1 && p.vy > 0) { p.y = GY - 1; p.vy *= -.25; p.vx *= .6; } }
+    else if (p.k === 'spark') { p.vy += 300 * dt; }
+    else if (p.k === 'smoke' || p.k === 'dust') { p.vx *= Math.pow(.4, dt); p.vy *= Math.pow(.5, dt); p.s += dt * 14; }
+    else if (p.k === 'glit') { p.vy *= Math.pow(.6, dt); }
+    p.x += p.vx * dt; p.y += p.vy * dt;
+  }
+  w.parts = w.parts.filter(p => p.life > 0);
+}
+
+// ---------- 自動操作（確認用） ----------
+function autopilot(w) {
+  const u = w.ufo, k = { l: false, r: false, fire: true, laser: w.gauge >= 1 };
+  let tx = u.x;
+  const bo = w.boss;
+  if (w.phase === 'ending') { tx = 480 + Math.sin(w.time * .7) * 380; k.laser = w.end.t > 17; }
+  else if (bo && w.phase === 'boss') {
+    let best = null, bv = 1e9;
+    for (let c = 34; c <= 61; c++) if (isCoreCol(c)) { const v = bo.fh[c] * 30 + Math.abs(c * B + 5 - u.x) * .3; if (v < bv) { bv = v; best = c; } }
+    tx = best * B + 5;
+    const a = bo.atk;
+    if (a && a.kind === 'lock' && a.t > a.lockAt * .6) { if (Math.abs(u.x - a.tx) < 120) tx = a.tx + (a.tx < 480 ? 170 : -170); }
+    if (a && a.kind === 'sweep') tx = a.side < 0 ? 760 : 200;
+    if (a && a.kind === 'pillars') { const xs = pillarXs(a); for (const x of xs) if (Math.abs(tx - x) < 70) tx = x + (x < 480 ? 90 : -90); }
+  } else {
+    let best = u.x, bv = -1e9;
+    for (let c = 0; c < COLS; c++) { const v = w.h[c] * 3 - Math.abs(c * B + 5 - u.x) / 25 + (w.laser > 0 ? w.h[c] * 2 : 0); if (v > bv) { bv = v; best = c * B + 5; } }
+    tx = best;
+  }
+  // 少し先の弾の位置を読んで、いちばん安全で目標に近い位置を選ぶ
+  const threats = [];
+  for (const s of w.shots) if (s.y < UY + 220) threats.push([s.x, s.y, s.vx, s.vy]);
+  for (const m of w.missiles) if (m.y < UY + 200 && !(m.delay > 0)) threats.push([m.x, m.y, Math.cos(m.ang) * m.sp, Math.sin(m.ang) * m.sp]);
+  if (threats.length) {
+    let bestX = u.x, bestC = 1e18;
+    for (let cx = u.x - 180; cx <= u.x + 180; cx += 15) {
+      if (cx < 20 || cx > VW - 20) continue;
+      let danger = 0;
+      for (let tt = 0; tt <= .8; tt += .05) {
+        const px = u.x + clamp(cx - u.x, -400 * tt, 400 * tt);
+        for (const [sx, sy, vx, vy] of threats) {
+          const qx = sx + vx * tt, qy = sy + vy * tt;
+          if (Math.abs(qy - UY) < 16 && Math.abs(qx - px) < 26) danger += 1 / (tt + .08);
+        }
+      }
+      const cost = danger * 1000 + Math.abs(cx - tx) * .5;
+      if (cost < bestC) { bestC = cost; bestX = cx; }
+    }
+    tx = bestX;
+  }
+  for (const it of w.items) if (it.y < UY + 20 && Math.abs(it.x - u.x) < 160 && u.hp < MAXHP) tx = it.x;
+  if (tx < 30) tx = 30; if (tx > VW - 30) tx = VW - 30;
+  if (tx < u.x - 5) k.l = true; else if (tx > u.x + 5) k.r = true;
+  return k;
+}
+
+// ---------- 描く ----------
+function drawUfo(ctx, x, y, t, tilt, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  ctx.rotate(tilt);
+  ctx.scale(1.4, 1.4);
+  // 下の光
+  const g = ctx.createRadialGradient(0, 8, 0, 0, 8, 34);
+  g.addColorStop(0, 'rgba(255,190,150,.55)'); g.addColorStop(1, 'rgba(255,190,150,0)');
+  ctx.fillStyle = g; ctx.fillRect(-36, -20, 72, 60);
+  // ガラスの丸屋根
+  ctx.fillStyle = 'rgba(255,240,228,.9)';
+  ctx.beginPath(); ctx.ellipse(0, -5, 9, 9, 0, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  ctx.beginPath(); ctx.ellipse(-3, -9, 2.5, 3, -.5, 0, TAU); ctx.fill();
+  // 星形の円盤：放射状の太い光を、ななめ下から見たように平たくつぶして回す
+  ctx.save();
+  ctx.scale(1, .42);
+  ctx.rotate(t * 1.3);
+  const N = 12;
+  ctx.fillStyle = '#d97757';
+  for (let i = 0; i < N; i++) {
+    const a = i / N * TAU + hash(i, 7) * .12, L = 24 + hash(i, 3) * 6, wd = 3.6 + hash(i, 5) * 1.4;
+    ctx.save(); ctx.rotate(a);
+    ctx.beginPath();
+    ctx.moveTo(0, -wd); ctx.lineTo(L - wd, -wd * .55); ctx.arc(L - wd, 0, wd * .55, -Math.PI / 2, Math.PI / 2); ctx.lineTo(0, wd); ctx.closePath();
+    ctx.fill(); ctx.restore();
+  }
+  ctx.beginPath(); ctx.arc(0, 0, 9, 0, TAU); ctx.fill();
+  ctx.restore();
+  // ふちの灯り
+  for (let i = 0; i < 5; i++) {
+    const a = t * 2 + i / 5 * TAU, lx = Math.cos(a) * 17, ly = Math.sin(a) * 6;
+    if (Math.sin(a) < 0) continue;
+    ctx.fillStyle = i % 2 ? '#fff4c2' : '#ffd0b8';
+    ctx.beginPath(); ctx.arc(lx, ly + 1, 1.8, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawSky(ctx, w) {
+  const ph = w.phase, e = w.end;
+  let top, mid, bot;
+  if (e) {
+    const k = clamp((e.t - 1) / 5, 0, 1);
+    top = mix('#3a3540', '#3d8fe0', k); mid = mix('#5e5560', '#8fd0ff', k); bot = mix('#8a7a70', '#fff1c9', k);
+  } else if (w.stage === 2 || ph === 'quake' || ph === 'split' || ph === 'rise') {
+    const k = ph === 'boss' || ph === 'bossdie' ? 1 : ph === 'rise' ? clamp(w.t / 4, 0, 1) : 0;
+    top = mix('#141a3a', '#120a18', k); mid = mix('#4a2f5a', '#4a1424', k); bot = mix('#e0765a', '#c2412c', k);
+  } else { top = '#141a3a'; mid = '#4a2f5a'; bot = '#e0765a'; }
+  const g = ctx.createLinearGradient(0, 0, 0, GY);
+  g.addColorStop(0, top); g.addColorStop(.55, mid); g.addColorStop(1, bot);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+  if (!e) { // 星
+    ctx.fillStyle = 'rgba(255,255,255,.7)';
+    for (let i = 0; i < 60; i++) { const sx = hash(i, 1) * VW, sy = hash(i, 2) * 230, tw = .4 + .6 * Math.abs(Math.sin(w.time * (1 + hash(i, 4)) + i)); ctx.globalAlpha = tw * .7; ctx.fillRect(sx, sy, 1.5, 1.5); }
+    ctx.globalAlpha = 1;
+    // 沈む夕日
+    const sg = ctx.createRadialGradient(760, GY - 40, 0, 760, GY - 40, 140);
+    sg.addColorStop(0, 'rgba(255,200,140,.9)'); sg.addColorStop(.25, 'rgba(255,150,100,.45)'); sg.addColorStop(1, 'rgba(255,120,80,0)');
+    ctx.fillStyle = sg; ctx.fillRect(600, GY - 200, 320, 200);
+  } else {
+    const k = clamp((e.t - 1.5) / 8, 0, 1), sy = lerp(GY + 30, 120, ease(k));
+    const sg = ctx.createRadialGradient(780, sy, 0, 780, sy, 160);
+    sg.addColorStop(0, 'rgba(255,255,235,1)'); sg.addColorStop(.18, 'rgba(255,240,180,.9)'); sg.addColorStop(.4, 'rgba(255,220,150,.3)'); sg.addColorStop(1, 'rgba(255,220,150,0)');
+    ctx.fillStyle = sg; ctx.fillRect(600, sy - 170, 360, 340);
+    if (e.t > 10.5) { // 虹
+      const a = clamp((e.t - 10.5) / 3, 0, 1) * .28;
+      const cols = ['#ff5a5a', '#ffa64d', '#ffe14d', '#6ddf6d', '#4dc3ff', '#6b6bff', '#b36bff'];
+      ctx.lineWidth = 9;
+      cols.forEach((c, i) => { ctx.strokeStyle = c; ctx.globalAlpha = a; ctx.beginPath(); ctx.arc(420, GY + 80, 470 - i * 9, Math.PI * 1.06, Math.PI * 1.94); ctx.stroke(); });
+      ctx.globalAlpha = 1;
+    }
+    // 雲
+    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    for (let i = 0; i < 4; i++) {
+      const cx = ((hash(i, 9) * VW + e.t * (8 + i * 3)) % (VW + 200)) - 100, cy = 110 + hash(i, 8) * 140;
+      ctx.globalAlpha = clamp((e.t - 3) / 3, 0, 1) * .8;
+      for (let j = 0; j < 4; j++) { ctx.beginPath(); ctx.ellipse(cx + j * 22 - 33, cy - (j % 2) * 8, 26, 14, 0, 0, TAU); ctx.fill(); }
+    }
+    ctx.globalAlpha = 1;
+  }
+  // 遠くの山
+  ctx.fillStyle = e ? mix('#5a5560', '#6fa6c8', clamp((e.t - 1) / 5, 0, 1)) : (w.stage === 2 ? '#2a1828' : '#2c2440');
+  ctx.beginPath(); ctx.moveTo(0, GY);
+  for (let x = 0; x <= VW; x += 24) ctx.lineTo(x, GY - 60 - Math.sin(x * .007) * 26 - Math.sin(x * .019 + 1) * 14 - hash(x, 11) * 6);
+  ctx.lineTo(VW, GY); ctx.fill();
+}
+function drawCity(ctx, w) {
+  for (let c = 0; c < COLS; c++) {
+    const n = w.h[c];
+    if (n <= 0) continue;
+    const b = w.blds[w.bid[c]], x = c * B;
+    const edgeL = c === b.c0, edgeR = c === b.c1;
+    ctx.fillStyle = b.col;
+    ctx.fillRect(x, GY - n * B, B, n * B);
+    for (let r = 0; r < n; r++) {
+      const y = GY - (r + 1) * B;
+      let lit = hash(c, r) < .42, wx = x + 2, wy = y + 2, ww = 6, wh = 5;
+      if (b.win === 1) { wx = x + 3; ww = 4; wh = 7; wy = y + 1; }
+      else if (b.win === 2) { wx = x; ww = B; wy = y + 3; wh = 4; lit = hash(b.c0, r) < .5; }
+      if (r === b.h - 1 || edgeL && b.win === 2 || edgeR && b.win === 2) { if (r === b.h - 1) continue; }
+      ctx.fillStyle = lit ? (hash(c + 7, r) < .2 ? '#ffe9b0' : '#ffcf7a') : b.dk;
+      ctx.fillRect(wx, wy, ww, wh);
+    }
+    if (edgeL) { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x, GY - n * B, 1, n * B); }
+    if (edgeR) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x + B - 1, GY - n * B, 1, n * B); }
+    if (n === w.h0[c]) { ctx.fillStyle = b.dk; ctx.fillRect(x, GY - n * B, B, 3); }
+    else { // 削れた跡
+      ctx.fillStyle = 'rgba(0,0,0,.35)';
+      const j = hash(c, n) * 4;
+      ctx.fillRect(x, GY - n * B, B, 2 + j);
+    }
+  }
+}
+function drawGround(ctx, w) {
+  const off = w.split * 360, e = w.end;
+  const draw = (x0, x1) => {
+    if (x1 <= x0) return;
+    if (e) {
+      const k = clamp((e.t - 1.8) / 4, 0, 1);
+      ctx.fillStyle = mix('#5b4a3c', '#6b4f36', k); ctx.fillRect(x0, GY, x1 - x0, VH - GY);
+    } else {
+      ctx.fillStyle = '#2d2b33'; ctx.fillRect(x0, GY, x1 - x0, 22);
+      ctx.fillStyle = '#4a3b32'; ctx.fillRect(x0, GY + 22, x1 - x0, VH - GY - 22);
+      ctx.fillStyle = '#e9d27a';
+      for (let x = Math.ceil(x0 / 40) * 40; x < x1 - 20; x += 40) ctx.fillRect(x, GY + 10, 20, 2);
+      ctx.fillStyle = '#3c3a44'; ctx.fillRect(x0, GY, x1 - x0, 2);
+    }
+  };
+  if (w.split > 0) {
+    const pg = ctx.createLinearGradient(0, GY, 0, VH);
+    pg.addColorStop(0, '#120806'); pg.addColorStop(1, '#5a1a0a');
+    ctx.fillStyle = pg; ctx.fillRect(480 - off, GY - 2, off * 2, VH - GY + 2);
+    draw(-off, 480 - off); draw(480 + off, VW + off);
+    ctx.fillStyle = '#1a1210'; ctx.fillRect(480 - off - 3, GY, 3, VH - GY); ctx.fillRect(480 + off, GY, 3, VH - GY);
+  } else draw(0, VW);
+  if (w.phase === 'quake') { // ひび
+    ctx.strokeStyle = '#120806'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(480, GY);
+    for (let i = 1; i <= 6; i++) ctx.lineTo(480 + (hash(i, 3) - .5) * 30 * clamp(w.t, 0, 1), GY + i * 10 * clamp(w.t * 1.5, 0, 1));
+    ctx.stroke();
+  }
+}
+function drawTurret(ctx, t, time) {
+  const s = t.rise < 1 ? t.rise : 1, y = t.y + (1 - s) * 14;
+  ctx.save(); ctx.translate(t.x, y);
+  ctx.strokeStyle = t.hit > 0 ? '#fff' : '#cfd6c0'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(Math.cos(t.ang) * 13, -10 + Math.sin(t.ang) * 13); ctx.stroke();
+  ctx.fillStyle = t.hit > 0 ? '#fff' : '#6f7a5c';
+  ctx.beginPath(); ctx.arc(0, -8, 7, Math.PI, 0); ctx.fill();
+  ctx.fillRect(-10, -8, 20, 8);
+  ctx.fillStyle = '#ff4f7b'; ctx.globalAlpha = .6 + .4 * Math.sin(time * 6 + t.x);
+  ctx.fillRect(-2, -6, 4, 3);
+  ctx.restore();
+}
+function drawLauncher(ctx, l) {
+  const up = l.up == null ? 1 : l.up;
+  ctx.save(); ctx.translate(l.x, GY);
+  ctx.fillStyle = '#5b6252'; ctx.fillRect(-12, -8, 24, 8);
+  ctx.save(); ctx.translate(-4, -8); ctx.rotate(-Math.PI / 2 * up * .85);
+  ctx.fillStyle = '#80886f'; ctx.fillRect(0, -4, 18, 8);
+  ctx.fillStyle = '#fff'; ctx.fillRect(12, -2, 6, 4);
+  ctx.restore(); ctx.restore();
+}
+function drawTruck(ctx, tr) {
+  ctx.save(); ctx.translate(tr.x, GY); ctx.scale(tr.dir, 1);
+  ctx.fillStyle = '#7d8559'; ctx.fillRect(-16, -12, 20, 9); ctx.fillStyle = '#9aa36b'; ctx.fillRect(4, -10, 10, 7);
+  ctx.fillStyle = '#cfe8ff'; ctx.fillRect(9, -9, 4, 3);
+  ctx.fillStyle = '#222'; for (const x of [-11, 0, 9]) { ctx.beginPath(); ctx.arc(x, -3, 3, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+function drawBoss(ctx, w) {
+  const bo = w.boss, oy = w.rise * 360, t = w.time;
+  ctx.save(); ctx.translate(0, oy);
+  const rage = bo.ph === 3;
+  // 下の胴（地面の下へ続く）
+  ctx.fillStyle = '#23262f'; ctx.fillRect(140, GY - 60, 680, VH - GY + 80);
+  for (let c = 0; c < COLS; c++) {
+    const n = bo.fh[c];
+    if (n <= 0) continue;
+    const x = c * B, tower = isTower(c), core = isCoreCol(c);
+    for (let r = 0; r < n; r++) {
+      const y = GY - (r + 1) * B;
+      if (core && r >= CORE_BOT && r < CORE_TOP) continue; // コアの段は後で描く
+      let col = tower ? '#2c313d' : core && r >= CORE_TOP ? '#5d4e58' : '#3c4352';
+      if (!tower && !core && r % 4 === 3) col = '#454d5e';
+      ctx.fillStyle = col; ctx.fillRect(x, y, B, B);
+      ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(x, y, B, 1);
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x + B - 1, y, 1, B);
+      if (core && r >= CORE_TOP) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x + 4, y + 4, 2, 2); }
+      if (!core && !tower && hash(c, r) < .05) { ctx.fillStyle = (rage ? Math.sin(t * 10 + c) > 0 : Math.sin(t * 3 + c * 1.7) > .3) ? '#ff4a3a' : '#5a2a2a'; ctx.fillRect(x + 3, y + 3, 4, 3); }
+      if (tower && r % 3 === 0) { ctx.fillStyle = '#e0b04a'; if ((c + r) % 2) ctx.fillRect(x, y + 4, B, 2); }
+    }
+    ctx.fillStyle = 'rgba(200,220,255,.25)'; ctx.fillRect(x, GY - n * B, B, 1);
+  }
+  // コア
+  const pulse = .6 + .4 * Math.sin(t * (rage ? 12 : 5)), hit = bo.coreHit > 0;
+  for (const [c0, c1] of [[34, 44], [51, 61]]) {
+    const x0 = c0 * B, x1 = (c1 + 1) * B, y0 = GY - CORE_TOP * B, y1 = GY - CORE_BOT * B;
+    const g = ctx.createLinearGradient(0, y0, 0, y1);
+    g.addColorStop(0, hit ? '#fff' : '#ffb36b'); g.addColorStop(.5, hit ? '#ffe0c0' : `rgba(255,${Math.round(90 + 60 * pulse)},60,1)`); g.addColorStop(1, '#a8301e');
+    ctx.fillStyle = g; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.fillStyle = 'rgba(60,10,10,.5)';
+    for (let x = x0 + 6; x < x1; x += 14) ctx.fillRect(x, y0 + 2, 3, y1 - y0 - 4);
+    // 装甲がはがれた列からは、光が上にもれる
+    for (let c = c0; c <= c1; c++) if (bo.fh[c] <= CORE_TOP) {
+      const lg = ctx.createLinearGradient(0, y0, 0, y0 - 60);
+      lg.addColorStop(0, `rgba(255,170,90,${.35 * pulse})`); lg.addColorStop(1, 'rgba(255,170,90,0)');
+      ctx.fillStyle = lg; ctx.fillRect(c * B, y0 - 60, B, 60);
+    }
+  }
+  if (bo.inv > 0) { ctx.strokeStyle = `rgba(150,215,255,${.5 + .3 * Math.sin(t * 20)})`; ctx.lineWidth = 2; ctx.strokeRect(338, GY - CORE_TOP * B - 4, 284, 66); }
+  // 部品
+  for (const p of bo.parts) {
+    ctx.save(); ctx.translate(p.x, p.y);
+    const wd = (p.c1 - p.c0 + 1) * B;
+    if (!p.alive) {
+      ctx.fillStyle = '#1c1c22'; ctx.fillRect(-wd / 2, -6, wd, 6);
+      if (Math.random() < .2) particle(w, { k: 'smoke', x: p.x + (Math.random() - .5) * wd, y: p.y + oy - 6, vx: 0, vy: -30, life: 1.2, max: 1.2, s: 8, col: '#3a3438' });
+      ctx.restore(); continue;
+    }
+    const hc = p.hit > 0;
+    if (p.kind === 'turret') {
+      ctx.strokeStyle = hc ? '#fff' : '#c8d0dc'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(Math.cos(p.ang) * 22, -14 + Math.sin(p.ang) * 22); ctx.stroke();
+      ctx.fillStyle = hc ? '#fff' : '#6b7486'; ctx.beginPath(); ctx.arc(0, -10, 13, Math.PI, 0); ctx.fill(); ctx.fillRect(-wd / 2, -10, wd, 10);
+      ctx.fillStyle = '#ff4f7b'; ctx.fillRect(-3, -10, 6, 4);
+    } else {
+      ctx.fillStyle = hc ? '#fff' : '#5c6578'; ctx.fillRect(-wd / 2, -26, wd, 26);
+      ctx.fillStyle = '#2a2e38'; for (let i = 0; i < 4; i++) ctx.fillRect(-wd / 2 + 8 + i * 17, -22, 11, 11);
+      ctx.fillStyle = '#ffffff'; for (let i = 0; i < 4; i++) ctx.fillRect(-wd / 2 + 11 + i * 17, -19, 5, 5);
+      ctx.fillStyle = '#e0b04a'; ctx.fillRect(-wd / 2, -4, wd, 3);
+    }
+    // 体力
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(-20, 4, 40, 3);
+    ctx.fillStyle = '#ffb36b'; ctx.fillRect(-20, 4, 40 * p.hp / p.max, 3);
+    ctx.restore();
+  }
+  // 主砲
+  const a = bo.atk, charging = a && ((a.kind === 'lock' && a.t < a.charge) || (a.kind === 'sweep' && a.t < a.warn));
+  ctx.save(); ctx.translate(CANNON.x, CANNON.y);
+  ctx.save(); ctx.rotate(bo.aim);
+  ctx.fillStyle = '#8a93a6'; ctx.fillRect(0, -11, MUZZLE_LEN, 22);
+  ctx.fillStyle = '#5a6274'; ctx.fillRect(MUZZLE_LEN - 8, -14, 10, 28);
+  ctx.fillStyle = '#e0b04a'; ctx.fillRect(12, -11, 4, 22); ctx.fillRect(24, -11, 4, 22);
+  ctx.restore();
+  ctx.fillStyle = '#6b7486'; ctx.beginPath(); ctx.arc(0, 14, 28, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = rage ? '#ff4a3a' : '#ffb36b'; ctx.beginPath(); ctx.arc(0, 4, 5, 0, TAU); ctx.fill();
+  ctx.restore();
+  if (charging) { // 溜め：光が砲口へ集まる
+    const m = muzzle(bo), k = a.kind === 'lock' ? a.t / a.charge : a.t / a.warn;
+    const r = 6 + 22 * k;
+    const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, r * 2.4);
+    g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.3, `rgba(255,110,140,${.8})`); g.addColorStop(1, 'rgba(255,60,100,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m.x, m.y, r * 2.4, 0, TAU); ctx.fill();
+    for (let i = 0; i < 10; i++) {
+      const aa = hash(i, Math.floor(t * 12)) * TAU, d = 70 * (1 - ((t * 3 + i * .1) % 1));
+      ctx.fillStyle = '#ffd1dc'; ctx.fillRect(m.x + Math.cos(aa) * d, m.y + Math.sin(aa) * d, 2.5, 2.5);
+    }
+  }
+  ctx.restore();
+}
+function muzzle(bo) { return { x: CANNON.x + Math.cos(bo.aim) * MUZZLE_LEN, y: CANNON.y + Math.sin(bo.aim) * MUZZLE_LEN }; }
+function drawBeam(ctx, tx, half, alpha, time) {
+  const d = beamDir(tx), x0 = CANNON.x + d.dx * MUZZLE_LEN, y0 = CANNON.y + d.dy * MUZZLE_LEN, L = 1400;
+  const ang = Math.atan2(d.dy, d.dx);
+  ctx.save(); ctx.translate(x0, y0); ctx.rotate(ang);
+  const wob = 1 + .08 * Math.sin(time * 60);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = 'rgba(255,60,110,.35)'; ctx.fillRect(0, -half * 1.6 * wob, L, half * 3.2 * wob);
+  ctx.fillStyle = 'rgba(255,110,150,.85)'; ctx.fillRect(0, -half * wob, L, half * 2 * wob);
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, -half * .45, L, half * .9);
+  ctx.restore();
+}
+function drawAttack(ctx, w) {
+  const bo = w.boss, a = bo && bo.atk, t = w.time;
+  if (!a) return;
+  if (a.firing) { // 撃っている間、砲口が白く燃え、空が赤く染まる
+    const m = muzzle(bo), r = 60 + 10 * Math.sin(t * 50);
+    ctx.fillStyle = 'rgba(255,40,90,.10)'; ctx.fillRect(0, 0, VW, VH);
+    const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, r);
+    g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.35, 'rgba(255,150,180,.8)'); g.addColorStop(1, 'rgba(255,60,110,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, TAU); ctx.fill();
+  }
+  if (a.kind === 'lock') {
+    if (a.t < a.charge) {
+      const locked = a.t >= a.lockAt, d = beamDir(a.tx), m = muzzle(bo);
+      ctx.save();
+      ctx.strokeStyle = locked ? `rgba(255,70,110,${.6 + .4 * Math.sin(t * 40)})` : 'rgba(255,90,120,.55)';
+      ctx.lineWidth = locked ? 3 : 1.5; ctx.setLineDash(locked ? [] : [8, 8]);
+      ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x + d.dx * 1200, m.y + d.dy * 1200); ctx.stroke();
+      ctx.restore();
+      if (locked) { ctx.strokeStyle = '#ff4f7b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(a.tx, UY, 22, 0, TAU); ctx.stroke(); }
+    } else if (a.firing) drawBeam(ctx, a.tx, a.half, 1, t);
+  } else if (a.kind === 'sweep') {
+    if (a.t < a.warn) {
+      ctx.save();
+      ctx.fillStyle = `rgba(255,40,80,${.12 + .1 * Math.sin(t * 16)})`;
+      const x0 = a.side < 0 ? 0 : 480, x1 = a.side < 0 ? 480 : VW;
+      ctx.fillRect(x0, 0, x1 - x0, GY);
+      ctx.strokeStyle = 'rgba(255,80,110,.5)'; ctx.lineWidth = 6;
+      for (let x = x0 - 600; x < x1; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 140, 140); ctx.stroke(); }
+      ctx.fillStyle = '#ffd1dc'; ctx.font = '800 22px "Hiragino Sans", system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('なぎはらい　→ 反対側へ', (x0 + x1) / 2, 170);
+      ctx.restore();
+    } else if (a.firing) drawBeam(ctx, a.tx, a.half, 1, t);
+  } else if (a.kind === 'pillars') {
+    for (const x of pillarXs(a)) {
+      const base = GY - 20 * B - 26;
+      if (a.t < a.warn) {
+        ctx.fillStyle = `rgba(255,60,110,${.25 + .2 * Math.sin(t * 20)})`; ctx.fillRect(x - 3, 0, 6, base);
+        ctx.strokeStyle = 'rgba(255,90,120,.5)'; ctx.setLineDash([6, 6]); ctx.strokeRect(x - 24, 0, 48, base); ctx.setLineDash([]);
+      } else if (a.on) {
+        const wob = 1 + .1 * Math.sin(t * 50);
+        ctx.fillStyle = 'rgba(255,60,110,.35)'; ctx.fillRect(x - 34 * wob, 0, 68 * wob, base);
+        ctx.fillStyle = 'rgba(255,120,160,.9)'; ctx.fillRect(x - 22 * wob, 0, 44 * wob, base);
+        ctx.fillStyle = '#fff'; ctx.fillRect(x - 9, 0, 18, base);
+      }
+    }
+  }
+}
+function drawTree(ctx, tr, e) {
+  const k = clamp((e.t - tr.d) / 2.6, 0, 1);
+  if (k <= 0) { // 芽
+    return;
+  }
+  const hh = tr.h * ease(Math.min(1, k * 1.4));
+  ctx.fillStyle = '#7a5434'; ctx.fillRect(tr.x - 3 * tr.s, GY - hh, 6 * tr.s, hh);
+  const ck = pop(clamp((k - .3) / .7, 0, 1));
+  if (ck <= 0) return;
+  ctx.fillStyle = tr.g;
+  if (tr.kind === 'pine') {
+    for (let i = 0; i < 3; i++) {
+      const y = GY - hh + i * 14 * tr.s, ww = (16 + i * 9) * tr.s * ck;
+      ctx.beginPath(); ctx.moveTo(tr.x, y - 22 * tr.s * ck); ctx.lineTo(tr.x - ww, y + 10); ctx.lineTo(tr.x + ww, y + 10); ctx.fill();
+    }
+  } else {
+    const r = 22 * tr.s * ck;
+    for (const [dx, dy, s] of [[0, -8, 1], [-r * .7, 4, .75], [r * .7, 4, .75], [0, 8, .8]]) { ctx.beginPath(); ctx.arc(tr.x + dx, GY - hh + dy, r * s, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.beginPath(); ctx.arc(tr.x - r * .3, GY - hh - r * .4, r * .45, 0, TAU); ctx.fill();
+    if (k >= 1 && hash(Math.round(tr.x), 2) < .5) { // 実
+      ctx.fillStyle = '#ff6b6b';
+      for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(tr.x + (hash(i, Math.round(tr.x)) - .5) * r * 1.6, GY - hh + (hash(i + 5, Math.round(tr.x)) - .5) * r, 2.5, 0, TAU); ctx.fill(); }
+    }
+  }
+}
+function drawEnding(ctx, w) {
+  const e = w.end;
+  // 草：まん中から広がる
+  const rr = Math.max(0, (e.t - 1.8) * 240);
+  ctx.fillStyle = '#4f9a48';
+  const gx0 = Math.max(0, 480 - rr), gx1 = Math.min(VW, 480 + rr);
+  if (gx1 > gx0) { ctx.fillRect(gx0, GY, gx1 - gx0, 8); ctx.fillStyle = '#3f8a3e'; ctx.fillRect(gx0, GY + 8, gx1 - gx0, 4); }
+  ctx.strokeStyle = '#5fb352'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let x = 1; x < VW; x += 3) {
+    const d = Math.abs(x - 480); if (d > rr) continue;
+    const g = clamp((rr - d) / 120, 0, 1), hh = (4 + hash(x, 1) * 9) * g, sw = Math.sin(w.time * 2 + x * .05) * 2 * g;
+    ctx.moveTo(x, GY + 1); ctx.lineTo(x + sw, GY - hh);
+  }
+  ctx.stroke();
+  for (const tr of e.trees) drawTree(ctx, tr, e);
+  for (const f of e.flowers) {
+    const k = clamp((e.t - f.d) / 1.0, 0, 1);
+    if (k <= 0) continue;
+    const sh = f.h * ease(Math.min(1, k * 2)), sway = Math.sin(w.time * 2.4 + f.x) * 1.5;
+    ctx.strokeStyle = '#3f8a3e'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(f.x, GY); ctx.lineTo(f.x + sway, GY - sh); ctx.stroke();
+    const bk = pop(clamp((k - .4) / .6, 0, 1));
+    if (bk <= 0) continue;
+    const cx = f.x + sway, cy = GY - sh;
+    ctx.fillStyle = f.c;
+    for (let i = 0; i < f.p; i++) { const a = i / f.p * TAU + f.x; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * f.s * bk, cy + Math.sin(a) * f.s * bk, f.s * .75 * bk, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.arc(cx, cy, f.s * .55 * bk, 0, TAU); ctx.fill();
+  }
+  if (e.t > 8) for (const f of e.flies) { // ちょうちょ
+    const flap = Math.abs(Math.sin(f.ph * 2)) * 5 + 1;
+    ctx.fillStyle = f.c; ctx.globalAlpha = clamp((e.t - 8) / 2, 0, 1);
+    ctx.beginPath(); ctx.ellipse(f.x - 3, f.y, flap * .6, 4, -.4, 0, TAU); ctx.ellipse(f.x + 3, f.y, flap * .6, 4, .4, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  if (e.t > 9) { // 鳥
+    ctx.strokeStyle = 'rgba(40,50,70,.6)'; ctx.lineWidth = 1.6;
+    for (let i = 0; i < 5; i++) {
+      const bx = ((e.t - 9) * 50 + i * 26) % (VW + 300) - 100, by = 180 + i * 8 + Math.sin(e.t * 2 + i) * 4, f = Math.sin(e.t * 8 + i) * 4;
+      ctx.beginPath(); ctx.moveTo(bx - 7, by - f); ctx.lineTo(bx, by); ctx.lineTo(bx + 7, by - f); ctx.stroke();
+    }
+  }
+}
+function drawParts(ctx, w) {
+  for (const p of w.parts) {
+    const a = clamp(p.life / p.max, 0, 1);
+    if (p.k === 'deb') { ctx.save(); ctx.globalAlpha = Math.min(1, a * 2); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.col; ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s); ctx.restore(); }
+    else if (p.k === 'spark' || p.k === 'glit') {
+      ctx.globalAlpha = p.k === 'glit' ? a * (.5 + .5 * Math.sin(w.time * 20 + p.x)) : a; ctx.fillStyle = p.col;
+      if (p.k === 'glit') { ctx.fillRect(p.x - p.s, p.y - .5, p.s * 2, 1); ctx.fillRect(p.x - .5, p.y - p.s, 1, p.s * 2); }
+      ctx.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
+    }
+    else if (p.k === 'smoke' || p.k === 'dust') { ctx.globalAlpha = a * .45; ctx.fillStyle = p.col || '#444'; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, TAU); ctx.fill(); }
+    else if (p.k === 'ring') { ctx.globalAlpha = a; ctx.strokeStyle = p.col || '#ffe6b0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y, p.s * (1.2 - a), 0, TAU); ctx.stroke(); }
+    else if (p.k === 'fire') {
+      const r = p.s * (1.1 - a * .5), g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      g.addColorStop(0, `rgba(255,255,220,${a})`); g.addColorStop(.4, `rgba(255,170,80,${a * .9})`); g.addColorStop(1, 'rgba(200,60,30,0)');
+      ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function heart(ctx, x, y, s, fill) {
+  ctx.beginPath(); ctx.moveTo(x, y + s * .35);
+  ctx.bezierCurveTo(x, y, x - s * .5, y, x - s * .5, y + s * .35); ctx.bezierCurveTo(x - s * .5, y + s * .65, x, y + s * .8, x, y + s);
+  ctx.bezierCurveTo(x, y + s * .8, x + s * .5, y + s * .65, x + s * .5, y + s * .35); ctx.bezierCurveTo(x + s * .5, y, x, y, x, y + s * .35);
+  ctx[fill ? 'fill' : 'stroke']();
+}
+const FONT = '"Hiragino Sans", "Yu Gothic", system-ui, sans-serif';
+function drawHud(ctx, w) {
+  const u = w.ufo;
+  ctx.textBaseline = 'alphabetic';
+  if (w.phase === 'ending' || w.phase === 'clear' || w.phase === 'title') return;
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(0, 0, VW, 34);
+  ctx.fillStyle = '#fff'; ctx.font = `800 16px ui-monospace, Menlo, monospace`; ctx.textAlign = 'left';
+  ctx.fillText(String(w.score).padStart(7, '0'), 14, 23);
+  for (let i = 0; i < MAXHP; i++) { ctx.fillStyle = '#ff6b8b'; ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5; heart(ctx, 112 + i * 20, 10, 15, i < u.hp); }
+  // まん中：解体率か要塞の体力
+  ctx.textAlign = 'center'; ctx.font = `700 12px ${FONT}`;
+  if (w.boss && w.phase !== 'rise') {
+    const bo = w.boss, r = bo.hp / bo.max;
+    ctx.fillStyle = '#ffd1c0'; ctx.fillText('都市要塞', 480, 13);
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(330, 17, 300, 9);
+    ctx.fillStyle = bo.ph === 3 ? '#ff4a3a' : '#ffb36b'; ctx.fillRect(330, 17, 300 * r, 9);
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(330 + 300 * .66, 17, 1, 9); ctx.fillRect(330 + 300 * .33, 17, 1, 9);
+  } else if (w.stage === 1) {
+    const r = Math.min(1, progress(w) / .96);
+    ctx.fillStyle = '#ffe6d6'; ctx.fillText(`解体率 ${Math.floor(r * 100)}%`, 480, 13);
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(360, 17, 240, 9);
+    ctx.fillStyle = '#ffd37a'; ctx.fillRect(360, 17, 240 * r, 9);
+  }
+  // 右：必殺ゲージ
+  const gx = 790, full = w.gauge >= 1;
+  ctx.textAlign = 'right'; ctx.font = `800 12px ${FONT}`;
+  ctx.fillStyle = full ? (Math.sin(w.time * 10) > 0 ? '#fff' : '#ffb38a') : '#ffe6d6';
+  ctx.fillText(w.laser > 0 ? 'レーザー！' : full ? 'X で発射！' : '必殺', gx - 6, 22);
+  ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(gx, 12, 150, 11);
+  ctx.fillStyle = w.laser > 0 ? '#fff' : full ? (Math.sin(w.time * 10) > 0 ? '#ffcfb8' : '#d97757') : '#d97757';
+  ctx.fillRect(gx, 12, 150 * (w.laser > 0 ? w.laser / LASER_T : w.gauge), 11);
+}
+function drawMsg(ctx, w) {
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (w.msg) {
+    const m = w.msg, a = clamp(Math.min(m.t / .3, (m.dur - m.t) / .4), 0, 1);
+    ctx.globalAlpha = a;
+    ctx.font = `800 44px ${FONT}`; ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.5)';
+    ctx.strokeText(m.text, 480, 160); ctx.fillStyle = '#fff'; ctx.fillText(m.text, 480, 160);
+    if (m.sub) { ctx.font = `700 16px ${FONT}`; ctx.lineWidth = 4; ctx.strokeText(m.sub, 480, 198); ctx.fillStyle = '#ffe6d6'; ctx.fillText(m.sub, 480, 198); }
+    ctx.globalAlpha = 1;
+  }
+  const e = w.end;
+  if (e) {
+    const L = [[3, 6.6, '街は、ひとつ残らず更地になった。'], [7, 10.2, '人類は、もうどこにもいない。'], [10.5, 99, 'そして――　地球に、みどりがもどった。']];
+    ctx.font = `700 22px ${FONT}`;
+    for (const [a0, a1, s] of L) {
+      const a = clamp(Math.min((e.t - a0) / .8, (a1 - e.t) / .6), 0, 1);
+      if (a <= 0) continue;
+      ctx.globalAlpha = a; ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,50,80,.35)';
+      const y = a1 > 50 ? 196 : 240;
+      ctx.strokeText(s, 480, y); ctx.fillStyle = '#fff'; ctx.fillText(s, 480, y);
+    }
+    if (e.t > 14) {
+      const k = pop(clamp((e.t - 14) / .9, 0, 1));
+      ctx.save(); ctx.translate(480, 268); ctx.scale(k, k);
+      ctx.font = `900 64px ${FONT}`;
+      const g = ctx.createLinearGradient(-200, 0, 200, 0), sh = (w.time * .4) % 1;
+      ['#ff8fae', '#ffd166', '#8ee08e', '#7fd1ff', '#c792ea', '#ff8fae'].forEach((c, i) => g.addColorStop((i / 5 + sh) % 1, c));
+      ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.strokeText('HAPPY END', 0, 0);
+      ctx.fillStyle = g; ctx.fillText('HAPPY END', 0, 0);
+      ctx.restore();
+      for (let i = 0; i < 4; i++) if (Math.random() < .5) particle(w, { k: 'glit', x: 480 + (Math.random() - .5) * 400, y: 268 + (Math.random() - .5) * 70, vx: 0, vy: -10, life: .8, max: .8, s: 3, col: '#ffffff' });
+    }
+    if (e.t > 16) {
+      ctx.globalAlpha = .6 + .4 * Math.sin(w.time * 4);
+      ctx.font = `700 15px ${FONT}`; ctx.fillStyle = '#2b3a55';
+      ctx.fillText('Z で花の種をまく　／　X か Enter で、けっかへ', 480, 330);
+      ctx.globalAlpha = 1;
+    }
+  }
+  ctx.textBaseline = 'alphabetic';
+}
+function render(ctx, w) {
+  const t = w.time, sh = w.shake;
+  ctx.save();
+  if (sh > 0) ctx.translate(Math.sin(t * 91) * sh * 6, Math.cos(t * 77) * sh * 4);
+  drawSky(ctx, w);
+  if (w.boss && w.phase !== 'split') drawBoss(ctx, w);
+  if (!w.end) drawCity(ctx, w);
+  drawGround(ctx, w);
+  if (w.end) drawEnding(ctx, w);
+  for (const l of w.launchers) drawLauncher(ctx, l);
+  for (const tr of w.trucks) drawTruck(ctx, tr);
+  for (const tu of w.turrets) drawTurret(ctx, tu, t);
+  if (w.boss && w.phase === 'boss') drawAttack(ctx, w);
+  // レーザー
+  if (w.laser > 0) {
+    const x = w.ufo.x, top = w.beamTop, wob = 1 + .12 * Math.sin(t * 70);
+    const g = ctx.createLinearGradient(x - 30, 0, x + 30, 0);
+    g.addColorStop(0, 'rgba(217,119,87,0)'); g.addColorStop(.3, 'rgba(217,119,87,.75)'); g.addColorStop(.5, 'rgba(255,240,230,1)'); g.addColorStop(.7, 'rgba(217,119,87,.75)'); g.addColorStop(1, 'rgba(217,119,87,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - 30 * wob, UY + 6, 60 * wob, top - UY - 6);
+    ctx.fillStyle = '#fff'; ctx.fillRect(x - 5, UY + 6, 10, top - UY - 6);
+    const hg = ctx.createRadialGradient(x, top, 0, x, top, 40);
+    hg.addColorStop(0, 'rgba(255,255,240,.95)'); hg.addColorStop(1, 'rgba(255,170,120,0)');
+    ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(x, top, 40, 0, TAU); ctx.fill();
+  }
+  // 自分の弾
+  for (const b of w.bombs) {
+    if (b.seed) { ctx.fillStyle = '#8a5a2b'; ctx.beginPath(); ctx.ellipse(b.x, b.y, 2.5, 3.5, 0, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(255,250,200,.6)'; ctx.fillRect(b.x - .5, b.y - 9, 1, 6); continue; }
+    ctx.fillStyle = 'rgba(255,200,170,.35)'; ctx.fillRect(b.x - 1, b.y - 18, 2, 16);
+    ctx.fillStyle = '#ffe9dc'; ctx.beginPath(); ctx.ellipse(b.x, b.y, 2.6, 5, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#d97757'; ctx.fillRect(b.x - 2.5, b.y - 6, 5, 2);
+  }
+  // ミサイル
+  for (const m of w.missiles) {
+    if (m.delay > 0) continue;
+    ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.ang);
+    ctx.fillStyle = '#ffd37a'; ctx.beginPath(); ctx.moveTo(-8, -2.5); ctx.lineTo(-15 - Math.random() * 5, 0); ctx.lineTo(-8, 2.5); ctx.fill();
+    ctx.fillStyle = '#f2f2f2'; ctx.fillRect(-8, -2.5, 13, 5);
+    ctx.fillStyle = '#ff4a3a'; ctx.beginPath(); ctx.moveTo(5, -2.5); ctx.lineTo(10, 0); ctx.lineTo(5, 2.5); ctx.fill();
+    ctx.restore();
+  }
+  drawParts(ctx, w);
+  // 敵の弾
+  for (const s of w.shots) {
+    const r = s.r;
+    ctx.fillStyle = s.k === 'flak' ? 'rgba(255,79,123,.45)' : 'rgba(255,90,140,.4)';
+    ctx.beginPath(); ctx.arc(s.x, s.y, r * 2, 0, TAU); ctx.fill();
+    ctx.fillStyle = s.k === 'flak' ? '#ff4f7b' : '#ff6b9a'; ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(s.x, s.y, r * .5, 0, TAU); ctx.fill();
+  }
+  // ♥
+  for (const it of w.items) {
+    ctx.globalAlpha = it.life < 2 ? (Math.sin(it.t * 20) > 0 ? 1 : .3) : 1;
+    ctx.fillStyle = 'rgba(255,140,170,.35)'; ctx.beginPath(); ctx.arc(it.x, it.y + 6, 14, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ff6b8b'; heart(ctx, it.x, it.y - 2, 16, true);
+    ctx.globalAlpha = 1;
+  }
+  // UFO
+  const u = w.ufo;
+  if (w.phase !== 'dead' && w.phase !== 'over' && w.phase !== 'title') {
+    const blink = u.inv > 0 && Math.sin(t * 40) < 0;
+    drawUfo(ctx, u.x, UY + Math.sin(t * 3) * 1.5, t, clamp(u.vx / 420, -1, 1) * .16, blink ? .35 : 1);
+  }
+  ctx.restore();
+  drawHud(ctx, w);
+  drawMsg(ctx, w);
+  if (w.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${Math.min(1, w.flash)})`; ctx.fillRect(0, 0, VW, VH); }
+}
+
+// ---------- 音 ----------
+function makeAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  const ctx = new AC(), master = ctx.createGain(), sfxG = ctx.createGain(), musG = ctx.createGain();
+  master.gain.value = .5; master.connect(ctx.destination);
+  sfxG.gain.value = 1; sfxG.connect(master); musG.gain.value = .55; musG.connect(master);
+  const noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), nd = noise.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  const beep = (f, t, dur, vol, f2, type, dest) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'square'; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vol, t + .006); g.gain.setValueAtTime(vol, t + dur * .6); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(dest || sfxG); o.start(t); o.stop(t + dur + .03);
+  };
+  const hiss = (t, dur, vol, freq, type, q, dest) => {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noise; f.type = type || 'lowpass'; f.frequency.setValueAtTime(freq, t); if (q) f.Q.value = q;
+    if (!type || type === 'lowpass') f.frequency.exponentialRampToValueAtTime(70, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    s.connect(f); f.connect(g); g.connect(dest || sfxG); s.start(t, Math.random() * .5); s.stop(t + dur + .03);
+  };
+  let lastCrunch = 0, lastDrop = 0;
+  const SFX = {
+    drop: t => { if (t - lastDrop < .1) return; lastDrop = t; beep(1400, t, .05, .025, 700, 'triangle'); },
+    crunch: t => { if (t - lastCrunch < .035) return; lastCrunch = t; hiss(t, .09, .22, 900 + Math.random() * 900, 'bandpass', 1.2); beep(140 + Math.random() * 60, t, .06, .06, 70, 'square'); },
+    raze: t => { hiss(t, .7, .4, 1600); [523, 659, 784, 1047].forEach((f, i) => beep(f, t + i * .05, .14, .06, 0, 'triangle')); },
+    boom: t => { hiss(t, .5, .5, 1500); beep(120, t, .25, .12, 40); },
+    bigboom: t => { hiss(t, 1.0, .7, 2200); beep(90, t, .6, .16, 30); },
+    clink: t => { beep(1900, t, .05, .04, 0, 'square'); beep(2600, t + .02, .05, .03); },
+    corehit: t => { if (t - lastCrunch < .04) return; lastCrunch = t; beep(330, t, .08, .07, 160, 'sawtooth'); hiss(t, .1, .2, 3000, 'bandpass', 2); },
+    pop: t => { hiss(t, .25, .35, 2500); beep(600, t, .1, .06, 200); },
+    flak: t => beep(220, t, .09, .05, 500, 'square'),
+    shot: t => beep(700, t, .06, .04, 400, 'square'),
+    burst: t => { hiss(t, .18, .25, 3500, 'bandpass', 1.5); },
+    launch: t => { hiss(t, .5, .18, 2500, 'highpass'); beep(200, t, .35, .04, 500, 'sawtooth'); },
+    deploy: t => beep(300, t, .12, .05, 450, 'square'),
+    hurt: t => { beep(600, t, .25, .12, 90, 'sawtooth'); hiss(t, .3, .4, 2500); },
+    heal: t => [784, 988, 1319].forEach((f, i) => beep(f, t + i * .06, .1, .07, 0, 'triangle')),
+    full: t => [659, 880, 1319, 1760].forEach((f, i) => beep(f, t + i * .05, .12, .06, 0, 'square')),
+    laseron: t => { beep(120, t, .5, .12, 900, 'sawtooth'); hiss(t, .6, .4, 4000, 'bandpass', .7); },
+    dead: t => { hiss(t, 1.2, .7, 2000); beep(500, t, 1.2, .1, 40, 'sawtooth'); },
+    collapse: t => { for (let i = 0; i < 6; i++) hiss(t + i * .25, .8, .45, 900 - i * 80); },
+    quake: t => { beep(45, t, 1.6, .25, 30, 'sine'); hiss(t, 1.6, .4, 400); },
+    split: t => { beep(60, t, 2.4, .25, 35, 'sawtooth'); hiss(t, 2.4, .5, 700); },
+    rise: t => { beep(40, t, 4.2, .25, 80, 'sawtooth'); for (let i = 0; i < 8; i++) beep(i % 2 ? 620 : 880, t + .4 + i * .45, .38, .05); },
+    alarm: t => { for (let i = 0; i < 4; i++) beep(i % 2 ? 620 : 880, t + i * .3, .26, .07); },
+    charge: t => { beep(200, t, 1.0, .07, 1600, 'sawtooth'); beep(203, t, 1.0, .05, 1620, 'square'); },
+    lock: t => { beep(1760, t, .06, .07); beep(1760, t + .09, .06, .07); },
+    beam: t => { hiss(t, 1.2, .7, 5000, 'bandpass', .5); beep(80, t, 1.0, .2, 50, 'sawtooth'); beep(160, t, 1.0, .08, 120, 'square'); },
+    vent: t => hiss(t, .5, .2, 1200, 'highpass'),
+    ring: t => { for (let i = 0; i < 3; i++) beep(900 - i * 150, t + i * .03, .05, .04); },
+    bossdie: t => { for (let i = 0; i < 12; i++) hiss(t + i * .32, .7, .6, 900 + i * 120); beep(300, t, 3.6, .08, 30, 'sawtooth'); },
+    flash: t => { hiss(t, 2.5, .8, 6000); beep(1047, t + .4, 2.5, .05, 0, 'sine'); beep(1568, t + .6, 2.4, .04, 0, 'sine'); },
+    bloom: t => { const f = [1047, 1175, 1319, 1568, 1760][Math.floor(Math.random() * 5)]; beep(f, t, .4, .05, 0, 'sine'); beep(f * 2, t, .25, .015, 0, 'sine'); },
+    grow: t => beep(523 + Math.random() * 300, t, .5, .03, 0, 'sine'),
+    chime: t => [1047, 1319, 1568].forEach((f, i) => beep(f, t + i * .12, .9, .04, 0, 'sine')),
+    happy: t => [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => beep(f, t + i * .07, .7, .05, 0, 'triangle')),
+  };
+  // レーザーのうなり（鳴らしっぱなしで、音量だけ変える）
+  const lzO = ctx.createOscillator(), lzO2 = ctx.createOscillator(), lzG = ctx.createGain(), lzF = ctx.createBiquadFilter();
+  lzO.type = 'sawtooth'; lzO.frequency.value = 110; lzO2.type = 'square'; lzO2.frequency.value = 221;
+  lzF.type = 'lowpass'; lzF.frequency.value = 1400; lzG.gain.value = 0;
+  lzO.connect(lzF); lzO2.connect(lzF); lzF.connect(lzG); lzG.connect(sfxG); lzO.start(); lzO2.start();
+  // 伴奏
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+  const SONG = {
+    city: { st: .1136, ch: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], mel: [76, 0, 74, 72, 0, 72, 74, 76, 0, 79, 76, 0, 74, 0, 72, 0] },
+    boss: { st: .096, ch: [[50, 53, 57], [46, 50, 53], [48, 52, 55], [45, 49, 52]], mel: [74, 0, 77, 74, 81, 0, 79, 77, 76, 0, 74, 0, 73, 0, 76, 0] },
+    end: { st: .17, ch: [[48, 52, 55], [43, 47, 50], [45, 48, 52], [41, 45, 48]], mel: [79, 0, 0, 76, 0, 0, 72, 0, 74, 0, 76, 0, 0, 0, 0, 0] },
+  };
+  let next = 0, pos = 0, cur = null;
+  return {
+    ctx, muted: false,
+    play(name) { if (!this.muted && SFX[name]) SFX[name](ctx.currentTime); },
+    setMute(m) { this.muted = m; master.gain.value = m ? 0 : .5; },
+    laser(on) { lzG.gain.setTargetAtTime(on && !this.muted ? .06 : 0, ctx.currentTime, .03); lzO.frequency.setTargetAtTime(on ? 110 + Math.random() * 6 : 110, ctx.currentTime, .02); },
+    music(mode) { // 毎フレーム呼ぶ。すこし先までの音を予約する
+      if (!mode) { cur = null; return; }
+      if (mode !== cur) { cur = mode; next = ctx.currentTime + .05; pos = 0; }
+      const S = SONG[mode], st = S.st;
+      while (next < ctx.currentTime + .2) {
+        const bar = Math.floor(pos / 16) % 4, i = pos % 16, ch = S.ch[bar];
+        if (mode === 'end') {
+          beep(hz(ch[i % 3] + 24), next, st * 2.5, .03, 0, 'sine', musG);
+          if (i === 0) for (const n of ch) beep(hz(n + 12), next, st * 15, .022, 0, 'triangle', musG);
+          if (i === 0 || i === 8) beep(hz(ch[0] - 12), next, st * 7, .05, 0, 'sine', musG);
+          const m = S.mel[i]; if (m && bar % 2 === 0) beep(hz(m + 5 * (bar === 2)), next, st * 3, .03, 0, 'triangle', musG);
+        } else {
+          const boss = mode === 'boss';
+          beep(hz(ch[0] - 12), next, st * .9, boss ? .07 : .06, 0, boss ? 'sawtooth' : 'square', musG);
+          if (i % 2 === 1) beep(hz(ch[(i >> 1) % 3] + 12), next, st * .8, .018, 0, 'square', musG);
+          if (i % 4 === 0) { beep(150, next, .12, .14, 45, 'sine', musG); }
+          if (boss && (i === 4 || i === 12)) hiss(next, .12, .18, 4000, 'highpass', 0, musG);
+          if (i % 2 === 0) hiss(next, .03, .05, 8000, 'highpass', 0, musG);
+          const m = S.mel[i]; if (m && bar !== 3) beep(hz(m), next, st * 1.6, .028, 0, 'triangle', musG);
+        }
+        next += st; pos++;
+      }
+    },
+  };
+}
+
+// ---------- 自己テスト ----------
+function runTests() {
+  const out = [];
+  const check = (name, fn) => {
+    let ok = false, note = '';
+    try { const r = fn(); ok = r === true; if (!ok) note = '  ' + String(r); } catch (e) { note = '  ' + e.message; }
+    out.push({ ok, text: (ok ? 'OK  ' : 'NG  ') + name + note });
+  };
+  const info = (name, fn) => { let s; try { s = fn(); } catch (e) { s = e.message; } out.push({ ok: true, text: ' -  ' + name + '  ' + s }); };
+  const DT = 1 / 60;
+  const run = (w, sec, inp) => { for (let i = 0; i < sec * 60; i++) step(w, DT, typeof inp === 'function' ? inp(w) : inp); };
+  const calm = (seed, opts) => { const w = makeWorld(seed, opts); startGame(w, 1); w.phase = 'play'; w.turrets.length = 0; w.spawnT = w.truckT = 1e9; return w; };
+  const tallest = w => { let b = 0; for (let c = 0; c < COLS; c++) if (w.h[c] > w.h[b]) b = c; return b; };
+
+  check('街ができる。ブロックは900〜1800個、いちばん高いビルでも UFO に届かない', () => {
+    const w = makeWorld(7), n = w.total0, top = GY - Math.max(...w.h) * B;
+    return (n >= 900 && n <= 1800 && top > UY + 80) || `${n}個 / 最上部 y=${top}`;
+  });
+  check('同じ種からは同じ街と同じ展開になる', () => {
+    const a = makeWorld(5), b = makeWorld(5); startGame(a, 1); startGame(b, 1);
+    run(a, 30, autopilot); run(b, 30, autopilot);
+    return (a.score === b.score && a.ufo.x === b.ufo.x && a.removed === b.removed) || `${a.score}/${b.score}`;
+  });
+  check('弾1発で、真下のビルのいちばん上のブロックが1つだけ消え、ゲージがたまる', () => {
+    const w = calm(3), c = tallest(w), h = w.h[c];
+    w.ufo.x = c * B + 5;
+    step(w, DT, { fire: true }); run(w, .6, {});
+    return (w.h[c] === h - 1 && w.removed === 1 && Math.abs(w.gauge - 1 / GAUGE_N) < 1e-9) || `高さ ${h}→${w.h[c]} / 消えた数 ${w.removed} / ゲージ ${w.gauge}`;
+  });
+  check('ビルのない所に落ちた弾は、何も消さない', () => {
+    const w = calm(3), c = 42; for (let i = 39; i < 46; i++) { w.removed += w.h[i]; w.h[i] = 0; } const r0 = w.removed;
+    w.ufo.x = c * B + 5; step(w, DT, { fire: true }); run(w, .8, {});
+    return (w.removed === r0 && w.bombs.length === 0) || `消えた数 ${w.removed - r0}`;
+  });
+  check('押しっぱなしで弾が続けて落ちる（1秒で8発以上）', () => {
+    const w = calm(3); let n = 0; for (let i = 0; i < 60; i++) { const b = w.bombs.length; step(w, DT, { fire: true }); if (w.bombs.length > b) n++; }
+    return n >= 8 || `${n}発`;
+  });
+  check('上下には動かない。左右には動く。画面の外へは出ない', () => {
+    const w = calm(3); run(w, 3, { l: true }); const x1 = w.ufo.x; run(w, 6, { r: true });
+    return (x1 === 18 && w.ufo.x === VW - 18) || `${x1} / ${w.ufo.x}`;
+  });
+  check('ゲージ満タンで X：レーザーが出てブロックが軒並み消え、ゲージは0に。レーザーで消した分はゲージにならない', () => {
+    const w = calm(4), c = tallest(w); w.ufo.x = c * B + 5; w.gauge = 1; w.gaugeFull = true;
+    const r0 = w.removed; step(w, DT, { laser: true });
+    const g0 = w.gauge; run(w, 2, {});
+    const n = w.removed - r0;
+    return (w.laser > 0 && g0 === 0 && n >= 40 && w.gauge === 0) || `消えた数 ${n} / ゲージ ${w.gauge} / レーザー ${w.laser}`;
+  });
+  check('ゲージが満タンでないと、X を押してもレーザーは出ない', () => {
+    const w = calm(4); w.gauge = .99; step(w, DT, { laser: true }); return w.laser === 0 || 'レーザーが出た';
+  });
+  check('ビル1棟を地面まで削ると「解体」+500点', () => {
+    const w = calm(5), b = w.blds[2];
+    for (let c = b.c0; c <= b.c1; c++) while (w.h[c] > (c === b.c1 ? 1 : 0)) removeBlock(w, c, true);
+    const s = w.score; removeBlock(w, b.c1, true);
+    return (!b.alive && w.stats.razed === 1 && w.score - s === 510) || `点 ${w.score - s} / razed ${w.stats.razed}`;
+  });
+  check('敵の弾に当たると ♥ が1つ減る。続けて当たっても、点滅中は減らない', () => {
+    const w = calm(6), u = w.ufo;
+    w.shots.push({ k: 'bul', x: u.x, y: UY + 30, vx: 0, vy: -200, r: 4, life: 3 });
+    run(w, .3, {}); const h1 = u.hp;
+    w.shots.push({ k: 'bul', x: u.x, y: UY + 30, vx: 0, vy: -200, r: 4, life: 3 });
+    run(w, .3, {});
+    return (h1 === MAXHP - 1 && u.hp === h1) || `${h1} / ${u.hp}`;
+  });
+  check('対空弾は UFO の下ではじけて、破片が散る', () => {
+    const w = calm(6); w.ufo.x = 100;
+    w.shots.push({ k: 'flak', x: 500, y: 400, vx: 0, vy: -300, r: 5, by: UY + 60, life: 4 });
+    run(w, 1.2, {});
+    return w.shots.filter(s => s.k === 'frag').length === 8 || `破片 ${w.shots.length}`;
+  });
+  check('弾でミサイルを撃ち落とせる', () => {
+    const w = calm(6), u = w.ufo; u.x = 300;
+    w.missiles.push({ x: 300, y: 260, ang: -Math.PI / 2, sp: 60, life: 6, hp: 1, delay: 0 });
+    step(w, DT, { fire: true }); run(w, .4, {});
+    return (w.missiles.length === 0 && u.hp === MAXHP) || `残り ${w.missiles.length} / ♥ ${u.hp}`;
+  });
+  check('トラックが空き地に来て、発射台を置いていく', () => {
+    const w = calm(8); w.truckT = 0; w.removed = Math.round(w.total0 * .5);
+    for (let c = 40; c < 46; c++) w.h[c] = 0;
+    run(w, 14, {});
+    return w.launchers.length >= 1 || `発射台 ${w.launchers.length} / トラック ${w.trucks.length}`;
+  });
+  check('解体率96%で残りが崩れ、地面が割れて、要塞がせり上がる', () => {
+    const w = calm(9);
+    for (let c = 0; c < COLS; c++) while (w.h[c] > 0 && progress(w) < .955) removeBlock(w, c, false);
+    const c = w.h.findIndex(v => v > 0); w.ufo.x = c * B + 5;
+    let seen = '';
+    for (let i = 0; i < 60 * 16; i++) { step(w, DT, { fire: true }); if (!seen.endsWith(w.phase)) seen += ' ' + w.phase; if (w.phase === 'boss') break; }
+    return (w.phase === 'boss' && w.h.every(v => v === 0) && !!w.boss && w.split === 1) || seen;
+  });
+  const bossW = seed => { const w = makeWorld(seed); startGame(w, 2); run(w, 7.5, {}); w.boss.next = 1e9; w.boss.parts.forEach(p => { p.cd = 1e9; }); return w; };
+  check('要塞：装甲を削り切ると、その列から先はコアに当たる。まん中の塔は削れない', () => {
+    const w = bossW(2), bo = w.boss, c = 38;
+    if (w.phase !== 'boss') return w.phase;
+    w.ufo.x = c * B + 5;
+    let i = 0; while (bo.fh[c] > CORE_TOP && i++ < 40) { step(w, DT, { fire: true }); run(w, .6, {}); }
+    const hp0 = bo.hp; step(w, DT, { fire: true }); run(w, .6, {});
+    const hp1 = bo.hp; w.ufo.x = 47 * B + 5; step(w, DT, { fire: true }); run(w, .6, {});
+    return (bo.fh[c] === CORE_TOP && hp1 === hp0 - 1 && bo.fh[47] === TOWER_H && bo.hp === hp1) || `fh ${bo.fh[c]} / hp ${hp0}→${hp1}→${bo.hp}`;
+  });
+  check('主砲：溜めて狙いを固めたあとに逃げればよけられ、とどまれば当たる', () => {
+    const a = bossW(3), b = bossW(3);
+    for (const w of [a, b]) { w.ufo.x = 300; w.boss.next = 0; w.boss.last = 'ring1'; }
+    a.R = () => 0; b.R = () => 0; // lock を選ばせる
+    step(a, DT, {}); step(b, DT, {});
+    if (a.boss.atk.kind !== 'lock') return a.boss.atk.kind;
+    run(a, 1.5, {}); run(b, 1.5, {});
+    run(a, 1.5, { r: true }); run(b, 1.5, {});
+    return (a.ufo.hp === MAXHP && b.ufo.hp === MAXHP - 1) || `逃げた ♥${a.ufo.hp} / とどまった ♥${b.ufo.hp}`;
+  });
+  check('なぎはらいは、赤い帯の反対側にいれば当たらない', () => {
+    const w = bossW(4); w.ufo.x = 200; w.boss.next = 0;
+    w.boss.atk = { kind: 'sweep', t: 0, warn: 1.6, dur: 1.4, hold: .35, side: -1, tx: 0, half: 30, twice: false };
+    const a = w.boss.atk; run(w, .3, {}); const side = a.side; run(w, 1.2, { r: true }); run(w, 2.2, {});
+    return (side === -1 && w.ufo.x > 520 && w.ufo.hp === MAXHP) || `x ${w.ufo.x} / ♥ ${w.ufo.hp}`;
+  });
+  check('要塞の体力が 2/3、1/3 を切ると形が変わり、装甲が戻る', () => {
+    const w = bossW(5), bo = w.boss;
+    for (let c = 34; c <= 44; c++) bo.fh[c] = CORE_TOP;
+    coreHit(w, BOSS_HP * .35, null, null); const p2 = bo.ph;
+    run(w, 2.5, {}); const repaired = bo.fh[38] === bo.fh0[38];
+    bo.inv = 0; coreHit(w, BOSS_HP * .35, null, null);
+    return (p2 === 2 && repaired && bo.ph === 3) || `${p2} ${repaired} ${bo.ph}`;
+  });
+  check('要塞を倒すと爆発して、更地に草・木・花が育ち、HAPPY END が出る', () => {
+    const w = bossW(6); w.boss.inv = 0; coreHit(w, BOSS_HP, null, null);
+    const d = w.phase; run(w, 4.2, {});
+    const e = w.phase; run(w, 17, {});
+    const grown = w.end.trees.filter(t => w.end.t > t.d + 2.6).length, blooms = w.end.flowers.filter(f => w.end.t > f.d + 1).length;
+    step(w, DT, { laser: true });
+    return (d === 'bossdie' && e === 'ending' && grown >= 10 && blooms >= 60 && w.phase === 'clear') || `${d} ${e} 木${grown} 花${blooms} ${w.phase}`;
+  });
+  check('エンディングで Z を押すと、花の種が落ちて咲く', () => {
+    const w = makeWorld(1); startGame(w, 3); run(w, 3, {});
+    const n = w.end.flowers.length; step(w, DT, { fire: true }); run(w, .2, { fire: true }); run(w, 1, {});
+    return w.end.flowers.length > n || `${n}→${w.end.flowers.length}`;
+  });
+  check('自動操作（やられない設定）で、街から要塞を倒してエンディングまで行ける', () => {
+    const w = makeWorld(11, { cheat: true }); startGame(w, 1);
+    let tCity = 0, tBoss = 0;
+    for (let i = 0; i < 60 * 900 && w.phase !== 'clear'; i++) { step(w, DT, autopilot(w)); if (!tCity && w.phase === 'collapse') tCity = w.time; if (!tBoss && w.phase === 'bossdie') tBoss = w.time; }
+    return w.phase === 'clear' || `${w.phase} 解体率 ${Math.round(progress(w) * 100)}% 要塞 ${w.boss ? w.boss.hp : '-'}`;
+  });
+  info('自動操作（ふつうの設定）の到達点', () => {
+    const r = [];
+    for (const seed of [21, 22, 23]) {
+      const w = makeWorld(seed); startGame(w, 1);
+      let tc = 0;
+      for (let i = 0; i < 60 * 600 && w.phase !== 'over' && w.phase !== 'clear'; i++) { step(w, DT, autopilot(w)); if (!tc && w.phase === 'collapse') tc = Math.round(w.time); }
+      r.push(`seed${seed}: ${w.phase === 'clear' ? 'クリア' : w.boss ? `要塞 残り${Math.round(w.boss.hp / w.boss.max * 100)}%` : `解体率${Math.round(progress(w) * 100)}%`}（街 ${tc || '-'}秒 / 全体 ${Math.round(w.time)}秒 / 被弾 ${JSON.stringify(w.why || {})}）`);
+    }
+    return r.join('\n      ');
+  });
+  return { out, check };
+}
+
+// ---------- 説明の絵 ----------
+function drawHow() {
+  const c1 = document.getElementById('howc1'), c2 = document.getElementById('howc2');
+  if (!c1 || !c2) return;
+  const t = performance.now() / 1000;
+  for (const [cv, kind] of [[c1, 1], [c2, 2]]) {
+    const g = cv.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const bg = g.createLinearGradient(0, 0, 0, cv.height); bg.addColorStop(0, '#141a3a'); bg.addColorStop(1, '#a8556a');
+    g.fillStyle = bg; g.fillRect(0, 0, cv.width, cv.height);
+    g.setTransform(1.125, 0, 0, 1.125, 0, 0); // 480×170 の中で描く
+    g.fillStyle = '#2d2b33'; g.fillRect(0, 150, 480, 30);
+    if (kind === 1) {
+      const x = 240 + Math.sin(t * 1.4) * 150;
+      for (let i = 0; i < 5; i++) { const by = ((t * 2.2 + i * .2) % 1) * 120 + 40; g.fillStyle = '#ffe9dc'; g.fillRect(240 + Math.sin((t - (by - 40) / 260) * 1.4) * 150 - 2, by, 4, 9); }
+      for (let i = 0; i < 6; i++) { g.fillStyle = PAL[i][0]; g.fillRect(30 + i * 75, 150 - 30 - (i % 3) * 14, 50, 30 + (i % 3) * 14); }
+      g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 2; g.setLineDash([5, 5]);
+      g.beginPath(); g.moveTo(70, 30); g.lineTo(410, 30); g.stroke(); g.setLineDash([]);
+      g.fillStyle = '#fff'; g.font = '700 14px sans-serif'; g.textAlign = 'center'; g.fillText('← 横にだけ動く →', 240, 16);
+      drawUfo(g, x, 30, t, Math.cos(t * 1.4) * .15, 1);
+    } else {
+      const n = 10 - Math.floor((t * 3) % 11);
+      for (let c = 0; c < 6; c++) { const hh = c === 2 ? n : 10 - (c % 3) * 2; for (let r = 0; r < hh; r++) { g.fillStyle = PAL[1][0]; g.fillRect(150 + c * 30, 150 - (r + 1) * 12, 29, 11); g.fillStyle = hash(c, r) < .45 ? '#ffcf7a' : PAL[1][1]; g.fillRect(156 + c * 30, 153 - (r + 1) * 12, 16, 5); } }
+      const by = ((t * 3) % 1) * (150 - n * 12 - 40) + 36;
+      g.fillStyle = '#ffe9dc'; g.fillRect(213, by, 4, 9);
+      drawUfo(g, 215, 26, t, 0, 1);
+      g.fillStyle = '#fff'; g.font = '700 14px sans-serif'; g.textAlign = 'left';
+      g.fillText('1発で', 20, 70); g.fillText('1ブロック', 20, 90);
+      g.fillStyle = '#d97757'; g.fillRect(380, 40, 26, 110); g.fillStyle = '#fff'; g.fillRect(389, 40, 8, 110);
+      g.fillStyle = '#fff'; g.fillText('レーザー', 400, 30);
+    }
+  }
+}
+
+// ---------- 動かす ----------
+(function main() {
+  const Q = new URLSearchParams(location.search);
+  const $ = id => document.getElementById(id);
+  const canvas = $('c'), ctx = canvas.getContext('2d');
+  const seed = Q.has('seed') ? (parseInt(Q.get('seed'), 10) || 0) : (Date.now() & 0xffff);
+  let world = makeWorld(seed, { cheat: Q.has('cheat') }), audio = null, paused = false, runSeed = seed, resultAt = -1e9;
+  let W = 0, H = 0, dpr = 1, scale = 1, offX = 0, offY = 0;
+  const keys = { l: false, r: false, fire: false, laser: false }, touch = Q.has('touch') || matchMedia('(pointer: coarse)').matches;
+
+  const onSite = /\/games\/[^/]+\/(index\.html)?$/.test(location.pathname);
+  const showBack = on => { $('back').hidden = !(on && onSite); };
+  showBack(true);
+
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    if (!W || !H) return;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    const padH = touch ? 84 : 0;
+    scale = Math.min(W / VW, (H - padH) / VH);
+    offX = (W - VW * scale) / 2; offY = Math.max(0, (H - padH - VH * scale) / 2);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function show(name) {
+    for (const id of ['title', 'pause', 'result']) $(id).hidden = id !== name;
+    $('pad').hidden = !(touch && name === null);
+    showBack(name === 'title' || name === 'result');
+  }
+  function begin(stage) {
+    if (!audio) { try { audio = makeAudio(); } catch (_) { audio = null; } }
+    if (audio) audio.ctx.resume();
+    runSeed = Q.has('seed') ? seed : (Date.now() & 0xffff);
+    world = makeWorld(runSeed, { cheat: Q.has('cheat') });
+    startGame(world, stage);
+    paused = false; show(null);
+  }
+  function finish() {
+    const w = world, ok = w.phase === 'clear', s = Math.floor(w.time);
+    $('verdict').textContent = ok ? '侵略完了' : '撃墜された';
+    $('verdict').style.color = ok ? '#8ee08e' : '#ff6b8b';
+    let best = 0; try { best = +localStorage.getItem('gyaku-invader-best') || 0; if (w.score > best) localStorage.setItem('gyaku-invader-best', String(w.score)); } catch (_) {}
+    const where = ok ? '地球に、みどりがもどった' : w.reachedBoss ? `都市要塞で撃墜（要塞の残り ${w.boss ? Math.round(w.boss.hp / w.boss.max * 100) : 0}%）` : `街で撃墜（解体率 ${Math.floor(Math.min(1, progress(w) / .96) * 100)}%）`;
+    $('stats').innerHTML = `<b>${w.score}</b> 点${w.score > best && best ? '　記録更新！' : ''}<br>${where}<br>`
+      + `削ったブロック ${w.stats.blocks}　解体したビル ${w.stats.razed}　壊した兵器 ${w.stats.kills}<br>`
+      + `レーザー ${w.stats.lasers}回　当たった数 ${w.stats.hits}　${Math.floor(s / 60)}分${String(s % 60).padStart(2, '0')}秒`
+      + (best ? `<br>これまでの最高 ${Math.max(best, w.score)} 点` : '');
+    $('retry').textContent = !ok && w.reachedBoss ? '要塞からやり直す（Z キーでも）' : 'もう一度（Z キーでも）';
+    $('retry0').hidden = !((!ok) && w.reachedBoss);
+    show('result'); $('retry').focus(); resultAt = performance.now();
+  }
+  const waiting = () => world.phase === 'title' || world.phase === 'over' || world.phase === 'clear';
+  const retryStage = () => (world.phase === 'over' && world.reachedBoss) ? 2 : 1;
+
+  const KEY = { arrowleft: 'l', a: 'l', arrowright: 'r', d: 'r', z: 'fire', ' ': 'fire', j: 'fire', x: 'laser', shift: 'laser', k: 'laser', enter: 'laser' };
+  window.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (k in KEY) {
+      keys[KEY[k]] = true;
+      if (!waiting() || k === ' ') e.preventDefault();
+      if (k === 'z' && waiting() && !e.repeat && performance.now() - resultAt > 1000) begin(world.phase === 'title' ? (Q.has('ending') ? 3 : clamp(parseInt(Q.get('stage'), 10) || 1, 1, 2)) : retryStage());
+    } else if (k === 'r' && world.phase === 'over') begin(1);
+    else if (k === 'escape' && !waiting()) { paused = !paused; show(paused ? 'pause' : null); }
+    else if (k === 'm' && audio) audio.setMute(!audio.muted);
+  });
+  window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (k in KEY) keys[KEY[k]] = false; });
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && !waiting()) { paused = true; show('pause'); } });
+  for (const b of document.querySelectorAll('#pad button')) {
+    const set = on => e => { keys[b.dataset.k] = on; b.classList.toggle('on', on); e.preventDefault(); };
+    b.addEventListener('pointerdown', set(true)); b.addEventListener('pointerup', set(false));
+    b.addEventListener('pointercancel', set(false)); b.addEventListener('pointerleave', set(false));
+  }
+  $('start').addEventListener('click', () => begin(Q.has('ending') ? 3 : clamp(parseInt(Q.get('stage'), 10) || 1, 1, 2)));
+  $('retry').addEventListener('click', () => begin(retryStage()));
+  $('retry0').addEventListener('click', () => begin(1));
+  $('pause').addEventListener('click', () => { paused = false; show(null); });
+
+  window.gameWorld = () => world; // 確認用
+  let last = performance.now(), shown = 'title';
+  function frame(now) {
+    if (!W || !H) resize();
+    const dt = Math.min(.05, Math.max(0, (now - last) / 1000)); last = now;
+    if (!paused) step(world, dt, keys); else world.sfx.length = 0;
+    if (audio) {
+      const counts = {};
+      for (const n of world.sfx) { counts[n] = (counts[n] || 0) + 1; if (counts[n] <= 2) audio.play(n); }
+      const ph = world.phase;
+      audio.music(paused ? null : ph === 'ending' || ph === 'clear' ? 'end' : ph === 'boss' ? 'boss' : ph === 'play' || ph === 'intro' ? 'city' : null);
+      audio.laser(!paused && world.laser > 0);
+    }
+    world.sfx.length = 0;
+    if ((world.phase === 'over' || world.phase === 'clear') && shown !== world.phase) finish();
+    shown = world.phase;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#1a1424'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, offX * dpr, offY * dpr);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
+    render(ctx, world);
+    ctx.restore();
+    if (!$('title').hidden) drawHow();
+    requestAnimationFrame(frame);
+  }
+
+  if (Q.has('test')) {
+    const { out, check } = runTests();
+    check('キーで動く・落とす・始める。画面のボタンも効く（合成したイベントで確認）', () => {
+      const res = [], send = (type, key) => window.dispatchEvent(new KeyboardEvent(type, { key }));
+      send('keydown', 'z'); send('keyup', 'z');
+      res.push(world.phase === 'intro' && $('title').hidden ? 'o' : '始まらない');
+      world.phase = 'play'; world.turrets.length = 0;
+      for (const [key, test] of [['ArrowRight', w => w.ufo.vx > 0], ['ArrowLeft', w => w.ufo.vx < 0], ['d', w => w.ufo.vx > 0], ['a', w => w.ufo.vx < 0],
+        ['z', w => w.bombs.length > 0], [' ', w => w.bombs.length > 0], ['j', w => w.bombs.length > 0]]) {
+        world.bombs.length = 0; world.ufo.vx = 0; world.ufo.cd = 0; world.ufo.x = 480;
+        send('keydown', key); for (let i = 0; i < 4; i++) step(world, 1 / 60, keys); send('keyup', key);
+        res.push(test(world) ? 'o' : key);
+      }
+      for (const key of ['x', 'Shift', 'k']) {
+        world.gauge = 1; world.laser = 0; send('keydown', key); step(world, 1 / 60, keys); send('keyup', key);
+        res.push(world.laser > 0 ? 'o' : key);
+      }
+      const btn = document.querySelector('#pad button[data-k=fire]');
+      world.laser = 0; world.bombs.length = 0; world.ufo.cd = 0;
+      btn.dispatchEvent(new PointerEvent('pointerdown')); step(world, 1 / 60, keys); btn.dispatchEvent(new PointerEvent('pointerup'));
+      res.push(world.bombs.length === 1 && !keys.fire ? 'o' : 'ボタン');
+      world = makeWorld(seed, { cheat: Q.has('cheat') }); resize(); show('title');
+      return res.every(r => r === 'o') || res.join(' ');
+    });
+    const pass = out.filter(o => o.ok).length;
+    $('test').textContent = `自己テスト ${pass}/${out.length}\n` + out.map(o => o.text).join('\n');
+    $('test').hidden = false;
+    document.title = `逆インベーダー テスト ${pass}/${out.length}`;
+  }
+
+  if (Q.has('skip') || Q.has('ending') && Q.has('auto')) { // 確認用：自動操作で進めたところから始める
+    startGame(world, Q.has('ending') ? 3 : clamp(parseInt(Q.get('stage'), 10) || 1, 1, 2));
+    const n = Math.min(900, parseFloat(Q.get('skip')) || 0) * 60;
+    for (let i = 0; i < n && world.phase !== 'over' && world.phase !== 'clear'; i++) step(world, 1 / 60, autopilot(world));
+    world.sfx.length = 0;
+    if (world.phase === 'over' || world.phase === 'clear') finish(); else show(null);
+    shown = world.phase;
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
