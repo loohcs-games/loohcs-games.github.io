@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>狼のいる夜</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="topbar">
+  <span class="brand">狼のいる夜</span>
+  <nav class="tools" aria-label="表示と音">
+    <button class="small" id="help-open" type="button">読み方</button>
+    <button class="small" id="sound-toggle" type="button" aria-pressed="false" aria-label="音を有効にする">音なし</button>
+  </nav>
+</header>
+<a id="back" href="../../" hidden>← ゲーム一覧にもどる</a>
+<main id="title" class="screen" aria-labelledby="game-title">
+  <svg class="title-art" viewBox="0 0 800 640" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">
+    <defs><linearGradient id="title-sky" x2="0" y2="1"><stop stop-color="#151e34"/><stop offset="1" stop-color="#090c12"/></linearGradient></defs>
+    <path fill="url(#title-sky)" d="M0 0h800v640H0z"/>
+    <path fill="#c8c5b1" d="M577 99a32 32 0 1 0 38 46 31 31 0 0 1-38-46z"/>
+    <g fill="#adb5c1" opacity=".35"><circle cx="317" cy="112" r="1"/><circle cx="687" cy="166" r="1"/><circle cx="465" cy="47" r="1"/><circle cx="735" cy="74" r="1"/><circle cx="359" cy="236" r="1"/><circle cx="521" cy="203" r="1"/></g>
+    <path fill="#111822" d="M180 470l60-46 55 28 65-69 52 40 56-59 60 48 60-21 77 39 65-25 70 47v188H180z"/>
+    <g fill="#080c12"><path d="M290 496v-60l41-30 43 30v60zm104 0v-48l35-22 38 22v48zm92 0V376l19-30 18 30v120zm52 0v-65l45-32 46 32v65z"/><path d="M608 640V315h8v325zm-55-210 59-154 60 154h-30l45 76H539l45-76zm160 210V248h9v392zm-63-252 67-191 68 191h-35l50 100H634l51-100z"/></g>
+    <path fill="#080c12" d="M0 571q200-43 360-21t440-7v97H0z"/>
+  </svg>
+  <div class="title-content">
+    <p class="sub">夜の選択肢ゲーム</p>
+    <h1 id="game-title">狼のいる夜</h1>
+    <div class="title-time" aria-label="20時から6時まで"><span>20:00</span><i></i><span>06:00</span></div>
+    <p class="title-copy">狼に見つからずに、朝を迎える。<br>前の夜に見たものは、残る。</p>
+    <div class="title-actions">
+      <button class="big" id="go1">はじめる</button>
+      <div class="title-secondary"><span class="desktop-key">Enter で始める</span><button class="small" id="go3" hidden>見たもの</button></div>
+    </div>
+    <p class="dim" id="found"></p>
+  </div>
+  <p class="title-foot">ひとつの村。繰り返す夜。</p>
+</main>
+<section id="gallery" class="screen" hidden aria-labelledby="gallery-heading">
+  <p class="sub">夜から持ち帰った記憶</p><h2 id="gallery-heading" tabindex="-1">見たもの</h2><div class="rule"></div>
+  <p class="dim" id="gcount"></p><div id="cards"></div><button class="big" id="go4">もどる</button>
+</section>
+<section id="howto" class="screen" hidden aria-labelledby="how-heading">
+  <p class="sub">夜に入る前に</p><h2 id="how-heading" tabindex="-1">あそびかた</h2>
+  <div class="how">
+    <div class="card"><b class="t"><span class="num">01</span>えらぶ</b>選択肢を押して進む。キーボードなら矢印キーで選び、Enter で決める。次の場所へ行くと、三十分が過ぎる。</div>
+    <div class="card"><b class="t"><span class="num">02</span>よむ</b>初めてのマスでは長い文、二度目からは短い文。「短く読む」「全文を読む」か Space で切り替えられる。</div>
+    <div class="card"><b class="t"><span class="num">03</span>しぬ</b>死んだら、同じ夜を最初から。しおりを挟んでいれば、そこから。しおりは一夜に一度だけ。前の夜の記録は残る。</div>
+  </div>
+  <p class="dim">ルールは、死んで覚える。</p><button class="big" id="go2">夜へ</button>
+</section>
+<main id="play" hidden>
+  <aside id="board" hidden aria-labelledby="board-heading">
+    <div class="board-header"><h3 id="board-heading" tabindex="-1">おぼえがき</h3><span id="board-time" class="board-count"></span><button id="board-close" class="small">閉じる</button></div>
+    <p class="board-note">今いる場所は ★。点線のマスへ進めます。</p>
+    <div class="grid-wrap"><table class="grid" id="grid" aria-label="時刻と場所のおぼえがき"></table></div>
+    <div class="grid-legend"><span>★ 現在地</span><span>・通った場所</span><span>× 死</span><span>薄い赤 気配</span></div>
+    <ul id="hints"></ul><p id="seen"></p>
+  </aside>
+  <section id="panel" aria-label="物語">
+    <article id="story">
+      <div id="scene-heading"><h2 id="when" tabindex="-1" aria-live="polite"></h2><span class="heading-tools"><span id="shiori-note" class="note"></span><button id="shiori" class="small" hidden>しおりを挟む</button><button id="read-length" class="small" hidden>短く読む</button><button id="art-open" class="small" type="button" aria-haspopup="dialog">絵を見る</button></span></div>
+      <div id="night-progress" aria-hidden="true"></div>
+      <div class="scene-frame">
+        <svg id="stage" viewBox="0 0 400 160" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+      </div>
+      <div id="text"></div><div id="choices" aria-label="選択肢"></div>
+      <button id="shiori-back" class="big" hidden>しおりから戻る</button><button id="continue" class="big" hidden></button><button id="record-open" class="small" hidden>この夜のおぼえがきを見る</button><p id="next"></p>
+    </article>
+  </section>
+</main>
+<button id="notes-toggle" type="button" aria-expanded="false" aria-controls="board" hidden>おぼえがき</button>
+<dialog id="help-dialog" aria-labelledby="help-title">
+  <h2 id="help-title">読み方と操作</h2>
+  <p>選択肢を押して進みます。矢印キーで選び、Enter でも決定できます。</p>
+  <p>長い文と短い文は、時刻の横のボタンか Space で切り替えます。文章はスクロールして読めます。</p>
+  <p>おぼえがきでは、点線のマスへ進めます。</p>
+  <p>しおりは一夜に一度だけ挟めます。死んだあと、挟んだ場面から戻れます。朝が来ると消えます。</p>
+  <p class="help-rule">音は右上で切り替えられます。音を出さなくても遊べます。記録はこのブラウザに残ります。</p>
+  <form method="dialog"><button class="big" autofocus>閉じる</button></form>
+</dialog>
+<dialog id="art-dialog" aria-labelledby="art-heading">
+  <div class="art-header"><h2 id="art-heading"></h2><form method="dialog"><button class="small" autofocus>閉じる</button></form></div>
+  <div id="art-display"></div>
+  <p id="art-description" class="dim"></p>
+</dialog>
+<pre id="test" hidden></pre>
+
+<script src="engine.js"></script>
+
+<script src="text.js"></script>
+
+<script src="art.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
