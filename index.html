@@ -56,8 +56,16 @@
     list.appendChild(p);
     return;
   }
-  // 新しく足したものを上に出す（配列の後ろほど新しい）
-  games.reverse().forEach(function (g) {
+  // 投稿日時（date）の新しい順に並べる。date が無い行はいちばん新しいものとして上に出す。
+  // 同じ日時なら配列の後ろにある方を上に
+  games = games.map(function (g, i) { return { g: g, i: i }; });
+  games.sort(function (a, b) {
+    var da = (a.g && typeof a.g.date === 'string') ? a.g.date : '9999';
+    var db = (b.g && typeof b.g.date === 'string') ? b.g.date : '9999';
+    if (da !== db) return da < db ? 1 : -1;
+    return b.i - a.i;
+  });
+  games.map(function (x) { return x.g; }).forEach(function (g) {
     if (!g || !g.id || !/^[a-z0-9-]+$/i.test(g.id)) return;
     var a = document.createElement('a');
     a.className = 'card';
@@ -66,7 +74,7 @@
     h.textContent = g.title || g.id;
     var au = document.createElement('p');
     au.className = 'author';
-    au.textContent = g.author ? '作者: ' + g.author : '';
+    au.textContent = [g.author ? '作者: ' + g.author : '', typeof g.date === 'string' ? g.date.slice(0, 10) : ''].filter(Boolean).join('　');
     var d = document.createElement('p');
     d.textContent = g.description || '';
     a.appendChild(h); a.appendChild(au); a.appendChild(d);

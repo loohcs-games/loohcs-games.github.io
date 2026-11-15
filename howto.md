@@ -58,8 +58,10 @@ GitHub Desktop の上のボタン **Fetch origin** を押す。**Pull origin** �
 
 ```js
   // ---- mochi-runner ----
-  { id: "mochi-runner", title: "もちランナー", author: "mochi-runner", description: "もちが走る。スペースでジャンプ" },
+  { id: "mochi-runner", title: "もちランナー", author: "mochi-runner", date: "2026-11-20 15:30", description: "もちが走る。スペースでジャンプ" },
 ```
+
+   - `date` は出す日の日付と時刻（日本時間）。トップはこれの新しい順に並ぶ。書き忘れると、いちばん上に出る
 
    - `id` と `author` はそのまま（フォルダ名と同じ）
    - 行の最後のカンマ（,）と、引用符（"）を消さない
