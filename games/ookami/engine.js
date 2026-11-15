@@ -600,6 +600,13 @@ const OOKAMI = (() => {
   // 3:00 の館の少女の文。猫が走って行ったあとに君が追いついた夜は、その版
   const yakataId = (g, T) => `cat-yakata-${T}${g.vamp.state === 'asleep' ? '-asleep' : ''}${T === 15 && g.cat.ran ? '-follow' : ''}`;
   function yakataScene(g, T, out) {
+    const d = g.flags.did, asleep = g.vamp.state === 'asleep' ? '-asleep' : '';
+    // 3:00 に館にいて、少女が去った（申し出なし）か断られた夜に、そのまま 3:30 まで留まったとき。少女はもういない／まだいる
+    if (T === 16 && g.prev === 'yakata' && (d.offerNone || g.flags.declined)) {
+      out.who = g.who = d.offerNone ? '' : 'girl';
+      pushText(g, out, `cat-yakata-16-${d.offerNone ? 'gone' : 'stay'}${asleep}`);
+      return finishScene(g, out);
+    }
     return offerScene(g, T, 'yakata', out, yakataId(g, T));
   }
   // ついてくる少女／猫と、何も起きないマス（第14節e）。少女の姿なら場所ごとの一言と答え方
@@ -623,7 +630,7 @@ const OOKAMI = (() => {
   function offerScene(g, T, pos, out, id) {
     if (id) pushText(g, out, id);
     if (g.flags.declined) return finishScene(g, out);
-    if (stage(g) < 3 || g.trust < 3) { pushText(g, out, 'cat-offer-none'); return finishScene(g, out); }
+    if (stage(g) < 3 || g.trust < 3) { g.flags.did.offerNone = true; pushText(g, out, 'cat-offer-none'); return finishScene(g, out); }
     if (!g.flags.did.asked) {
       g.flags.did.asked = true;
       pushText(g, out, 'cat-ask');
@@ -887,7 +894,7 @@ const OOKAMI = (() => {
       if (!(v.id === 'bochi-10' && (v.tids || []).includes('cat-bochi-cold') && g.flags.metGirl && v.choices.some(c => c.label === 'なぜ、と聞く'))) return `${v.kind} ${v.id} ${v.err || ''} ${JSON.stringify(v.tids)}`;
       const S1 = newPersist(); S1.catStage = 1;
       const r = go(S1, ['階段', '少し離れて見', '門へ', '川辺へ', '少し離れて座る', '門へ', '川辺へ', '門へ', '広場へ', '猫のことを', '門に来る', '教会へ', '墓地へ', '去る', '教会へ', '墓地へ', '教会へ', '墓地へ', '館へ', '留まる']);
-      return (r.v.id === 'yakata-16' && (r.v.tids || []).includes('cat-offer-none') && r.g.cat.safe && r.g.vamp.state === 'dead') || `${r.v.kind} ${r.v.id} ${r.v.err || ''} 生=${r.g.cat.safe} ${JSON.stringify(r.v.tids)}`;
+      return (r.v.id === 'yakata-16' && (r.v.tids || []).includes('cat-yakata-16-gone') && r.g.cat.safe && r.g.vamp.state === 'dead') || `${r.v.kind} ${r.v.id} ${r.v.err || ''} 生=${r.g.cat.safe} ${JSON.stringify(r.v.tids)}`;
     });
     check('猫（段階2）：ついてくる。狼の来る場所を鳴いて知らせ、隣に行けば死ぬ。3:00 に館へ戻り、取り込まれれば墓地に亡骸', () => {
       const S = newPersist(); S.catStage = 2;
@@ -990,6 +997,13 @@ const OOKAMI = (() => {
       if (!(v.id === 'cat-kyokai-09b-2' && (v.tids || []).includes('girl-remember'))) return `覚え ${v.id} ${v.err || ''} ${JSON.stringify(v.tids)}`;
       const a = play(g, v, ['墓地へ', '彼女自身', '留まる', '吸血鬼のこと', '教会へ', '隣に座る', '墓地へ', 'もう行く', '教会へ', '一緒に', '怖い', '広場へ', '門へ', '川辺へ', '留まる']);
       return ((a.tids || []).includes('cat-wait-kawa') && g.T === 18 && g.vamp.state === 'dead' && g.flags.named && a.choices.some(c => c.label.includes('覚えている'))) || `川辺 ${a.kind} ${a.id} ${a.err || ''} T${g.T} 彼=${g.vamp.state} 名=${g.flags.named} [${a.choices.map(c => c.label).join('/')}]`;
+    });
+    check('館：3:00 に少女が去った夜は 3:30 に少女はいない。断られた夜は、まだいて何も言わない', () => {
+      const S = newPersist(); S.catStage = 1;
+      const a = go(S, ['階段', '少し離れて見', '門へ', '川辺へ', '少し離れて座る', '門へ', '川辺へ', '門へ', '広場へ', '猫のことを', '門に来る', '教会へ', '墓地へ', '去る', '教会へ', '墓地へ', '教会へ', '墓地へ', '館へ', '留まる']);
+      if (!((a.v.tids || []).includes('cat-yakata-16-gone') && !(a.v.tids || []).includes('cat-offer-none') && a.g.T === 16)) return `去った ${a.v.id} ${a.v.err || ''} ${JSON.stringify(a.v.tids)}`;
+      const b = go(stage3(), R[1].slice(0, R[1].indexOf('契約する')).concat(['契約しない', '留まる']));
+      return ((b.v.tids || []).includes('cat-yakata-16-stay') && b.g.T === 16 && b.g.cat.state === 'free') || `断った ${b.v.id} ${b.v.err || ''} ${JSON.stringify(b.v.tids)}`;
     });
     check('しおり：一夜に一度だけ挟め、死んだあと同じ場面に戻る。段階も夜の数も動かない', () => {
       const S = newPersist(); const r = start(S); let v = r.view;
