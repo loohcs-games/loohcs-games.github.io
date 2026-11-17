@@ -13,7 +13,7 @@ window.GAMES = [
   { id: "sensuikan", title: "潜水艦バトル", author: "loohcskshirasaki", date: "2026-11-06 03:10", description: "海の上の船から爆雷を落として、潜水艦を沈める。レーダーつき、全4海域、最後に巨大潜水艦。昔の「Super Depth」の海の面が手本。音あり" },
   { id: "tamatsuki", title: "夜のビリヤード", author: "loohcskshirasaki", date: "2026-11-12 15:54", description: "閉店まぎわの撞球場で、ナインボールを三番勝負。← → でねらい、↑ ↓ で強さ、Space で撞く。キーボードだけで遊べる。最後の相手は奥の間に。小さな音あり" },
   { id: "danmaku", title: "月夜の弾幕", author: "loohcskshirasaki", description: "弾のすき間を、まん中の白い点だけでくぐる縦画面の弾幕シューティング。Z で撃つ、Shift でゆっくり、X で月光（ボム）。道中・中ボスのあと、月を食む大蛾と五つの術。難しさ3段階。キーボードだけで遊べる。音あり" },
-  { id: "akikan", title: "空き缶撃ち", author: "loohcskshirasaki", date: "2026-11-15 09:35", description: "夕方の空き地で、柵の上の空き缶を撃つ FPS。マウスでも、キーボードだけでもねらえる。空中の缶を撃つとまた浮く。全5面、最後に跳ねて近づく大缶。音あり" },
+  { id: "akikan", title: "空き缶撃ち", author: "loohcskshirasaki", date: "2026-11-15 09:35", description: "夕方の空き地で、柵の上の空き缶を撃つ FPS。マウスでも、キーボードだけでもねらえる。空中の缶を撃つとまた浮く。全5面、最後に跳ねて近づく大缶。はじめに拳銃か機関銃をえらべる。音あり" },
   { id: "gyaku-invader", title: "逆インベーダー", author: "loohcskshirasaki", date: "2026-11-15 14:05", description: "こんどは自分が UFO。空から弾を落として、街のビルを1ブロックずつ削って更地にする。必殺レーザーで軒並み。更地にすると地面が割れて都市要塞が出てくる。キーボードだけで遊べる。音あり" },
   { id: "ookami", title: "狼のいる夜", author: "loohcskshirasaki", date: "2026-11-15 15:26", description: "20:00 から翌朝 6:00 までの 20 コマを、狼に見つからずに生き延びる選択肢ゲーム。謎解き（生存）、戦い（吸血鬼）、恋愛（白猫）、世界観への引き込み、読み物、の5つの軸で面白さを組む。最初はコミカルに、何度か死ぬうちに、思っていたより深い夜に入っていく。キーボードだけで遊べる。音あり" },
   // ---- yuuuuuuuuuuhh ----
