@@ -26,8 +26,11 @@
   .rule { width: min(360px, 62vw); height: 1px; background: linear-gradient(90deg, transparent, var(--pink), transparent); flex: none; }
   p { margin: 0; line-height: 2; font-size: 16px; letter-spacing: .08em; }
   .sub { color: var(--gold); letter-spacing: .5em; text-indent: .5em; font-size: 15px; }
-  .story-art { display: block; width: min(520px, 90vw); height: auto; max-height: 24vh; object-fit: contain; flex: none; }
-  #result-art { width: min(400px, 85vw); }
+  .story-art { display: block; width: min(600px, 90vw, 45vh); height: auto; object-fit: contain; flex: none; border: 1px solid #6b526c; }
+  #title, #result { gap: 12px; background: rgba(6,5,22,.96); }
+  #title h1 { font-size: clamp(32px, 6vw, 56px); }
+  @media (max-width: 560px) { .screen { padding: 24px 12px; gap: 10px; } .screen p { font-size: 13px; } .screen .dim { font-size: 11px; } button.big { min-width: 100px; padding: 10px 12px; font-size: 15px; } .diffs { gap: 6px; } }
+  #result-art { width: min(520px, 88vw, 45vh); }
   .dim { color: var(--dim); font-size: 13px; }
   .how { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 1080px; }
   .card {
@@ -70,7 +73,7 @@
 <div id="title" class="screen">
   <p class="sub">弾幕シューティング</p>
   <h1>月夜の弾幕</h1>
-  <canvas id="title-art" class="story-art" width="520" height="170" aria-label="灯、燈弥、繭夜と満月"></canvas>
+  <canvas id="title-art" class="story-art" width="900" height="600" aria-label="灯、燈弥、繭夜と満月"></canvas>
   <div class="rule"></div>
   <p>満月の晩、山の社に、月を食む大蛾が降りてくる。<br>小さな灯（あかり）がひとつ、弾の雨のすき間をくぐって迎え撃つ。</p>
   <div class="diffs">
@@ -118,7 +121,7 @@
 <div id="result" class="screen" hidden>
   <p class="sub" id="rsub">結果</p>
   <h2 id="verdict"></h2>
-  <canvas id="result-art" class="story-art" width="400" height="170" aria-label="結末の灯"></canvas>
+  <canvas id="result-art" class="story-art" width="900" height="600" aria-label="結末の灯"></canvas>
   <div class="rule"></div>
   <p id="story"></p>
   <p id="stats" class="dim"></p>
@@ -138,7 +141,7 @@
   ?test        自己テスト
   ?seed=3      乱数を固定
   ?diff=2      難しさ（0 やさしい / 1 ふつう / 2 むずかしい）。題の画面を飛ばす
-  ?boss=1      大蛾から始める（確認用）。?boss=1&spell=4 で終の術から
+  ?boss=1      大蛾から始める（確認用）。?boss=1&spell=5 で終の術から
   ?skip=30     自動で30秒進めたところから始める（確認用。自機は無敵で自動で動く）
   ?cheat       無敵
   ?touch       画面のボタンを出す
@@ -167,23 +170,62 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const TAU = Math.PI * 2;
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
+const PEOPLE = {
+  akari: { name: '灯', title: '帰り道の小さな灯', color: '#75cbbb', moods: ['normal', 'firm', 'relief', 'down'], face: [470, 193, 118, 96] },
+  touya: { name: '燈弥', title: '千の灯を預かる番人', color: '#ffb26d', moods: ['normal', 'proud', 'defeat'], face: [461, 251, 103, 85] },
+  mayo: { name: '繭夜', title: '月を繭にしまう蛾', color: '#d4b7ef', moods: ['normal', 'smile', 'angry', 'defeat'], face: [459, 202, 106, 85] },
+};
+// 各行の4番目が話者の表情。聞き手は、その場面で最後に話した表情を保つ。
 const DIALOGUES = {
   mid: [
-    ['touya', '燈弥', 'おっと。社へ行くなら、まず俺の灯を越えてみな。'],
-    ['akari', '灯', '道を照らしに来たの。消し合いは、したくない。'],
-    ['touya', '燈弥', 'ならば見せてくれ。おまえの灯の強さを！'],
+    ['touya', '燈弥', 'ここから先は通行止め。月が食べられる夜だからね。', 'normal'],
+    ['akari', '灯', 'だから来たの。帰る人の道が見えなくなる。', 'normal'],
+    ['touya', '燈弥', '私の大提灯があれば十分。月より明るい！', 'proud'],
+    ['akari', '灯', 'それ、足もとに影ができてるよ。', 'normal'],
+    ['touya', '燈弥', 'そこは……番人が立つ場所だから！', 'proud'],
+    ['akari', '灯', 'その影まで、私の灯で照らしてみせる。', 'firm'],
+    ['touya', '燈弥', '言ったね。炎の花をくぐれたら、道をあける！', 'proud'],
+  ],
+  midAfter: [
+    ['touya', '燈弥', 'まいった。小さい灯って、すき間に強いのね。', 'defeat'],
+    ['akari', '灯', '大きい灯があるから、すき間も分かるんだよ。', 'relief'],
+    ['touya', '燈弥', 'ほめてる？　それ。', 'normal'],
+    ['akari', '灯', '帰り道、照らしておいてくれる？', 'normal'],
+    ['touya', '燈弥', '任せなさい。ここは私の持ち場！', 'proud'],
+    ['akari', '灯', 'じゃあ、月のほうをお願いしてくる。', 'firm'],
   ],
   boss: [
-    ['mayo', '繭夜', '月は、私の羽の中で眠ればいい。'],
-    ['akari', '灯', '山の人たちの帰り道まで、暗くなる。'],
-    ['mayo', '繭夜', 'なら、羽ばたきを越えておいで。'],
+    ['mayo', '繭夜', '月は今夜、私の繭で眠るの。少しだけ静かに。', 'normal'],
+    ['akari', '灯', '月に、おやすみって言われた？', 'normal'],
+    ['mayo', '繭夜', '毎晩見られて、きっと疲れているでしょう。', 'smile'],
+    ['akari', '灯', '見たいのは、あなたのほうじゃない？', 'firm'],
+    ['mayo', '繭夜', '……朝になれば消えるもの、しまっておきたいわ。', 'normal'],
+    ['akari', '灯', 'しまったら、あなたにも見えなくなるよ。', 'down'],
+    ['mayo', '繭夜', '繭の中なら見えるわ。あなたも入る？', 'smile'],
+    ['akari', '灯', '遠慮する。帰り道は、外にあるから。', 'firm'],
   ],
   after: [
-    ['mayo', '繭夜', 'ああ……月の光は、ひとりでは持ちきれないのね。'],
-    ['akari', '灯', '帰ろう。道の灯は、分け合えるから。'],
+    ['mayo', '繭夜', 'ほどけてしまった。大事に包んだつもりだったのに。', 'defeat'],
+    ['akari', '灯', 'ほら。包まなくても、ここから見える。', 'relief'],
+    ['mayo', '繭夜', '……隣で見ても、月は半分にならないのね。', 'defeat'],
+    ['akari', '灯', '提灯なら、持つのを半分かわってもいいよ。', 'relief'],
+    ['mayo', '繭夜', 'それは重さの話でしょう。ふふ。', 'smile'],
+    ['akari', '灯', '帰ろう。下で、大きな灯が待ってる。', 'relief'],
   ],
 };
-function beginDialogue(w, id) { if (!w.auto) w.dialogue = { id, index: 0 }; }
+function beginDialogue(w, id) {
+  if (!w.auto) w.dialogue = { id, index: 0, introAt: performance.now() };
+}
+function dialogueCast(d) { return d.id === 'mid' || d.id === 'midAfter' ? 'touya' : 'mayo'; }
+function dialogueMood(d, who) {
+  for (let i = d.index; i >= 0; i--) if (DIALOGUES[d.id][i][0] === who) return DIALOGUES[d.id][i][3];
+  return d.id === 'after' && who === 'mayo' ? 'defeat' : 'normal';
+}
+function introduction(d) {
+  if (d.index !== 0 || !['mid', 'boss'].includes(d.id)) return null;
+  const person = PEOPLE[dialogueCast(d)];
+  return { name: person.name, title: person.title, color: person.color };
+}
 function advanceDialogue(w, skip = false) {
   if (!w.dialogue) return;
   if (skip || ++w.dialogue.index >= DIALOGUES[w.dialogue.id].length) {
@@ -463,7 +505,7 @@ function midboss(w) {
       }
     },
     leave(e, w) { w.hold = false; },
-    onDie(e, w) { w.hold = false; cancelBullets(w, 0, 0); w.shake = 12; }
+    onDie(e, w) { w.hold = false; cancelBullets(w, 0, 0); w.shake = 12; beginDialogue(w, 'midAfter'); }
   });
 }
 
@@ -652,7 +694,17 @@ const SCENE = (() => {
   return { trees, lamps, stars };
 })();
 
-// 人物はすべて Canvas の面と線で描く。立ち絵の原点は左上、160×200。
+// 生成原画は同じフォルダから Image で読み込む。失敗・読込中もゲーム進行を待たせない。
+const ART = Object.create(null), PORTRAIT_CACHE = new Map();
+const ART_FILES = ['title', 'clear', 'over', ...Object.entries(PEOPLE).flatMap(([id, p]) => p.moods.map(m => `${id}-${m}`))];
+const ART_READY = Promise.all(ART_FILES.map(key => new Promise(resolve => {
+  const im = new Image();
+  const entry = ART[key] = { image: im, state: 'loading' };
+  im.onload = () => { entry.state = 'ready'; PORTRAIT_CACHE.clear(); resolve(); };
+  im.onerror = () => { entry.state = 'error'; resolve(); };
+  im.src = `img/${key}.webp`;
+})));
+function artImage(key) { return ART[key]?.state === 'ready' ? ART[key].image : null; }
 function shape(ctx, color, points) {
   ctx.fillStyle = color; ctx.beginPath();
   points.forEach(([x, y], i) => ctx[i ? 'lineTo' : 'moveTo'](x, y));
@@ -661,118 +713,147 @@ function shape(ctx, color, points) {
 function oval(ctx, x, y, rx, ry, color) {
   ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.fill();
 }
-function portrait(ctx, who, mood = 'normal') {
-  ctx.save();
-  // 翅・外套を先に描いて、顔を一番手前に置く。
-  if (who === 'mayo') {
-    for (const s of [-1, 1]) {
-      ctx.save(); ctx.translate(80, 106); ctx.scale(s, 1);
-      shape(ctx, '#64518f', [[7, -42], [48, -80], [74, -48], [52, 10], [8, 34]]);
-      shape(ctx, '#9b80b5', [[12, 15], [62, 18], [55, 72], [15, 55]]);
-      oval(ctx, 48, -42, 11, 14, '#dfc68a'); oval(ctx, 48, -42, 6, 8, '#49375e');
-      ctx.restore();
-    }
-    shape(ctx, '#30263f', [[61, 112], [99, 112], [121, 196], [36, 196]]);
-    shape(ctx, '#765a8f', [[61, 111], [99, 111], [104, 192], [56, 192]]);
-    shape(ctx, '#d3b6d3', [[75, 114], [84, 114], [90, 193], [67, 193]]);
-    shape(ctx, '#4c3a65', [[60, 116], [33, 135], [20, 182], [53, 167], [72, 125]]);
-    shape(ctx, '#4c3a65', [[100, 116], [127, 135], [140, 182], [107, 167], [88, 125]]);
-    oval(ctx, 80, 75, 31, 44, '#c7b4d5');
-    shape(ctx, '#e8dcef', [[49, 67], [50, 37], [66, 23], [88, 23], [109, 41], [111, 75], [97, 58], [91, 36], [67, 69]]);
-    oval(ctx, 80, 83, 23, 29, '#f4d9ca');
-    shape(ctx, '#eee4f5', [[52, 65], [56, 32], [73, 23], [72, 76], [61, 93], [47, 89]]);
-    shape(ctx, '#e3d6ef', [[98, 31], [112, 56], [109, 104], [96, 94], [93, 66]]);
-    // 三日月の髪飾り
-    oval(ctx, 103, 39, 12, 12, '#f2cb78'); oval(ctx, 108, 34, 10, 11, '#e8dcef');
-    oval(ctx, 71, 82, 2, 3, '#493659'); oval(ctx, 89, 82, 2, 3, '#493659');
-    ctx.strokeStyle = '#a7667a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(76, 99); ctx.quadraticCurveTo(80, mood === 'defeat' ? 96 : 102, 85, 99); ctx.stroke();
-  } else if (who === 'touya') {
-    // 提灯竿と大きな半纏
-    ctx.strokeStyle = '#d7aa68'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(129, 16); ctx.lineTo(127, 190); ctx.stroke();
-    oval(ctx, 127, 56, 17, 22, '#fda557');
-    ctx.strokeStyle = '#58323d'; ctx.lineWidth = 3; ctx.strokeRect(112, 34, 30, 42);
-    shape(ctx, '#532a39', [[49, 106], [106, 106], [130, 195], [28, 195]]);
-    shape(ctx, '#b84f4d', [[49, 107], [78, 115], [74, 190], [37, 190]]);
-    shape(ctx, '#d36b54', [[106, 107], [80, 115], [85, 190], [120, 190]]);
-    shape(ctx, '#f0bd78', [[72, 111], [88, 111], [83, 168], [75, 168]]);
-    oval(ctx, 80, 75, 25, 29, '#e9b792');
-    shape(ctx, '#382638', [[54, 80], [49, 52], [62, 34], [87, 29], [108, 47], [104, 81], [95, 58], [77, 55], [63, 67]]);
-    shape(ctx, '#3c2939', [[52, 62], [43, 76], [51, 86], [63, 73]]);
-    oval(ctx, 70, 78, 2, 2, '#342832'); oval(ctx, 89, 78, 2, 2, '#342832');
-    ctx.strokeStyle = '#633b3c'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(73, 94); ctx.quadraticCurveTo(81, 101, 89, 93); ctx.stroke();
-    shape(ctx, '#f5d9a7', [[42, 128], [49, 122], [55, 138], [45, 149]]);
-  } else {
-    // 灯: 紺髪・緑の外套・珊瑚色の襟巻き・手提灯
-    oval(ctx, 125, 148, 28, 28, 'rgba(255,194,107,.2)');
-    shape(ctx, '#1d343f', [[57, 108], [98, 108], [123, 196], [34, 196]]);
-    shape(ctx, '#37645c', [[59, 111], [79, 119], [72, 190], [40, 190]]);
-    shape(ctx, '#477b6a', [[98, 111], [80, 119], [88, 190], [117, 190]]);
-    shape(ctx, '#e78b83', [[56, 108], [80, 113], [102, 107], [92, 129], [75, 131]]);
-    shape(ctx, '#d36e77', [[91, 122], [107, 126], [112, 158], [99, 152]]);
-    oval(ctx, 79, 77, 25, 30, '#f3d4b8');
-    shape(ctx, '#263a53', [[53, 77], [52, 49], [66, 31], [88, 30], [105, 47], [103, 71], [89, 52], [70, 60], [57, 90]]);
-    shape(ctx, '#314b64', [[57, 55], [45, 76], [50, 99], [62, 87], [66, 57]]);
-    oval(ctx, 70, 80, 2.2, 2.8, '#2d3443'); oval(ctx, 87, 80, 2.2, 2.8, '#2d3443');
-    ctx.strokeStyle = '#a66d70'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(74, 98); ctx.quadraticCurveTo(79, mood === 'defeat' ? 95 : 101, 84, 98); ctx.stroke();
-    shape(ctx, '#ead4b1', [[105, 135], [115, 130], [128, 146], [122, 155]]);
-    ctx.strokeStyle = '#f7d39a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(124, 157, 13, Math.PI, 0); ctx.stroke();
-    oval(ctx, 124, 169, 14, 17, '#f6ab65');
-    oval(ctx, 124, 165, 9, 11, '#ffdf9b');
-    ctx.fillStyle = '#584052'; ctx.fillRect(113, 153, 22, 3); ctx.fillRect(115, 184, 18, 3);
+function portraitImage(who, mood) {
+  const base = artImage(`${who}-normal`);
+  if (!base) return null;
+  const variant = artImage(`${who}-${mood}`);
+  if (mood === 'normal' || !variant) return base;
+  const key = `${who}:${mood}`;
+  if (!PORTRAIT_CACHE.has(key)) {
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 1536;
+    const cx = c.getContext('2d'), [x, y, w, h] = PEOPLE[who].face;
+    cx.drawImage(base, 0, 0, 1024, 1536);
+    // 原画は保存したまま、顔の内側だけを差し替える。体・服・飾りは常に通常原画。
+    cx.clearRect(x, y, w, h);
+    cx.drawImage(variant, x, y, w, h, x, y, w, h);
+    PORTRAIT_CACHE.set(key, c);
   }
+  return PORTRAIT_CACHE.get(key);
+}
+function portrait(ctx, who, mood, x, y, width, height, cropHeight = 1536) {
+  const im = portraitImage(who, mood);
+  if (im) ctx.drawImage(im, 0, 0, 1024, cropHeight, x, y, width, height);
+  else {
+    // 画像がなくても会話を読める。代替の姿は場内のドット絵と共通。
+    smallPerson(ctx, who, x + width / 2, y + height * .5, 5);
+    ctx.fillStyle = PEOPLE[who].color; ctx.textAlign = 'center'; ctx.font = '12px sans-serif';
+    ctx.fillText(ART[`${who}-normal`]?.state === 'error' ? '人物絵を読み込めませんでした' : '人物絵を読み込み中…', x + width / 2, y + height * .8);
+  }
+}
+// 24×34 程度のドット絵。頭の印・三色・シルエットは原画と共通。
+// 傾きは行ごとの整数ずらしなので、左右移動中もドットの輪郭がにじまない。
+const MINI_CACHE = new Map();
+function smallPerson(ctx, who, x, y, scale, tilt = 0) {
+  const lean = Math.abs(tilt) > .25 ? Math.sign(tilt) : 0, key = `${who}:${lean}`;
+  if (!MINI_CACHE.has(key)) MINI_CACHE.set(key, makeMini(who, lean));
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  const size = Math.round(40 * scale);
+  ctx.drawImage(MINI_CACHE.get(key), Math.round(x - size / 2), Math.round(y - size / 2), size, size);
   ctx.restore();
 }
-function smallPerson(ctx, who, x, y, scale, tilt = 0) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(tilt * .2); ctx.scale(scale, scale);
-  ctx.imageSmoothingEnabled = false;
-  const blocks = who === 'akari'
-    ? [['#283c57',-5,-15,10,6],['#f2d2ae',-4,-9,8,7],['#e68082',-6,-2,12,3],['#3b705f',-6,1,12,12],['#264356',-5,12,4,4],['#264356',1,12,4,4],['#ffd48c',7,2,5,7]]
-    : who === 'touya'
-    ? [['#3a293b',-6,-16,12,6],['#e8b58d',-5,-10,10,8],['#c95c51',-8,-2,16,13],['#563446',-5,11,4,5],['#563446',1,11,4,5],['#ffb364',9,-8,8,12]]
-    : [['#e9d9ed',-6,-16,12,7],['#f5d9cc',-4,-9,8,7],['#665080',-7,-2,14,14],['#d4bd80',-2,-18,5,3],['#473750',-5,12,4,4],['#473750',1,12,4,4]];
-  for (const [c,bx,by,bw,bh] of blocks) { ctx.fillStyle = c; ctx.fillRect(bx, by, bw, bh); }
-  ctx.fillStyle = '#283044'; ctx.fillRect(-3, -7, 1, 2); ctx.fillRect(2, -7, 1, 2);
-  ctx.restore();
+function makeMini(who, lean) {
+  const c = document.createElement('canvas'); c.width = c.height = 40;
+  const ctx = c.getContext('2d'); ctx.save(); ctx.translate(20, 20);
+  function px(c, x, y, w, h) {
+    ctx.fillStyle = c;
+    for (let row = y; row < y + h; row++) ctx.fillRect(x + Math.round(-row / 12) * lean, row, w, 1);
+  }
+  const ink = '#171a30', skin = '#f8d7b7', gold = '#ffcf75';
+  if (who === 'akari') {
+    px(ink,-5,-13,10,10); px('#344762',-5,-13,9,4); px(skin,-3,-8,7,6);
+    px('#213a50',-6,-8,2,7); px(gold,3,-17,2,6); px('#ffebad',6,-15,2,4);
+    px('#ee8c83',-6,-2,12,3); px('#c65c68',-8,1,3,12); px('#ee8c83',7,3,2,11);
+    px('#285c63',-6,1,12,10); px('#4e9b92',-6,2,3,9); px('#fff0d2',-1,1,3,7);
+    px('#b68557',-5,7,10,2); px(gold,-1,7,3,3);
+    px('#23344e',-7,10,14,5); px('#f7ddbd',-7,14,14,1);
+    px(ink,-5,15,4,3); px(ink,2,15,4,3);
+    px(gold,9,1,1,3); px('#714652',8,4,5,1); px('#ffb75b',8,5,5,5); px('#fff0b0',9,5,3,4); px('#714652',8,10,5,1);
+  } else if (who === 'touya') {
+    px('#8a3f37',-6,-12,12,10); px('#b65b3e',-10,-13,6,6); px('#b65b3e',5,-13,6,6);
+    px('#e58a58',-9,-12,3,2); px('#e58a58',6,-12,3,2);
+    px('#754f42',-3,-18,6,6); px(gold,-2,-17,4,5); px('#fff2b5',-1,-16,2,3);
+    px(skin,-4,-7,8,6); px('#6c304a',-4,0,8,12);
+    px('#cf6048',-11,0,7,10); px('#cf6048',4,0,7,10); px('#f09560',-10,1,3,7); px('#f09560',7,1,3,7);
+    px('#74374a',-8,0,1,10); px('#74374a',6,0,1,10);
+    px(gold,-5,6,10,2); px('#983d4e',-8,10,16,5); px('#e37851',-8,11,5,3); px(gold,-7,14,14,1);
+    px(ink,-5,15,4,3); px(ink,2,15,4,3);
+    px('#e2ad64',13,-16,1,34); px('#6c3543',11,-15,6,2); px('#ffb35c',11,-13,6,7); px('#ffecaa',12,-12,4,4); px('#6c3543',11,-6,6,1);
+  } else {
+    px('#524579',-13,-7,26,16); px('#baa6d2',-12,-10,6,14); px('#baa6d2',7,-10,6,14);
+    px('#f4dfbd',-11,-7,3,4); px('#f4dfbd',9,-7,3,4); px('#594270',-10,-6,2,2); px('#594270',10,-6,2,2);
+    px('#ded6ef',-6,-13,12,14); px('#f3e8f6',-5,-13,10,4); px(skin,-3,-8,6,6);
+    px('#c9a66c',-5,-18,1,4); px('#c9a66c',5,-18,1,4); px('#eee1b6',-7,-19,3,2); px('#eee1b6',5,-19,3,2);
+    px(gold,-2,-14,4,3); px('#a998c5',0,-14,2,2);
+    px('#5a3b79',-5,1,10,9); px('#eee3ec',-2,0,4,12); px(gold,-5,5,10,2);
+    px('#77568e',-7,10,14,7); px('#e4d5e7',-2,10,4,7); px('#cab5d6',-7,16,14,1); px(ink,-3,17,6,1);
+  }
+  px(ink,-2,-6,1,2); px(ink,2,-6,1,2);
+  ctx.restore(); return c;
 }
 function drawCutin(ctx, w) {
   if (!w.cutin) return;
-  const t = w.cutin.t / 60, x = -125 + t * 520;
-  ctx.save(); ctx.globalAlpha = Math.sin(Math.PI * t) * .24;
-  ctx.fillStyle = '#e8c3ff'; ctx.fillRect(0, 112, FW, 1);
-  ctx.translate(x, 70); ctx.scale(1.05, 1.05); portrait(ctx, 'mayo', w.cutin.phase === 5 ? 'defeat' : 'normal');
+  const t = w.cutin.t / 60;
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 72, FW, 178); ctx.clip();
+  ctx.globalAlpha = Math.sin(Math.PI * t) * .32;
+  ctx.fillStyle = '#423056'; ctx.fillRect(0, 72, FW, 178);
+  const im = portraitImage('mayo', w.cutin.phase === 5 ? 'angry' : 'smile');
+  if (im) ctx.drawImage(im, 230, 70, 580, 560, -210 + t * 520, 48, 350, 338);
+  else portrait(ctx, 'mayo', 'normal', -140 + t * 520, 40, 230, 345);
+  ctx.globalAlpha = Math.sin(Math.PI * t) * .7;
+  ctx.fillStyle = '#eed4af'; ctx.fillRect(0, 73, FW, 1); ctx.fillRect(0, 248, FW, 1);
   ctx.restore();
 }
 function drawDialogue(ctx, w) {
   const d = w.dialogue; if (!d) return;
-  const [who, name, line] = DIALOGUES[d.id][d.index];
-  ctx.save(); ctx.fillStyle = 'rgba(4,6,21,.78)'; ctx.fillRect(0, 0, FW, FH);
-  const enemy = who !== 'akari';
-  ctx.globalAlpha = enemy ? .55 : 1; ctx.save(); ctx.translate(-24, 96); ctx.scale(1.25, 1.25); portrait(ctx, 'akari'); ctx.restore();
-  ctx.globalAlpha = enemy ? 1 : .45; ctx.save(); ctx.translate(214, 82); ctx.scale(1.17, 1.17); portrait(ctx, d.id === 'mid' ? 'touya' : 'mayo', d.id === 'after' ? 'defeat' : 'normal'); ctx.restore();
-  ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(8,8,30,.92)'; ctx.fillRect(12, 320, FW - 24, 110);
-  ctx.strokeStyle = '#dbac78'; ctx.lineWidth = 1.5; ctx.strokeRect(12.5, 320.5, FW - 25, 109);
-  ctx.fillStyle = '#f2c86b'; ctx.font = '600 19px "Hiragino Mincho ProN", serif'; ctx.textAlign = 'left'; ctx.fillText(name, 27, 346);
-  ctx.fillStyle = '#eef0ff'; ctx.font = '15px "Hiragino Mincho ProN", serif';
-  const parts = line.length > 18 ? [line.slice(0, 18), line.slice(18)] : [line];
-  parts.forEach((part, i) => ctx.fillText(part, 27, 374 + i * 22));
-  ctx.fillStyle = '#aeb6d5'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right'; ctx.fillText('Z つづける　Ctrl とばす', FW - 24, 416);
+  const [who, name, line] = DIALOGUES[d.id][d.index], other = dialogueCast(d);
+  ctx.save(); ctx.fillStyle = 'rgba(4,6,21,.87)'; ctx.fillRect(0, 0, FW, FH);
+  const back = who === 'akari' ? other : 'akari';
+  function person(id, active) {
+    ctx.save(); ctx.globalAlpha = active ? 1 : .34;
+    const x = id === 'akari' ? -49 : 145;
+    portrait(ctx, id, dialogueMood(d, id), x, active ? 24 : 33, 287, 336, 1200);
+    ctx.restore();
+  }
+  person(back, false); person(who, true);
+  const intro = introduction(d);
+  if (intro) {
+    // 実時間で入り、最初の行を送るまで残す。ゲームの frame には依存しない。
+    const enter = clamp((performance.now() - d.introAt) / 500, 0, 1);
+    const xx = 15 + (1 - enter) * 32;
+    ctx.globalAlpha = enter;
+    ctx.fillStyle = 'rgba(8,7,27,.91)'; ctx.fillRect(xx, 253, 235, 66);
+    ctx.fillStyle = intro.color; ctx.fillRect(xx, 253, 3, 66);
+    ctx.textAlign = 'left'; ctx.font = '12px "Hiragino Mincho ProN", serif'; ctx.fillText(intro.title, xx + 13, 274);
+    ctx.font = '600 28px "Hiragino Mincho ProN", serif'; ctx.fillText(intro.name, xx + 13, 305);
+    ctx.globalAlpha = 1;
+  }
+  ctx.fillStyle = 'rgba(8,8,27,.97)'; ctx.fillRect(12, 333, FW - 24, 103);
+  ctx.strokeStyle = PEOPLE[who].color; ctx.lineWidth = 1; ctx.strokeRect(12.5, 333.5, FW - 25, 102);
+  ctx.fillStyle = '#151526'; ctx.fillRect(24, 320, 86, 27);
+  ctx.fillStyle = PEOPLE[who].color; ctx.fillRect(24, 320, 3, 27);
+  ctx.textAlign = 'left'; ctx.font = '600 18px "Hiragino Mincho ProN", serif'; ctx.fillText(name, 37, 340);
+  ctx.fillStyle = '#f3f0fa'; ctx.font = '15px "Hiragino Mincho ProN", serif';
+  // 句読点を行頭へ押し出さず、幅に応じて折り返す。
+  const lines = []; let row = '';
+  for (const c of line) {
+    if (ctx.measureText(row + c).width > FW - 60 && !'。、！？'.includes(c)) { lines.push(row); row = ''; }
+    row += c;
+  }
+  if (row) lines.push(row);
+  lines.forEach((s, i) => ctx.fillText(s, 27, 369 + i * 23));
+  ctx.fillStyle = '#b0b4d0'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+  ctx.fillText(`${d.index + 1}/${DIALOGUES[d.id].length}　 Z つづける　Ctrl とばす`, FW - 24, 423);
   ctx.restore();
 }
 function drawStoryArt(canvas, result = null) {
   const ctx = canvas.getContext('2d'), W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
-  const glow = ctx.createRadialGradient(W * .52, 75, 8, W * .52, 75, 92);
-  glow.addColorStop(0, 'rgba(255,240,200,.42)'); glow.addColorStop(1, 'rgba(255,240,200,0)');
-  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
-  oval(ctx, W * .52, 74, 55, 55, result === false ? '#8b6177' : '#fff0c9');
-  if (result === false) oval(ctx, W * .52 + 24, 59, 51, 52, '#151027');
-  if (result === null) {
-    ctx.save(); ctx.translate(2, -12); ctx.scale(.88, .88); portrait(ctx, 'akari'); ctx.restore();
-    ctx.save(); ctx.translate(185, 32); ctx.scale(.66, .66); portrait(ctx, 'touya'); ctx.restore();
-    ctx.save(); ctx.translate(355, -12); ctx.scale(.88, .88); portrait(ctx, 'mayo'); ctx.restore();
-  } else {
-    ctx.save(); ctx.translate(125, -12); ctx.scale(.9, .9); portrait(ctx, 'akari', result ? 'normal' : 'defeat'); ctx.restore();
-    if (result) { ctx.fillStyle = '#ffe9b0'; for (let i = 0; i < 13; i++) star(ctx, 26 + (i * 47) % 360, 24 + (i * 73) % 125, i % 3 + 1.5, '#ffe9b0'); }
+  const im = artImage(result === null ? 'title' : result ? 'clear' : 'over');
+  if (im) ctx.drawImage(im, 0, 0, W, H);
+  else {
+    ctx.fillStyle = '#17172e'; ctx.fillRect(0, 0, W, H);
+    oval(ctx, W * .72, H * .32, H * .19, H * .19, '#e9dab3');
+    portrait(ctx, 'akari', result === false ? 'down' : 'relief', W * .1, 0, H * .65, H);
   }
 }
 
@@ -789,12 +870,12 @@ function render(ctx, w, V, playing, paused) {
   drawBoss(ctx, w);
   for (const e of w.enemies) if (!e.dead) drawEnemy(ctx, w, e);
   drawItems(ctx, w);
-  drawPlayer(ctx, w);
   drawCutin(ctx, w);
+  drawPlayer(ctx, w);
   drawBullets(ctx, w);
   drawFx(ctx, w);
   drawHud(ctx, w);
-  drawDialogue(ctx, w);
+  if (V.W >= 560) drawDialogue(ctx, w);
   if (w.flash > 0) { ctx.fillStyle = `rgba(230,235,255,${w.flash * .55})`; ctx.fillRect(0, 0, FW, FH); }
   if (paused) {
     ctx.fillStyle = 'rgba(5,4,18,.7)'; ctx.fillRect(0, 0, FW, FH);
@@ -803,6 +884,14 @@ function render(ctx, w, V, playing, paused) {
   }
   ctx.restore();
   ctx.strokeStyle = 'rgba(255,143,200,.45)'; ctx.lineWidth = 1; ctx.strokeRect(FX - .5, FY - .5, FW + 1, FH + 1);
+  // 狭い画面の会話だけは横幅いっぱいに拡大。文字を約15pxで読めるようにする。
+  if (w.dialogue && V.W < 560) {
+    ctx.setTransform(V.dpr, 0, 0, V.dpr, 0, 0);
+    ctx.fillStyle = '#080819'; ctx.fillRect(0, 0, V.W, V.H);
+    const ds = Math.min((V.W - 16) / FW, (V.H - 100) / FH);
+    ctx.setTransform(ds * V.dpr, 0, 0, ds * V.dpr, (V.W - FW * ds) / 2 * V.dpr, (V.H - FH * ds) / 2 * V.dpr);
+    drawDialogue(ctx, w);
+  }
 }
 
 function drawBack(ctx, w) {
@@ -941,10 +1030,10 @@ function drawPlayer(ctx, w) {
     const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, 9); g.addColorStop(0, '#fff'); g.addColorStop(.4, '#ffb27a'); g.addColorStop(1, 'rgba(255,120,60,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(o.x, o.y, 9, 0, TAU); ctx.fill();
   }
-  ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.tilt * .2);
+  ctx.save(); ctx.translate(p.x, p.y);
   const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 28); g.addColorStop(0, 'rgba(255,220,160,.55)'); g.addColorStop(1, 'rgba(255,160,90,0)');
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 28, 0, TAU); ctx.fill();
-  smallPerson(ctx, 'akari', 0, 0, 1.25);
+  smallPerson(ctx, 'akari', 0, 0, 1.25, p.tilt);
   ctx.restore(); ctx.globalAlpha = 1;
   if (p.slow) { // 当たり判定を見せる
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(w.frame * .05);
@@ -1201,6 +1290,29 @@ function runTests() {
     run(w, 60);
     return began && w.cutin === null && w.boss?.phase === 1;
   });
+  check('ボス登場の二つ名は最初の行にだけ出る', () => {
+    const w = quiet(makeWorld(2, 1));
+    return ['mid', 'boss'].every(id => {
+      beginDialogue(w, id); const a = introduction(w.dialogue);
+      advanceDialogue(w); return a?.name === PEOPLE[dialogueCast(w.dialogue)].name && a.title.length > 3 && introduction(w.dialogue) === null;
+    });
+  });
+  check('会話の全表情が登録済みで、聞き手の表情も維持される', () => {
+    const valid = Object.values(DIALOGUES).flat().every(([id, name, line, mood]) => PEOPLE[id].name === name && PEOPLE[id].moods.includes(mood) && line.length <= 40);
+    return valid && dialogueMood({ id: 'mid', index: 3 }, 'touya') === 'proud' && dialogueMood({ id: 'after', index: 1 }, 'mayo') === 'defeat';
+  });
+  check('中ボス撃破後の会話を送ると道中が再開する（自動では止まらない）', () => {
+    const w = quiet(makeWorld(2, 1)), e = midboss(w); advanceDialogue(w, true); damage(w, e, 2000);
+    const spoke = w.dialogue?.id === 'midAfter'; advanceDialogue(w, true); step(w, K());
+    const a = quiet(makeWorld(2, 1, { auto: true })), ae = midboss(a); damage(a, ae, 2000);
+    return spoke && !w.dialogue && !w.hold && !a.dialogue && !a.hold;
+  });
+  check('顔差分の範囲は原画内に収まり、必要な11表情が揃う', () => {
+    return Object.values(PEOPLE).reduce((n, p) => n + p.moods.length, 0) === 11 && Object.values(PEOPLE).every(p => {
+      const [x, y, w, h] = p.face; return x > 0 && y > 0 && w > 80 && h > 60 && x + w < 1024 && y + h < 400;
+    });
+  });
+
   out.info = full ? `自動で最後まで: ${full.t.toFixed(0)} 秒、弾の最大 ${full.maxB}、点 ${full.score.toLocaleString()}、術 ${full.spells}/5` : '';
   return { out, check };
 }
@@ -1217,6 +1329,10 @@ function runTests() {
   let audio = null, ui = 'title', diff = clamp(parseInt(Q.get('diff') ?? '1', 10) || 0, 0, 2), paused = false, last = 0, acc = 0, endT = 0;
   let w = makeWorld(seed, diff, { cheat: Q.has('cheat') });
   drawStoryArt($('title-art'));
+  ART_READY.then(() => {
+    drawStoryArt($('title-art'));
+    if (ui === 'result') drawStoryArt($('result-art'), w.state === 'clear');
+  });
   const hiKey = d => 'tsukiyo-danmaku-hi-' + d;
   const loadHi = d => { try { return parseInt(localStorage.getItem(hiKey(d)), 10) || 0; } catch (_) { return 0; } };
   const saveHi = (d, v) => { try { if (v > loadHi(d)) localStorage.setItem(hiKey(d), String(v)); } catch (_) {} };
@@ -1241,7 +1357,7 @@ function runTests() {
     $('rsub').textContent = `${w.D.name}　・　結果`;
     $('verdict').textContent = clear ? '月は、戻った' : '灯は、消えた';
     $('story').innerHTML = clear
-      ? '大蛾は鱗粉の雲になって、夜の向こうへほどけていった。<br>社の屋根に、満月の光がもう一度落ちる。'
+      ? '繭はほどけ、満月が参道を照らす。<br>三つの灯と影が、同じ帰り道を歩いてゆく。'
       : (w.boss ? `大蛾の「${PHASES[w.boss.phase].name}」の中で、灯は消えた。<br>月はまだ、羽の影に食べられている。` : 'まだ社にたどり着く前に、灯は消えた。<br>山道の弾の雨は、思ったより深い。');
     $('stats').innerHTML = `スコア ${w.score.toLocaleString()}（この難しさの最高 ${Math.max(loadHi(diff), w.score).toLocaleString()}）<br>かすり ${w.graze}　／　破った術 ${w.spellsGot} / 5　／　被弾 ${w.misses}　／　月光 ${w.bombsUsed}`;
     $('go3').textContent = clear ? 'はじめに戻る' : 'もう一度';
@@ -1270,7 +1386,7 @@ function runTests() {
       return;
     }
     if (w.dialogue) {
-      if (k === 'z' || k === ' ' || k === 'enter') { e.preventDefault(); if (!e.repeat) advanceDialogue(w, e.ctrlKey); }
+      if (k === 'z') { e.preventDefault(); if (!e.repeat) advanceDialogue(w, e.ctrlKey); }
       else if (k === 'control') { e.preventDefault(); if (!e.repeat) advanceDialogue(w, true); } // Shift はゆっくり移動で押しっぱなしのことが多いので、飛ばすのは Ctrl だけ
       return;
     }
