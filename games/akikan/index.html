@@ -186,10 +186,11 @@ const fwd = (yaw, pitch) => [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), M
 const H = 1 / 120, G = 9.8, NEAR = .08;
 const EYE = [0, 1.5, 0];
 const CAN_R = .05, CAN_H = .085;            // 缶の半径と、高さの半分
-// 銃。gap は次の弾までの秒、auto は押しっぱなしで撃ちつづけるか、spread は弾のばらつき（ラジアン）
+// 銃。gap は次の弾までの秒、auto は押しっぱなしで撃ちつづけるか、spread は弾のばらつき（ラジアン）、
+// fat は弾の太さ（メートル）。飛んでいる缶には、照準からこれだけ外れていても当たる。立っている缶には 1/4
 const GUNS = {
-  pistol: { name: '拳銃', mag: 6, reload: 1.1, gap: .16, auto: false, spread: 0, kick: 1, shot: 'shot' },
-  mg: { name: '機関銃', mag: 60, reload: 1.3, gap: .06, auto: true, spread: .003, kick: .55, shot: 'burst' },
+  pistol: { name: '拳銃', mag: 6, reload: 1.1, gap: .16, auto: false, spread: 0, fat: 0, kick: 1, shot: 'shot' },
+  mg: { name: '機関銃', mag: 60, reload: 1.3, gap: .06, auto: true, spread: .003, fat: .32, kick: .55, shot: 'burst' },
 };
 const MAG = GUNS.pistol.mag, RELOAD = GUNS.pistol.reload;
 const FOV = 46 * Math.PI / 180, FOV_Z = 17 * Math.PI / 180;
@@ -332,7 +333,7 @@ function rayBox(o, d, mn, mx) {
 function trace(w, o, d) {
   let best = { t: Infinity, k: 'none' };
   for (const c of w.cans) {
-    const tol = c.state === 'fly' ? .022 : .012;
+    const fat = w.gun.fat, tol = c.state === 'fly' ? .022 + fat : .012 + fat * .25;
     const t = rayCyl(o, d, c.p, c.u, c.R + tol, c.h + tol);
     if (t < best.t) best = { t, k: 'can', c };
   }
@@ -795,6 +796,10 @@ function hud(ctx, w, V) {
     ctx.moveTo(cx, cy - gap - 9); ctx.lineTo(cx, cy - gap); ctx.moveTo(cx, cy + gap); ctx.lineTo(cx, cy + gap + 9); ctx.stroke();
   }
   ctx.fillStyle = '#fff'; ctx.fillRect(cx - 1, cy - 1, 2, 2);
+  if (w.gun.fat) { // 機関銃：この輪の中に飛んでいる缶が入れば当たる（9m 先での広さ）
+    const rr = (w.gun.fat + CAN_R) / 9 / Math.tan(lerp(FOV, FOV_Z, smooth(w.zoomK)) / 2) * Hh / 2;
+    for (const [lw, col] of [[3, 'rgba(0,0,0,.3)'], [1.5, 'rgba(255,255,255,.7)']]) { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx, cy, rr, 0, TAU); ctx.stroke(); }
+  }
   const txt = (s, x, y, size, al, col) => {
     ctx.font = `800 ${size}px "Hiragino Kaku Gothic ProN", sans-serif`; ctx.textAlign = al; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(25,12,5,.75)';
     ctx.strokeText(s, x, y); ctx.fillStyle = col || '#fff6e6'; ctx.fillText(s, x, y);
@@ -891,6 +896,24 @@ function runTests() {
     run(w, .3, { held: true }); if (!w.cans[2].down) return '缶に当たらない';
     startStage(w, 4); aimAt(w, w.boss.p); run(w, 1, { held: true });
     return w.boss.hp < BOSS_HP - 5 || `大缶 ${w.boss.hp}`;
+  });
+  check('機関銃：飛んでいる缶は、照準から 30cm 外れていても当たる。拳銃では当たらない。立っている缶は 30cm 外れると当たらない', () => {
+    const fly = g => { const w = makeWorld(2); w.gun = g; startStage(w, 2); const c = spawnCan(w, 0, 2, 9, { tossed: true }); c.state = 'fly'; aimAt(w, add(c.p, [.3, 0, 0])); w.R = () => .5; return fire(w); };
+    const w = makeWorld(2); w.gun = GUNS.mg; startStage(w, 0); aimAt(w, add(w.cans[0].p, [0, .3, 0])); w.R = () => .5;
+    const a = fly(GUNS.mg), b = fly(GUNS.pistol), c = fire(w);
+    return (a === 'can' && b !== 'can' && c !== 'can') || `${a} ${b} ${c}`;
+  });
+  check('機関銃の三面：縦には動かさず、←→ だけで缶を追って押しっぱなしにしても、六個に届く', () => {
+    const res = [];
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const w = makeWorld(seed); w.gun = GUNS.mg; startStage(w, 2); aimAt(w, [0, 3, 9]);
+      for (let i = 0; i < 60 * 120 && w.state === 'play'; i++) {
+        const c = w.cans.find(c => c.tossed && !c.counted && c.state === 'fly' && !c.touch), dy = c ? Math.atan2(c.p[0], c.p[2]) - w.yaw : 0;
+        step(w, H, { held: true, r: dy > .01, l: dy < -.01 });
+      }
+      res.push(w.state === 'clear' ? w.got : `種${seed}で${w.got}個`);
+    }
+    return res.every(r => r === 6) || res.join(' ');
   });
   check('一面：六つぜんぶ落とすとクリア', () => {
     const w = makeWorld(3); startStage(w, 0);
@@ -1060,7 +1083,7 @@ function makeAudio() {
   }
   function intro(i) {
     const s = STAGES[i]; startStage(w, i);
-    $('ino').textContent = s.no; $('iname').textContent = s.name; $('say').innerHTML = s.say; $('inote').textContent = s.note;
+    $('ino').textContent = s.no; $('iname').textContent = s.name; $('say').innerHTML = s.say; $('inote').textContent = w.gun.auto ? s.note.replace('弾は六発。こめ直す間合いに気をつける。', '照準の輪に缶が入れば当たる。押しっぱなしで。') : s.note;
     show('intro');
   }
   const STORY = ['六つとも、柵の向こうに転がった。', '遠くの杭の上の缶も、落ちた。', '投げた人は、柵の向こうで手をたたいている。', '缶は、何度も空に浮いた。', ''];
