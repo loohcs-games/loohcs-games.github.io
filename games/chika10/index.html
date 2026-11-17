@@ -1,0 +1,1429 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>地下十階</title>
+<style>
+  :root { --ink: #f1ece0; --dim: #b8ae9a; --bg: #0d0b10; --accent: #e0a44a; }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden;
+    font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; image-rendering: pixelated; }
+  .screen {
+    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    gap: 14px; padding: 20px 16px; box-sizing: border-box; text-align: center; background: rgba(13, 11, 16, .9); overflow-y: auto;
+  }
+  .screen > :first-child { margin-top: auto; }
+  .screen > :last-child { margin-bottom: auto; }
+  .screen[hidden] { display: none; }
+  h1 { font-size: clamp(40px, 9vw, 80px); margin: 0; font-weight: 800; line-height: 1.1; letter-spacing: .08em; }
+  h1 i { font-style: normal; color: var(--accent); }
+  p { margin: 0; line-height: 1.8; font-size: 15px; }
+  .dim { color: var(--dim); font-size: 12.5px; }
+  .how { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 980px; }
+  .card {
+    width: 300px; padding: 12px 14px 14px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 12px;
+    background: rgba(255, 255, 255, .05); text-align: left; font-size: 13.5px; line-height: 1.9; box-sizing: border-box;
+  }
+  .card b.t { display: block; font-size: 15px; margin-bottom: 2px; text-align: center; }
+  kbd {
+    font: 800 13px ui-monospace, Menlo, monospace; min-width: 24px; height: 24px; padding: 0 4px; display: inline-grid; place-items: center;
+    border: 1.5px solid var(--ink); border-bottom-width: 3px; border-radius: 6px; margin: 0 1px; box-sizing: border-box; vertical-align: middle;
+  }
+  .titlerow { display: flex; align-items: flex-end; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  #titleart { width: min(560px, 80vw); height: auto; display: block; border-radius: 8px; image-rendering: pixelated; position: static; }
+  #heroface { width: 128px; height: 128px; display: block; border-radius: 8px; image-rendering: pixelated; position: static; background: #221c2a; }
+  #heroface[hidden] { display: none; }
+  button.big {
+    font: inherit; font-size: 18px; font-weight: 800; color: var(--bg); background: var(--ink);
+    border: 0; border-radius: 999px; padding: 12px 28px; cursor: pointer;
+  }
+  button.sub { font: inherit; font-size: 13px; color: var(--ink); background: transparent; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; padding: 6px 16px; cursor: pointer; }
+  #verdict { font-size: clamp(32px, 7vw, 60px); font-weight: 800; }
+  #stats { font-size: 15px; line-height: 2; }
+  #back { position: fixed; left: 12px; top: 10px; z-index: 5; color: var(--dim); font-size: 13px; text-decoration: none; }
+  #back:hover { color: var(--ink); }
+  #inv {
+    position: fixed; right: 12px; top: 40px; z-index: 6; width: min(360px, calc(100vw - 24px)); box-sizing: border-box;
+    background: rgba(13, 11, 16, .94); border: 1px solid rgba(255,255,255,.3); border-radius: 10px; padding: 10px 12px; font-size: 14px; line-height: 1.9;
+  }
+  #inv[hidden] { display: none; }
+  #inv .h { font-weight: 800; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  #inv .h span { color: var(--dim); font-weight: 400; font-size: 12px; }
+  #inv ul { list-style: none; margin: 0; padding: 0; }
+  #inv li { padding: 0 8px; border-radius: 6px; display: flex; justify-content: space-between; }
+  #inv li.cur { background: rgba(224, 164, 74, .25); outline: 1px solid var(--accent); }
+  #inv li .e { color: var(--accent); font-size: 12px; }
+  #inv .acts { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+  #inv .acts span { padding: 0 10px; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; }
+  #inv .acts span.cur { background: var(--ink); color: var(--bg); }
+  #inv .tip { color: var(--dim); font-size: 12px; margin-top: 4px; }
+  #shop {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 7; width: min(640px, calc(100vw - 24px)); box-sizing: border-box;
+    display: flex; gap: 14px; background: rgba(13, 11, 16, .96); border: 1px solid rgba(255,255,255,.3); border-radius: 12px; padding: 14px; font-size: 14px; line-height: 1.8;
+  }
+  #shop[hidden] { display: none; }
+  #shop .face canvas { position: static; width: 128px; height: 128px; display: block; border-radius: 8px; background: #221c2a; image-rendering: pixelated; }
+  #shop .body { flex: 1; min-width: 0; }
+  #shop .who { font-weight: 800; color: var(--accent); }
+  #shop .line { min-height: 3.6em; margin-bottom: 6px; }
+  #shop ul { list-style: none; margin: 0; padding: 0; max-height: 40vh; overflow-y: auto; }
+  #shop li { padding: 0 8px; border-radius: 6px; display: flex; justify-content: space-between; gap: 10px; }
+  #shop li.cur { background: rgba(224, 164, 74, .25); outline: 1px solid var(--accent); }
+  #shop li.no { color: #6f6860; }
+  #shop li .n { color: var(--dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; text-align: right; }
+  #shop li .pr { white-space: nowrap; }
+  #shop .tip { color: var(--dim); font-size: 12px; margin: 6px 0 0; }
+  #pad { position: fixed; left: 0; right: 0; bottom: 8px; z-index: 5; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 14px; pointer-events: none; }
+  #pad[hidden] { display: none; }
+  #pad .dpad { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px); gap: 4px; pointer-events: auto; }
+  #pad .dpad button:nth-child(1) { grid-column: 2; }
+  #pad .dpad button:nth-child(2) { grid-column: 1; grid-row: 2; }
+  #pad .dpad button:nth-child(3) { grid-column: 3; grid-row: 2; }
+  #pad .dpad button:nth-child(4) { grid-column: 2; grid-row: 3; }
+  #pad .ab { display: flex; gap: 10px; pointer-events: auto; }
+  #pad button {
+    width: 52px; height: 52px; border-radius: 12px; border: 1.5px solid rgba(255,255,255,.5); background: rgba(255,255,255,.1); color: var(--ink);
+    font: 800 18px system-ui; touch-action: none;
+  }
+  #pad .ab button { width: 64px; height: 64px; border-radius: 50%; }
+  #pad button.on { background: rgba(255,255,255,.4); }
+  #test {
+    position: fixed; left: 16px; top: 44px; z-index: 9; margin: 0; padding: 12px 16px; text-align: left;
+    background: rgba(0, 0, 0, .9); color: #fff; font: 13px/1.7 ui-monospace, Menlo, monospace;
+    border-radius: 6px; white-space: pre-wrap; max-width: calc(100vw - 64px); max-height: calc(100vh - 80px); overflow: auto;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="back" href="../../" hidden>← ゲーム一覧にもどる</a>
+
+<div id="title" class="screen">
+  <h1>地下<i>十階</i></h1>
+  <div class="titlerow"><canvas id="heroface" width="64" height="64"></canvas><canvas id="titleart" width="160" height="90"></canvas></div>
+  <p>町の外れに、穴がある。底まで十階。地形は毎回ちがう。<br>お宝を持ち帰って売り、武器を買い、また潜る。王を倒せるまで。</p>
+  <div class="how">
+    <div class="card">
+      <b class="t">そうさ</b>
+      <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> 歩く。敵にぶつかると攻撃<br>
+      <kbd>Z</kbd> 決定／足元のものを拾う／階段を降りる／何もなければ1ターン休む<br>
+      <kbd>X</kbd> もちもの（使う・投げる・装備・置く）。地図や店では「もどる」<br>
+      <kbd>Shift</kbd>+矢印 走る　<kbd>Esc</kbd> 一時停止　<kbd>M</kbd> 音を消す
+    </div>
+    <div class="card">
+      <b class="t">町と穴</b>
+      地図で町か穴をえらぶ。町には宿屋・道具屋・武器屋<br>
+      穴で拾ったお宝（壺、珠、像…）は道具屋が買い取る。武器屋で強い武器と盾を買う<br>
+      穴から帰るには帰還の巻物。倒れると、持ち物と穴で拾った金貨をなくす（装備とレベルは残る）<br>
+      進みは自動で記憶される
+    </div>
+    <div class="card">
+      <b class="t">たたかう・もちもの</b>
+      歩く・攻撃・道具を使うと1ターン進み、敵も動く。もちものを見ている間は動かない<br>
+      HP は満腹なら 5 ターンに 1 回復。減ったら薬草。満腹 0 で HP が減りつづける<br>
+      床のものは踏むと拾う（10個まで）。投げ矢は直線、爆弾は周りをまきこむ（自分も）<br>
+      十階に、地底の王。眠りの巻物は効かない
+    </div>
+  </div>
+  <button class="big" id="start">はじめる（Z キーでも）</button>
+  <button class="sub" id="reset" hidden>記憶を消して、はじめから（R キー）</button>
+  <p class="dim">キーボードだけで遊べる。音あり。</p>
+</div>
+
+<div id="pause" class="screen" hidden>
+  <p style="font-size:28px;font-weight:800">一時停止</p>
+  <p>Esc でつづける</p>
+</div>
+
+<div id="result" class="screen" hidden>
+  <div id="verdict">倒れた</div>
+  <div id="stats"></div>
+  <button class="big" id="retry">町へ（Z キーでも）</button>
+</div>
+
+<div id="shop" hidden>
+  <div class="face"><canvas id="shopface" width="64" height="64"></canvas></div>
+  <div class="body">
+    <div class="who" id="shopwho"></div>
+    <div class="line" id="shopline"></div>
+    <ul id="shoplist"></ul>
+    <p class="tip" id="shoptip"></p>
+  </div>
+</div>
+
+<div id="inv" hidden></div>
+
+<div id="pad" hidden>
+  <div class="dpad"><button data-k="up">▲</button><button data-k="left">◀</button><button data-k="right">▶</button><button data-k="down">▼</button></div>
+  <div class="ab"><button data-k="x">X</button><button data-k="z">Z</button></div>
+</div>
+<pre id="test" hidden></pre>
+
+<script src="art.js"></script>
+<script>
+'use strict';
+/*
+  地下十階。不思議のダンジョン風のローグライク。ターン制。地形は毎回ちがう。地下10階に親玉「地底の王」。
+  町（宿屋・道具屋・武器屋）と穴を往復する。穴でお宝を拾い、町で売って武器を買う。進みは localStorage に記憶する。
+  ?test       自己テスト
+  ?seed=3     地形を固定（記憶は触らない）
+  ?floor=10   その階から始める（確認用）
+  ?auto       自動で町と穴を往復する（確認用）
+  ?skip=200   自動プレイの手を 200 進めたところから始める（確認用）
+  ?cheat      やられない（確認用）
+  ?reset      記憶を消す
+  ?touch      画面のボタンを出す
+*/
+
+// ---------- 道具 ----------
+const MW = 40, MH = 22, T = 16, INV_MAX = 10;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+function rng32(seed) {
+  let s = (seed >>> 0) || 1;
+  return function () {
+    s += 0x6D2B79F5; let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]]; // 上 右 下 左
+const DIRNAME = ['上', '右', '下', '左'];
+const idx = (x, y) => y * MW + x;
+const inMap = (x, y) => x >= 0 && y >= 0 && x < MW && y < MH;
+const WALL = 0, FLOOR = 1, STAIRS = 2, HALL = 3;
+
+// ---------- 決まりごと ----------
+const ENEMY = {
+  slime:    { name: 'スライム', hp: 8,   atk: 3,  def: 0, exp: 3,  speed: 'slow',   floors: [1, 4] },
+  bat:      { name: 'コウモリ', hp: 7,   atk: 4,  def: 0, exp: 4,  speed: 'fast',   floors: [1, 5], erratic: true },
+  goblin:   { name: 'ゴブリン', hp: 16,  atk: 5,  def: 1, exp: 8,  speed: 'normal', floors: [2, 7] },
+  rat:      { name: '大ネズミ', hp: 14,  atk: 5,  def: 1, exp: 7,  speed: 'normal', floors: [3, 8], coward: true },
+  skeleton: { name: 'ガイコツ', hp: 26,  atk: 8,  def: 3, exp: 18, speed: 'normal', floors: [5, 9] },
+  mage:     { name: '魔術師',   hp: 18,  atk: 9,  def: 1, exp: 20, speed: 'normal', floors: [5, 9], ranged: true },
+  ghost:    { name: '亡霊',     hp: 22,  atk: 9,  def: 2, exp: 22, speed: 'normal', floors: [7, 9], phase: true },
+  boss:     { name: '地底の王', hp: 260, atk: 18, def: 6, exp: 0,  speed: 'normal', floors: [10, 10], size: 3 },
+};
+const ITEM = {
+  herb:         { name: '薬草',       use: '使う', price: 30,  note: 'HP が 30 回復' },
+  herb_big:     { name: '大薬草',     use: '使う', price: 120, note: 'HP が全快。最大 HP +3' },
+  onigiri:      { name: 'おにぎり',   use: '食べる', food: true, price: 20, note: '満腹 +60' },
+  dart:         { name: '投げ矢',     stack: true, throwAtk: 6, price: 50, note: '投げる。直線に飛ぶ。こうげき +6。5本で ' },
+  bomb:         { name: '爆弾',       explode: 25, price: 80, note: '投げる。落ちた所の周り 1 マスに 25（自分も）' },
+  scroll_sleep: { name: '眠りの巻物', use: '読む', price: 100, note: '見えている敵を 8 ターン眠らせる（王には効かない）' },
+  scroll_stairs:{ name: '階段の巻物', use: '読む', note: 'その場で次の階へ' },
+  scroll_home:  { name: '帰還の巻物', use: '読む', price: 40, note: '穴から町へ帰る。持ち物もそのまま' },
+  stick:        { name: '木の棒',     weapon: 2,  price: 40 },
+  sword:        { name: '鉄の剣',     weapon: 5,  price: 250 },
+  greatsword:   { name: '大剣',       weapon: 9,  price: 800 },
+  dragonsword:  { name: '竜の剣',     weapon: 14, price: 2400 },
+  shield_wood:  { name: '木の盾',     shield: 2,  price: 60 },
+  shield_iron:  { name: '鉄の盾',     shield: 4,  price: 350 },
+  shield_dragon:{ name: '竜の盾',     shield: 7,  price: 1600 },
+  gold:         { name: '金貨' },
+  t_pot:        { name: '古い壺',     treasure: 80,   floors: [1, 4] },
+  t_gem:        { name: 'ひすいの珠', treasure: 150,  floors: [2, 6] },
+  t_cup:        { name: '銀のさかずき', treasure: 300, floors: [4, 8] },
+  t_statue:     { name: '金の像',     treasure: 500,  floors: [6, 9] },
+  t_crown:      { name: '古い王冠',   treasure: 900,  floors: [8, 9] },
+  t_kingcrown:  { name: '地底の王の冠', treasure: 5000 },
+};
+const SHOP = { item: ['herb', 'herb_big', 'onigiri', 'dart', 'bomb', 'scroll_sleep', 'scroll_home'], weapon: ['stick', 'sword', 'greatsword', 'dragonsword', 'shield_wood', 'shield_iron', 'shield_dragon'] };
+const INN_PRICE = 20;
+const ITEM_ART = { scroll_sleep: 'scroll', scroll_stairs: 'scroll2', scroll_home: 'scroll3' }; // 絵の名前が物の名前と違うもの
+function itemLabel(it) {
+  const d = ITEM[it.kind];
+  if (it.kind === 'gold') return `金貨 ${it.n}`;
+  return d.stack ? `${d.name} ×${it.n}` : d.name;
+}
+function itemWeights(fl) { // 階ごとの出やすさ。武器と盾は店で買うものなので、穴ではめったに落ちていない
+  const w = { herb: 30, onigiri: 18, dart: 14, bomb: 8, scroll_sleep: 6, scroll_stairs: 4, scroll_home: 6, herb_big: 3 + fl, stick: fl <= 3 ? 4 : 0, shield_wood: fl <= 4 ? 3 : 1 };
+  if (fl >= 5) w.sword = 2; if (fl >= 6) w.shield_iron = 1; if (fl >= 8) w.greatsword = 1;
+  return w;
+}
+function treasureKinds(fl) { return Object.keys(ITEM).filter(k => ITEM[k].treasure && ITEM[k].floors && fl >= ITEM[k].floors[0] && fl <= ITEM[k].floors[1]); }
+function sellPrice(it) { const d = ITEM[it.kind]; if (d.treasure) return d.treasure * (it.n || 1); if (!d.price) return 0; return d.stack ? Math.floor(d.price / 5 / 2) * it.n : Math.floor(d.price / 2); }
+const needExp = lv => 10 + lv * lv * 4;
+
+// ---------- 世界 ----------
+function makeGame(seed, opt) {
+  const G = {
+    seed, phase: 'title', floor: 0, turn: 0, log: [], fx: [], cheat: !!(opt && opt.cheat), noSave: !!(opt && opt.noSave),
+    runs: 0, wins: 0, entryGold: 0, town: [], // town は町での会話
+    p: { x: 0, y: 0, hp: 30, maxhp: 30, atkBase: 5, lv: 1, exp: 0, hunger: 100, gold: 0, inv: [], weapon: null, shield: null, face: 1, kills: 0 },
+    map: null, roomId: null, rooms: [], vis: null, seen: null, dist: null, enemies: [], items: [], nextId: 1, maxFloor: 0,
+  };
+  G.rnd = rng32((seed * 7 + 3) >>> 0);
+  return G;
+}
+function say(G, s) { G.log.push({ t: G.turn, s }); if (G.log.length > 60) G.log.shift(); }
+function pAtk(G) { return G.p.atkBase + G.p.lv + (G.p.weapon ? ITEM[G.p.weapon].weapon : 0); }
+function pDef(G) { return G.p.shield ? ITEM[G.p.shield].shield : 0; }
+function passable(G, x, y) { return inMap(x, y) && G.map[idx(x, y)] !== WALL; }
+function enemyAt(G, x, y) {
+  for (const e of G.enemies) {
+    if (e.hp <= 0) continue;
+    if (e.size === 3) { if (Math.abs(e.x - x) <= 1 && Math.abs(e.y - y) <= 1) return e; }
+    else if (e.x === x && e.y === y) return e;
+  }
+  return null;
+}
+function itemAt(G, x, y) { return G.items.find(i => i.x === x && i.y === y) || null; }
+function free(G, x, y, e) { // e が立てるか
+  if (!inMap(x, y)) return false;
+  if (G.map[idx(x, y)] === WALL && !(e && e.phase)) return false;
+  if (G.p.x === x && G.p.y === y) return false;
+  const o = enemyAt(G, x, y); return !o || o === e;
+}
+function bossFree(G, cx, cy, b) { // 3×3 が置けるか
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const x = cx + dx, y = cy + dy;
+    if (!inMap(x, y) || G.map[idx(x, y)] === WALL) return false;
+    if (G.p.x === x && G.p.y === y) return false;
+    const o = enemyAt(G, x, y); if (o && o !== b) return false;
+  }
+  return true;
+}
+
+function genFloor(G, fl) {
+  const rnd = rng32((G.seed * 131 + fl * 7919 + (G.runs || 0) * 104729) >>> 0); // 潜るたびに地形が変わる
+  const ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+  const map = new Uint8Array(MW * MH), roomId = new Int8Array(MW * MH).fill(-1), rooms = [];
+  const carve = (r, id) => { for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { map[idx(x, y)] = fl === 10 ? HALL : FLOOR; roomId[idx(x, y)] = id; } };
+  if (fl === 10) {
+    rooms.push({ x: 5, y: 3, w: 30, h: 16 }); carve(rooms[0], 0);
+  } else {
+    for (let tries = 0; tries < 400 && rooms.length < 9; tries++) {
+      const w = ri(4, 9), h = ri(3, 6), x = ri(1, MW - w - 2), y = ri(1, MH - h - 2);
+      if (rooms.some(r => x < r.x + r.w + 2 && x + w + 2 > r.x && y < r.y + r.h + 2 && y + h + 2 > r.y)) continue;
+      rooms.push({ x, y, w, h });
+      if (rooms.length >= 5 && tries > 120) break;
+    }
+    rooms.sort((a, b) => a.x - b.x);
+    rooms.forEach((r, i) => carve(r, i));
+    const cx = r => r.x + (r.w >> 1), cy = r => r.y + (r.h >> 1);
+    const dig = (x, y) => { if (map[idx(x, y)] === WALL) map[idx(x, y)] = FLOOR; };
+    const tunnel = (a, b) => {
+      let x = cx(a), y = cy(a); const tx = cx(b), ty = cy(b);
+      if (rnd() < .5) { while (x !== tx) { dig(x, y); x += Math.sign(tx - x); } while (y !== ty) { dig(x, y); y += Math.sign(ty - y); } }
+      else { while (y !== ty) { dig(x, y); y += Math.sign(ty - y); } while (x !== tx) { dig(x, y); x += Math.sign(tx - x); } }
+      dig(x, y);
+    };
+    for (let i = 0; i + 1 < rooms.length; i++) tunnel(rooms[i], rooms[i + 1]);
+    for (let k = ri(1, 2); k > 0 && rooms.length > 2; k--) { const a = ri(0, rooms.length - 1), b = ri(0, rooms.length - 1); if (a !== b) tunnel(rooms[a], rooms[b]); }
+  }
+  G.map = map; G.roomId = roomId; G.rooms = rooms; G.floor = fl; G.maxFloor = Math.max(G.maxFloor, fl);
+  G.vis = new Uint8Array(MW * MH); G.seen = new Uint8Array(MW * MH); G.enemies = []; G.items = []; G.fx = [];
+  const tileIn = r => ({ x: ri(r.x, r.x + r.w - 1), y: ri(r.y, r.y + r.h - 1) });
+  // 自分の位置
+  if (fl === 10) { G.p.x = 8; G.p.y = 11; }
+  else { const r = rooms[ri(0, rooms.length - 1)]; const t = tileIn(r); G.p.x = t.x; G.p.y = t.y; }
+  const startRoom = roomId[idx(G.p.x, G.p.y)];
+  // 階段は入口からいちばん遠い部屋
+  if (fl < 10) {
+    const d = bfs(G, G.p.x, G.p.y, false);
+    let best = -1, br = null;
+    rooms.forEach((r, i) => { if (i === startRoom && rooms.length > 1) return; const dd = d[idx(r.x + (r.w >> 1), r.y + (r.h >> 1))]; if (dd > best) { best = dd; br = r; } });
+    for (let k = 0; k < 50; k++) { const t = tileIn(br); if (t.x !== G.p.x || t.y !== G.p.y) { map[idx(t.x, t.y)] = STAIRS; break; } }
+  }
+  // 敵
+  const spawnAt = (kind, x, y) => { const s = ENEMY[kind]; const e = { id: G.nextId++, kind, name: s.name, x, y, hp: s.hp, maxhp: s.hp, atk: s.atk + (kind === 'boss' ? 0 : Math.floor((fl - 1) / 3)), def: s.def, exp: s.exp, speed: s.speed, awake: false, sleep: 0, face: -1, erratic: !!s.erratic, coward: !!s.coward, ranged: !!s.ranged, phase: !!s.phase, size: s.size || 1, carry: null, hidden: 0, charge: null }; G.enemies.push(e); return e; };
+  if (fl === 10) {
+    const b = spawnAt('boss', 25, 11); b.awake = true;
+    G.items.push({ kind: 'herb', n: 1, x: 10, y: 9 }, { kind: 'herb', n: 1, x: 10, y: 13 });
+  } else {
+    const kinds = Object.keys(ENEMY).filter(k => fl >= ENEMY[k].floors[0] && fl <= ENEMY[k].floors[1]);
+    for (let n = ri(5, 9), k = 0; n > 0 && k < 300; k++) {
+      const r = rooms[ri(0, rooms.length - 1)]; if (r === rooms[startRoom] && rooms.length > 1) continue;
+      const t = tileIn(r); if (enemyAt(G, t.x, t.y) || (t.x === G.p.x && t.y === G.p.y)) continue;
+      spawnAt(kinds[ri(0, kinds.length - 1)], t.x, t.y); n--;
+    }
+    // 物
+    const w = itemWeights(fl), ks = Object.keys(w), total = ks.reduce((s, k) => s + w[k], 0);
+    const pickKind = () => { let v = rnd() * total; for (const k of ks) { v -= w[k]; if (v < 0) return k; } return 'herb'; };
+    for (let n = ri(4, 7) + (fl === 1 ? 1 : 0), k = 0; n > 0 && k < 300; k++) {
+      const r = rooms[ri(0, rooms.length - 1)], t = tileIn(r);
+      if (itemAt(G, t.x, t.y) || map[idx(t.x, t.y)] === STAIRS) continue;
+      const kind = fl === 1 && n === 1 ? 'onigiri' : pickKind();
+      G.items.push({ kind, n: kind === 'dart' ? 5 : 1, x: t.x, y: t.y }); n--;
+    }
+    for (let n = ri(1, 3), k = 0; n > 0 && k < 100; k++) {
+      const r = rooms[ri(0, rooms.length - 1)], t = tileIn(r);
+      if (itemAt(G, t.x, t.y) || map[idx(t.x, t.y)] === STAIRS) continue;
+      G.items.push({ kind: 'gold', n: ri(5, 20) * fl, x: t.x, y: t.y }); n--;
+    }
+    const tk = treasureKinds(fl); // お宝。深いほど高い
+    for (let n = ri(1, 3), k = 0; n > 0 && k < 100 && tk.length; k++) {
+      const r = rooms[ri(0, rooms.length - 1)], t = tileIn(r);
+      if (itemAt(G, t.x, t.y) || map[idx(t.x, t.y)] === STAIRS) continue;
+      G.items.push({ kind: tk[ri(0, tk.length - 1)], n: 1, x: t.x, y: t.y }); n--;
+    }
+  }
+  updateVis(G);
+  say(G, fl === 10 ? '地下十階。広間の奥で、何かが立ち上がった' : `地下${fl}階におりた`);
+}
+function bfs(G, sx, sy, knownOnly) { // 自分からの歩数。壁は通れない
+  const d = new Int16Array(MW * MH).fill(-1); const q = [sx, sy]; d[idx(sx, sy)] = 0;
+  for (let h = 0; h < q.length; h += 2) {
+    const x = q[h], y = q[h + 1], dd = d[idx(x, y)];
+    for (const [dx, dy] of DIRS) {
+      const nx = x + dx, ny = y + dy; if (!inMap(nx, ny)) continue;
+      const i = idx(nx, ny); if (d[i] >= 0 || G.map[i] === WALL) continue;
+      if (knownOnly && !G.seen[i]) continue;
+      d[i] = dd + 1; q.push(nx, ny);
+    }
+  }
+  return d;
+}
+function updateVis(G) {
+  G.vis.fill(0);
+  const r = G.roomId[idx(G.p.x, G.p.y)];
+  if (r >= 0) { const R = G.rooms[r]; for (let y = R.y - 1; y <= R.y + R.h; y++) for (let x = R.x - 1; x <= R.x + R.w; x++) if (inMap(x, y)) G.vis[idx(x, y)] = 1; }
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = G.p.x + dx, y = G.p.y + dy; if (inMap(x, y)) G.vis[idx(x, y)] = 1; }
+  for (let i = 0; i < G.vis.length; i++) if (G.vis[i]) G.seen[i] = 1;
+}
+function enemyVisible(G, e) {
+  if (e.hidden > 0) return false;
+  if (e.size === 3) { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (G.vis[idx(e.x + dx, e.y + dy)]) return true; return false; }
+  return !!G.vis[idx(e.x, e.y)];
+}
+function newGame(G) { // はじめから。町で始まる
+  const p = G.p;
+  Object.assign(p, { hp: 30, maxhp: 30, atkBase: 5, lv: 1, exp: 0, hunger: 100, gold: 50, inv: [{ kind: 'herb', n: 1 }, { kind: 'onigiri', n: 1 }, { kind: 'scroll_home', n: 1 }], weapon: null, shield: null, face: 1, kills: 0 });
+  G.runs = 0; G.wins = 0; G.maxFloor = 0; G.turn = 0; G.log = []; G.result = null; G.phase = 'town';
+  townSay(G, 'inn', 'ようこそ。穴に潜るなら、帰還の巻物を忘れずに。帰りはそれしかないから');
+  saveGame(G);
+}
+function startDive(G, floor) { // 穴に入る
+  G.turn = 0; G.log = []; G.phase = 'play'; G.result = null; G.entryGold = G.p.gold; G.runs++; G.p.kills = 0;
+  genFloor(G, floor || 1);
+}
+function startGame(G, floor) { newGame(G); startDive(G, floor); } // 確認用：はじめから穴へ
+function townSay(G, who, s) { G.town.push({ who, s }); if (G.town.length > 6) G.town.shift(); }
+function returnToTown(G, how) {
+  const p = G.p;
+  if (how === 'dead') { // 持ち物と、穴で拾った金貨をなくす。装備とレベルは残る
+    p.inv = []; p.gold = G.entryGold; p.hp = Math.max(1, Math.round(p.maxhp / 2)); p.hunger = 100;
+    G.town = []; townSay(G, 'inn', '気がついた？ 穴の前に倒れてたのを、運んできたの。荷物は……ごめん、なかった');
+  } else if (how === 'win') {
+    G.wins++; G.town = []; townSay(G, 'smith', 'やったね。その冠、本物？ 道具屋が高く買うよ。穴はまだあるから、また潜れる');
+  } else { G.town = []; townSay(G, 'shop', 'おかえり。拾ったものは売るなら買い取るよ'); }
+  G.phase = 'town'; G.maxFloor = Math.max(G.maxFloor, G.floor);
+  saveGame(G);
+}
+function buyItem(G, kind) {
+  const d = ITEM[kind], p = G.p;
+  if (p.gold < d.price) return '金貨が足りない';
+  const same = d.stack ? p.inv.find(i => i.kind === kind) : null;
+  if (!same && p.inv.length >= INV_MAX) return 'もちものがいっぱい';
+  p.gold -= d.price; if (same) same.n += 5; else p.inv.push({ kind, n: d.stack ? 5 : 1 });
+  saveGame(G); return `${d.name}を買った`;
+}
+function sellItem(G, i) {
+  const it = G.p.inv[i]; if (!it) return '';
+  const v = sellPrice(it); if (v <= 0) return `${ITEM[it.kind].name}は買い取れない`;
+  G.p.gold += v; G.p.inv.splice(i, 1); saveGame(G); return `${itemLabel(it)}を ${v} で売った`;
+}
+function sellEquipped(G, slot) { // 装備中の武器・盾を売る
+  const kind = G.p[slot]; if (!kind) return ''; const v = Math.floor(ITEM[kind].price / 2); G.p[slot] = null; G.p.gold += v; saveGame(G); return `${ITEM[kind].name}を ${v} で売った`;
+}
+function rest(G) {
+  const p = G.p; const price = p.gold >= INN_PRICE ? INN_PRICE : 0;
+  p.gold -= price; p.hp = p.maxhp; p.hunger = 100; saveGame(G);
+  return price ? `一晩ぐっすり。HP が全快した（${price} 金貨）` : '今日はいいよ、お金は。HP が全快した';
+}
+const SAVE_KEY = 'chika10-save';
+const saveKey = G => G.saveKey || SAVE_KEY;
+function saveGame(G) {
+  if (G.noSave) return false;
+  try { const p = G.p; localStorage.setItem(saveKey(G), JSON.stringify({ v: 1, lv: p.lv, exp: p.exp, maxhp: p.maxhp, hp: p.hp, hunger: p.hunger, gold: p.gold, inv: p.inv, weapon: p.weapon, shield: p.shield, runs: G.runs, wins: G.wins, maxFloor: G.maxFloor })); return true; } catch (e) { return false; }
+}
+function loadGame(G) {
+  if (G.noSave) return false;
+  try {
+    const d = JSON.parse(localStorage.getItem(saveKey(G)) || 'null'); if (!d || d.v !== 1) return false;
+    const p = G.p; Object.assign(p, { lv: d.lv, exp: d.exp, maxhp: d.maxhp, hp: d.hp, hunger: d.hunger, gold: d.gold, inv: (d.inv || []).filter(i => ITEM[i.kind]), weapon: ITEM[d.weapon] ? d.weapon : null, shield: ITEM[d.shield] ? d.shield : null, atkBase: 5, kills: 0, face: 1 });
+    G.runs = d.runs || 0; G.wins = d.wins || 0; G.maxFloor = d.maxFloor || 0; G.phase = 'map'; return true;
+  } catch (e) { return false; }
+}
+function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* なくても困らない */ } }
+
+// ---------- 自分の行動 ----------
+function addFx(G, o) { o.t0 = G.now || 0; G.fx.push(o); }
+function dmgRoll(G, atk, def) { const r = 0.8 + (G.rnd ? G.rnd() : Math.random()) * 0.4; return Math.max(1, Math.round(atk * r - def)); }
+function hitEnemy(G, e, dmg, how) {
+  e.hp -= dmg; e.awake = true; e.sleep = 0;
+  addFx(G, { kind: 'num', x: e.x, y: e.y, v: dmg, life: .6 }); addFx(G, { kind: 'flash', e, life: .12 });
+  if (e.hp <= 0) {
+    say(G, `${e.name}を たおした`); G.p.kills++;
+    if (e.carry) { G.items.push(Object.assign({}, e.carry, { x: e.x, y: e.y })); e.carry = null; }
+    if (e.kind === 'boss') {
+      G.phase = 'win'; G.result = 'win'; say(G, '地底の王は、くずれて土にもどった');
+      if (G.p.inv.length < INV_MAX) { G.p.inv.push({ kind: 't_kingcrown', n: 1 }); say(G, '地底の王の冠を手に入れた'); } else { G.p.gold += ITEM.t_kingcrown.treasure; say(G, `持ち物がいっぱいなので、冠は金貨 ${ITEM.t_kingcrown.treasure} になった`); }
+      G.sfx && G.sfx('win'); return;
+    }
+    G.sfx && G.sfx('kill');
+    gainExp(G, e.exp);
+  } else { G.sfx && G.sfx(how === 'throw' ? 'throwhit' : 'hit'); if (e.coward && e.hp < e.maxhp / 2) e.flee = true; }
+}
+function gainExp(G, n) {
+  const p = G.p; p.exp += n;
+  while (p.exp >= needExp(p.lv)) { p.exp -= needExp(p.lv); p.lv++; p.maxhp += 5; p.hp = Math.min(p.maxhp, p.hp + 5); say(G, `レベル ${p.lv} に上がった。HP とこうげきが増えた`); G.sfx && G.sfx('levelup'); }
+}
+function hurtPlayer(G, dmg, who) {
+  const p = G.p;
+  if (G.cheat) dmg = Math.min(dmg, Math.max(0, p.hp - 1));
+  p.hp -= dmg;
+  addFx(G, { kind: 'num', x: p.x, y: p.y, v: dmg, me: true, life: .6 }); addFx(G, { kind: 'shake', life: .18 });
+  G.sfx && G.sfx('hurt');
+  if (p.hp <= 0) { p.hp = 0; G.phase = 'dead'; G.result = 'dead'; say(G, `${who}に たおされた`); G.sfx && G.sfx('lose'); }
+}
+function attackEnemy(G, e) {
+  const dmg = dmgRoll(G, pAtk(G), e.def);
+  say(G, `${e.name}に ${dmg} のダメージ`); hitEnemy(G, e, dmg, 'melee');
+}
+function pickup(G) {
+  const it = itemAt(G, G.p.x, G.p.y); if (!it) return false;
+  if (it.kind === 'gold') { G.p.gold += it.n; say(G, `金貨を ${it.n} 拾った`); G.items.splice(G.items.indexOf(it), 1); G.sfx && G.sfx('gold'); return true; }
+  const same = ITEM[it.kind].stack ? G.p.inv.find(i => i.kind === it.kind) : null;
+  if (same) { same.n += it.n; }
+  else if (G.p.inv.length >= INV_MAX) { say(G, `${itemLabel(it)}が落ちている。もちものがいっぱいで拾えない`); return false; }
+  else G.p.inv.push({ kind: it.kind, n: it.n });
+  G.items.splice(G.items.indexOf(it), 1); say(G, `${itemLabel(it)}を拾った`); G.sfx && G.sfx('pickup'); return true;
+}
+function tryMove(G, d) { // 歩く。敵がいれば攻撃。ターンを使ったら true
+  const p = G.p, [dx, dy] = DIRS[d], nx = p.x + dx, ny = p.y + dy;
+  if (dx) p.face = dx;
+  const e = enemyAt(G, nx, ny);
+  if (e) { attackEnemy(G, e); endTurn(G); return true; }
+  if (!passable(G, nx, ny)) return false;
+  p.x = nx; p.y = ny; updateVis(G);
+  pickup(G);
+  if (G.map[idx(nx, ny)] === STAIRS) say(G, '下り階段がある。Z でおりる');
+  endTurn(G); return true;
+}
+function run(G, d) { // 何かあるまで走る
+  const open = (x, y) => DIRS.reduce((n, [dx, dy]) => n + (passable(G, x + dx, y + dy) ? 1 : 0), 0);
+  const r0 = G.roomId[idx(G.p.x, G.p.y)]; let n = 0;
+  while (n < 40 && G.phase === 'play') {
+    const [dx, dy] = DIRS[d], nx = G.p.x + dx, ny = G.p.y + dy;
+    if (!passable(G, nx, ny) || enemyAt(G, nx, ny)) break;
+    const o0 = open(G.p.x, G.p.y), hadItem = !!itemAt(G, nx, ny);
+    tryMove(G, d); n++;
+    if (G.enemies.some(e => e.hp > 0 && enemyVisible(G, e))) break;
+    if (hadItem || itemAt(G, G.p.x, G.p.y) || G.map[idx(G.p.x, G.p.y)] === STAIRS) break;
+    const r1 = G.roomId[idx(G.p.x, G.p.y)];
+    if (r1 !== r0) break;
+    if (r1 < 0 && open(G.p.x, G.p.y) !== o0) break; // 通路の分かれ道で止まる
+  }
+  return n;
+}
+function wait(G) { endTurn(G); }
+function descend(G) {
+  if (G.map[idx(G.p.x, G.p.y)] !== STAIRS) return false;
+  G.sfx && G.sfx('stairs'); genFloor(G, G.floor + 1); return true;
+}
+function zAction(G) { // Z：拾う／おりる／休む
+  if (descend(G)) return 'stairs';
+  if (itemAt(G, G.p.x, G.p.y)) { if (pickup(G)) { endTurn(G); return 'pickup'; } return 'full'; }
+  wait(G); return 'wait';
+}
+function useItem(G, i) {
+  const it = G.p.inv[i]; if (!it) return false; const d = ITEM[it.kind], p = G.p;
+  if (d.weapon || d.shield) return equipItem(G, i);
+  if (it.kind === 'herb') { p.hp = Math.min(p.maxhp, p.hp + 30); say(G, '薬草を食べた。HP が 30 回復'); G.sfx && G.sfx('eat'); }
+  else if (it.kind === 'herb_big') { p.maxhp += 3; p.hp = p.maxhp; say(G, '大薬草を食べた。HP が全快し、最大 HP が 3 増えた'); G.sfx && G.sfx('eat'); }
+  else if (it.kind === 'onigiri') { p.hunger = Math.min(100, p.hunger + 60); say(G, 'おにぎりを食べた。おなかがふくれた'); G.sfx && G.sfx('eat'); }
+  else if (it.kind === 'scroll_sleep') {
+    let n = 0; for (const e of G.enemies) if (e.hp > 0 && enemyVisible(G, e) && e.kind !== 'boss') { e.sleep = 8; n++; }
+    say(G, n ? `巻物を読んだ。${n} 体がねむった` : G.enemies.some(e => e.kind === 'boss' && enemyVisible(G, e)) ? '巻物を読んだが、王には効かない' : '巻物を読んだが、ねむる敵がいない'); G.sfx && G.sfx('sleep');
+  }
+  else if (it.kind === 'scroll_stairs') {
+    if (G.floor >= 10) { say(G, '巻物を読んだが、この下はない'); } else { say(G, '巻物を読んだ。床がぬけた'); removeInv(G, i); G.sfx && G.sfx('stairs'); genFloor(G, G.floor + 1); endTurn(G); return true; }
+  }
+  else if (it.kind === 'scroll_home') { say(G, '巻物を読んだ。光に包まれて、穴の外へ'); removeInv(G, i); G.sfx && G.sfx('stairs'); returnToTown(G, 'home'); return true; }
+  else if (it.kind === 'dart' || it.kind === 'bomb') { return false; } // 投げるもの
+  else return false;
+  removeInv(G, i); endTurn(G); return true;
+}
+function removeInv(G, i, all) { const it = G.p.inv[i]; if (ITEM[it.kind].stack && it.n > 1 && !all) it.n--; else G.p.inv.splice(i, 1); }
+function equipItem(G, i) {
+  const it = G.p.inv[i], d = ITEM[it.kind], p = G.p;
+  if (d.weapon) { const old = p.weapon; p.weapon = it.kind; p.inv.splice(i, 1); if (old) p.inv.push({ kind: old, n: 1 }); say(G, `${d.name}を装備した。こうげき ${pAtk(G)}`); }
+  else if (d.shield) { const old = p.shield; p.shield = it.kind; p.inv.splice(i, 1); if (old) p.inv.push({ kind: old, n: 1 }); say(G, `${d.name}を装備した。ぼうぎょ ${pDef(G)}`); }
+  else return false;
+  G.sfx && G.sfx('equip'); endTurn(G); return true;
+}
+function dropItem(G, i) {
+  const it = G.p.inv[i]; if (!it) return false;
+  if (itemAt(G, G.p.x, G.p.y) || G.map[idx(G.p.x, G.p.y)] === STAIRS) { say(G, 'ここには置けない'); return false; }
+  G.items.push({ kind: it.kind, n: it.n, x: G.p.x, y: G.p.y }); removeInv(G, i, true); say(G, `${itemLabel(it)}を置いた`); endTurn(G); return true;
+}
+function flyPath(G, x0, y0, d, range) { // 投げたものの道筋。止まった所と当たった敵
+  const [dx, dy] = DIRS[d]; let x = x0, y = y0; const path = [];
+  for (let n = 0; n < range; n++) {
+    const nx = x + dx, ny = y + dy;
+    if (!inMap(nx, ny) || G.map[idx(nx, ny)] === WALL) break;
+    x = nx; y = ny; path.push([x, y]);
+    const e = enemyAt(G, x, y); if (e && e.hidden <= 0) return { x, y, e, path };
+  }
+  return { x, y, e: null, path };
+}
+function explode(G, x, y, dmg) {
+  addFx(G, { kind: 'boom', x, y, life: .5 }); G.sfx && G.sfx('boom');
+  for (const e of G.enemies.slice()) { if (e.hp <= 0) continue; const near = e.size === 3 ? Math.abs(e.x - x) <= 2 && Math.abs(e.y - y) <= 2 : Math.abs(e.x - x) <= 1 && Math.abs(e.y - y) <= 1; if (near) { say(G, `${e.name}に 爆発で ${dmg} のダメージ`); hitEnemy(G, e, dmg, 'throw'); } }
+  if (Math.abs(G.p.x - x) <= 1 && Math.abs(G.p.y - y) <= 1 && G.phase === 'play') { say(G, `爆発に まきこまれた`); hurtPlayer(G, dmg, '爆弾'); }
+}
+function throwItem(G, i, d) {
+  const it = G.p.inv[i]; if (!it) return false; const kind = it.kind, dd = ITEM[kind];
+  if (DIRS[d][0]) G.p.face = DIRS[d][0];
+  const f = flyPath(G, G.p.x, G.p.y, d, 10);
+  removeInv(G, i);
+  if (f.path.length) addFx(G, { kind: 'fly', art: ITEM_ART[kind] || kind, path: [[G.p.x, G.p.y]].concat(f.path), life: .04 * (f.path.length + 1) });
+  G.sfx && G.sfx('throw');
+  if (kind === 'bomb') { say(G, '爆弾を投げた'); explode(G, f.x, f.y, dd.explode); }
+  else if (f.e) {
+    const dmg = dmgRoll(G, dd.throwAtk ? pAtk(G) + dd.throwAtk : (dd.weapon || 2), f.e.def);
+    say(G, `${dd.name}が ${f.e.name}に当たった。${dmg} のダメージ`); hitEnemy(G, f.e, dmg, 'throw');
+    if (!dd.throwAtk) dropAt(G, kind, 1, f.x, f.y);
+  } else { say(G, `${dd.name}は 床に落ちた`); dropAt(G, kind, 1, f.x, f.y); }
+  if (G.phase === 'play') endTurn(G); return true;
+}
+function dropAt(G, kind, n, x, y) { // 床に置く。ふさがっていれば近くの空いた床へ
+  const d = bfs(G, x, y, false); let best = null, bd = 1e9;
+  for (let i = 0; i < d.length; i++) { if (d[i] < 0 || d[i] >= bd || G.map[i] === STAIRS || itemAt(G, i % MW, Math.floor(i / MW))) continue; bd = d[i]; best = i; }
+  if (best == null) return false;
+  G.items.push({ kind, n, x: best % MW, y: Math.floor(best / MW) }); return true;
+}
+
+// ---------- 敵の行動 ----------
+function stepToward(G, e, away) { // 歩数表に沿って1歩。away なら遠ざかる
+  let best = null, bd = away ? -1 : 1e9;
+  const dHere = G.dist[idx(e.x, e.y)];
+  for (const [dx, dy] of DIRS) {
+    const nx = e.x + dx, ny = e.y + dy; if (!free(G, nx, ny, e)) continue;
+    let dd = G.dist[idx(nx, ny)];
+    if (e.phase) dd = Math.abs(nx - G.p.x) + Math.abs(ny - G.p.y); // 亡霊は壁を気にしない
+    if (dd < 0) continue;
+    if (away ? dd > bd : dd < bd) { bd = dd; best = [nx, ny]; }
+  }
+  if (!best) return false;
+  if (!away && dHere >= 0 && bd >= dHere && !e.phase) return false;
+  if (best[0] !== e.x) e.face = Math.sign(best[0] - e.x);
+  e.x = best[0]; e.y = best[1];
+  const it = itemAt(G, e.x, e.y); if (it && e.coward && ITEM[it.kind].food && !e.carry) { e.carry = { kind: it.kind, n: it.n }; G.items.splice(G.items.indexOf(it), 1); e.flee = true; if (enemyVisible(G, e)) say(G, `${e.name}が ${ITEM[it.kind].name}をくわえて逃げた`); }
+  return true;
+}
+function wander(G, e) {
+  if (G.rnd() < .35) return;
+  const d = DIRS[Math.floor(G.rnd() * 4)], nx = e.x + d[0], ny = e.y + d[1];
+  if (free(G, nx, ny, e) && (e.phase || G.map[idx(nx, ny)] !== WALL)) { if (d[0]) e.face = d[0]; e.x = nx; e.y = ny; }
+}
+function adjacent(e, x, y) { return e.size === 3 ? Math.abs(e.x - x) <= 2 && Math.abs(e.y - y) <= 2 && !(Math.abs(e.x - x) <= 1 && Math.abs(e.y - y) <= 1) : Math.abs(e.x - x) + Math.abs(e.y - y) === 1; }
+function enemyAttack(G, e, mult) {
+  const dmg = dmgRoll(G, Math.round(e.atk * (mult || 1)), pDef(G));
+  if (e.x !== G.p.x) e.face = Math.sign(G.p.x - e.x);
+  e.attacked = true;
+  say(G, `${e.name}の攻撃。${dmg} のダメージ`); hurtPlayer(G, dmg, e.name);
+}
+function lineClear(G, e) { // 魔術師：自分と一直線で、間に壁も敵もない。向きを返す
+  if (e.x !== G.p.x && e.y !== G.p.y) return -1;
+  const d = e.x === G.p.x ? (G.p.y > e.y ? 2 : 0) : (G.p.x > e.x ? 1 : 3), [dx, dy] = DIRS[d];
+  let x = e.x, y = e.y;
+  for (let n = 0; n < 6; n++) {
+    x += dx; y += dy;
+    if (x === G.p.x && y === G.p.y) return d;
+    if (!inMap(x, y) || G.map[idx(x, y)] === WALL || enemyAt(G, x, y)) return -1;
+  }
+  return -1;
+}
+function pathTo(G, x0, y0, d, tx, ty) { const out = []; let x = x0, y = y0; while (x !== tx || y !== ty) { x += DIRS[d][0]; y += DIRS[d][1]; out.push([x, y]); if (out.length > 12) break; } return out; }
+function enemyAct(G, e) {
+  const p = G.p;
+  if (e.kind === 'boss') return bossAct(G, e);
+  if (e.hidden > 0) e.hidden--;
+  if (!e.awake) {
+    const near = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+    if (near <= 2 || (enemyVisible(G, e) && near <= 8)) e.awake = true; else { wander(G, e); return; }
+  }
+  if (e.flee) { if (adjacent(e, p.x, p.y) && G.rnd() < .3) { enemyAttack(G, e); return; } if (!stepToward(G, e, true)) wander(G, e); return; }
+  if (adjacent(e, p.x, p.y)) { enemyAttack(G, e); return; }
+  if (e.ranged) {
+    const d = lineClear(G, e);
+    if (d >= 0 && G.rnd() < .65) {
+      const path = pathTo(G, e.x, e.y, d, G.p.x, G.p.y);
+      addFx(G, { kind: 'fly', art: 'fireball', path: [[e.x, e.y]].concat(path), life: .04 * (path.length + 1), flip: DIRS[d][0] < 0 });
+      const dmg = dmgRoll(G, e.atk, pDef(G)); say(G, `${e.name}の火の玉。${dmg} のダメージ`); G.sfx && G.sfx('fire'); hurtPlayer(G, dmg, e.name); return;
+    }
+  }
+  if (e.phase && G.rnd() < .12) { e.hidden = 2; if (G.vis[idx(e.x, e.y)]) say(G, `${e.name}が すうっと消えた`); }
+  if (e.erratic && G.rnd() < .4) { wander(G, e); return; }
+  if (!stepToward(G, e, false)) wander(G, e);
+}
+function bossAct(G, b) {
+  const p = G.p;
+  if (G.turn % 5 === 0 && G.turn > 0) {
+    let n = b.hp < b.maxhp / 2 ? 2 : 1;
+    for (let k = 0; k < 40 && n > 0; k++) {
+      const x = b.x + Math.floor(G.rnd() * 5) - 2, y = b.y + Math.floor(G.rnd() * 5) - 2;
+      if (Math.abs(x - b.x) <= 1 && Math.abs(y - b.y) <= 1) continue;
+      if (!free(G, x, y, null)) continue;
+      const s = ENEMY.slime; G.enemies.push({ id: G.nextId++, kind: 'slime', name: s.name, x, y, hp: s.hp, maxhp: s.hp, atk: s.atk + 3, def: s.def, exp: s.exp, speed: s.speed, awake: true, sleep: 0, face: -1, size: 1, hidden: 0 }); n--;
+    }
+    say(G, '地底の王が 地面をたたいた。土からスライムがわいた'); G.sfx && G.sfx('summon');
+  }
+  if (b.charge != null) { // 突進
+    const [dx, dy] = DIRS[b.charge]; let hit = false;
+    for (let n = 0; n < 3; n++) {
+      const nx = b.x + dx, ny = b.y + dy;
+      if (Math.abs(p.x - nx) <= 1 && Math.abs(p.y - ny) <= 1) { hit = true; break; }
+      if (!bossFree(G, nx, ny, b)) break;
+      b.x = nx; b.y = ny;
+      for (const e of G.enemies) if (e !== b && e.hp > 0 && Math.abs(e.x - b.x) <= 1 && Math.abs(e.y - b.y) <= 1) { e.hp = 0; say(G, `${e.name}が ふみつぶされた`); }
+      if (Math.abs(p.x - b.x) <= 2 && Math.abs(p.y - b.y) <= 2) { hit = true; break; }
+    }
+    b.charge = null; addFx(G, { kind: 'shake', life: .25 }); G.sfx && G.sfx('stomp');
+    if (hit) { say(G, '地底の王の 突進'); enemyAttack(G, b, 1.6); } else say(G, '地底の王の突進は、はずれた');
+    return;
+  }
+  if (adjacent(b, p.x, p.y)) { enemyAttack(G, b); return; }
+  const dx = p.x - b.x, dy = p.y - b.y;
+  if ((Math.abs(dy) <= 1 && Math.abs(dx) >= 4 && Math.abs(dx) <= 5 || Math.abs(dx) <= 1 && Math.abs(dy) >= 4 && Math.abs(dy) <= 5) && G.rnd() < .4) {
+    b.charge = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0); b.face = Math.sign(dx) || b.face;
+    say(G, '地底の王が 身をかがめた！'); G.sfx && G.sfx('roar'); return;
+  }
+  const order = Math.abs(dx) >= Math.abs(dy) ? [[Math.sign(dx), 0], [0, Math.sign(dy)]] : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
+  for (const [mx, my] of order) { if (!mx && !my) continue; if (bossFree(G, b.x + mx, b.y + my, b)) { b.x += mx; b.y += my; if (mx) b.face = mx; return; } }
+}
+function endTurn(G) {
+  if (G.phase !== 'play') return;
+  const p = G.p; G.turn++;
+  if (G.turn % 10 === 0 && p.hunger > 0) { p.hunger--; if (p.hunger === 20) say(G, 'おなかがすいてきた'); if (p.hunger === 0) say(G, 'おなかがすいて 動けなくなりそうだ'); }
+  if (p.hunger <= 0) { if (p.hp > 1 || !G.cheat) p.hp--; if (p.hp <= 0) { p.hp = 0; G.phase = 'dead'; G.result = 'dead'; say(G, '空腹で たおれた'); G.sfx && G.sfx('lose'); return; } }
+  else if (G.turn % 5 === 0 && p.hp < p.maxhp) p.hp++;
+  G.dist = bfs(G, p.x, p.y, false);
+  for (const e of G.enemies.slice()) {
+    if (e.hp <= 0 || G.phase !== 'play') continue;
+    if (e.sleep > 0) { e.sleep--; continue; }
+    const moves = e.speed === 'fast' ? 2 : e.speed === 'slow' ? (G.turn % 2) : 1;
+    e.attacked = false; // 速い敵も、攻撃は1ターンに1回まで
+    for (let k = 0; k < moves && G.phase === 'play' && e.hp > 0 && !e.attacked; k++) enemyAct(G, e);
+  }
+  G.enemies = G.enemies.filter(e => e.hp > 0);
+  updateVis(G);
+}
+
+// ---------- 自動で潜る（確認用） ----------
+function botReady(G) { return G.cheat || (pAtk(G) >= 26 && pDef(G) >= 6); } // 王に挑める強さ
+function botWantsHome(G) { // 帰還の巻物を使う判断
+  const p = G.p, find = k => p.inv.findIndex(i => i.kind === k);
+  if (find('scroll_home') < 0 || G.noHome) return false;
+  if (p.hp < p.maxhp * .35 && find('herb') < 0 && find('herb_big') < 0) return true;
+  const nt = p.inv.filter(i => ITEM[i.kind].treasure).length;
+  if ((p.inv.length >= INV_MAX && nt > 0 || nt >= 4) && !botReady(G)) return true;
+  if (G.floor === 10 && !botReady(G)) return true; // 王に勝てそうにない
+  if (p.hunger < 15 && find('onigiri') < 0) return true;
+  return false;
+}
+function botStep(G) {
+  const p = G.p; if (G.phase !== 'play') return 'none';
+  const find = k => p.inv.findIndex(i => i.kind === k);
+  if (p.hp < p.maxhp * .4 && find('herb') >= 0) { useItem(G, find('herb')); return 'herb'; }
+  if (p.hp < p.maxhp * .3 && find('herb_big') >= 0) { useItem(G, find('herb_big')); return 'herb'; }
+  if (p.hunger < 25 && find('onigiri') >= 0) { useItem(G, find('onigiri')); return 'eat'; }
+  for (let i = 0; i < p.inv.length; i++) { const d = ITEM[p.inv[i].kind]; if (d.weapon && d.weapon > (p.weapon ? ITEM[p.weapon].weapon : 0)) { equipItem(G, i); return 'equip'; } if (d.shield && d.shield > pDef(G)) { equipItem(G, i); return 'equip'; } }
+  const vis = G.enemies.filter(e => e.hp > 0 && enemyVisible(G, e));
+  const adjacentEnemy = DIRS.map(([dx, dy]) => enemyAt(G, p.x + dx, p.y + dy)).find(Boolean);
+  if (botWantsHome(G) && !(adjacentEnemy && p.hp > p.maxhp * .2)) { useItem(G, find('scroll_home')); return 'home'; }
+  for (let d = 0; d < 4; d++) { const e = enemyAt(G, p.x + DIRS[d][0], p.y + DIRS[d][1]); if (e) { tryMove(G, d); return 'attack'; } }
+  if (vis.length >= 2 && find('scroll_sleep') >= 0 && vis.some(e => e.kind !== 'boss' && Math.abs(e.x - p.x) + Math.abs(e.y - p.y) <= 3)) { useItem(G, find('scroll_sleep')); return 'sleep'; }
+  for (const e of vis) {
+    if (e.x !== p.x && e.y !== p.y) continue;
+    const d = e.x === p.x ? (e.y > p.y ? 2 : 0) : (e.x > p.x ? 1 : 3), f = flyPath(G, p.x, p.y, d, 6);
+    if (f.e === e) { if (e.kind === 'boss' && find('bomb') >= 0 && f.path.length >= 3) { throwItem(G, find('bomb'), d); return 'bomb'; } if (find('dart') >= 0) { throwItem(G, find('dart'), d); return 'dart'; } }
+  }
+  if (G.map[idx(p.x, p.y)] === STAIRS && (G.floor < 10)) { descend(G); return 'stairs'; }
+  const d = bfs(G, p.x, p.y, true);
+  const goto = (tx, ty) => { // 目標へ1歩
+    const back = bfs(G, tx, ty, true); let best = -1, bd = 1e9;
+    for (let k = 0; k < 4; k++) { const nx = p.x + DIRS[k][0], ny = p.y + DIRS[k][1]; if (!inMap(nx, ny)) continue; const v = back[idx(nx, ny)]; if (v >= 0 && v < bd && !enemyAt(G, nx, ny)) { bd = v; best = k; } }
+    if (best < 0) return false; tryMove(G, best); return true;
+  };
+  if (vis.length && vis.some(e => (e.kind === 'boss' || e.awake) && !e.flee)) { const e = vis.filter(e => !e.flee).reduce((a, b) => (Math.abs(a.x - p.x) + Math.abs(a.y - p.y) <= Math.abs(b.x - p.x) + Math.abs(b.y - p.y) ? a : b)); if (goto(e.x, e.y)) return 'chase'; }
+  let best = null, bd = 1e9;
+  const ready = botReady(G);
+  for (const it of G.items) {
+    if (!G.seen[idx(it.x, it.y)]) continue; const di = ITEM[it.kind];
+    if (it.kind !== 'gold' && p.inv.length >= INV_MAX && !(di.stack && find(it.kind) >= 0)) continue;
+    if (ready && p.inv.length >= INV_MAX - 2 && it.kind !== 'gold' && !(it.kind === 'herb' || it.kind === 'herb_big')) continue; // 王に向かうときは薬草だけ拾う
+    const v = d[idx(it.x, it.y)]; if (v > 0 && v < bd) { bd = v; best = it; }
+  }
+  if (best && goto(best.x, best.y)) return 'item';
+  for (let i = 0; i < G.map.length; i++) if (G.map[i] === STAIRS && G.seen[i] && d[i] > 0) { if (goto(i % MW, Math.floor(i / MW))) return 'tostairs'; }
+  bd = 1e9; best = null;
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { // まだ見ていない所に接する床
+    const i = idx(x, y); if (d[i] <= 0) continue;
+    if (!DIRS.some(([dx, dy]) => inMap(x + dx, y + dy) && !G.seen[idx(x + dx, y + dy)])) continue;
+    if (d[i] < bd) { bd = d[i]; best = [x, y]; }
+  }
+  if (best && goto(best[0], best[1])) return 'explore';
+  for (let k = 0; k < 4; k++) if (passable(G, p.x + DIRS[k][0], p.y + DIRS[k][1]) && !enemyAt(G, p.x + DIRS[k][0], p.y + DIRS[k][1]) && G.rnd() < .5) { tryMove(G, k); return 'drift'; }
+  wait(G); return 'wait';
+}
+function botTown(G) { // 町での買い物。売る → 装備を買う → 消耗品 → 宿 → 穴へ
+  const p = G.p, find = k => p.inv.findIndex(i => i.kind === k), acts = [];
+  const keep = { herb: 3, herb_big: 1, onigiri: 1, dart: 1, bomb: 1, scroll_sleep: 1, scroll_home: 1, scroll_stairs: 1 }, have = {};
+  for (let i = p.inv.length - 1; i >= 0; i--) { const k = p.inv[i].kind, d = ITEM[k]; if (d.treasure || d.weapon || d.shield) { acts.push(sellItem(G, i)); continue; } }
+  for (let i = p.inv.length - 1; i >= 0; i--) { const k = p.inv[i].kind; have[k] = (have[k] || 0) + 1; } // 余った消耗品を売る（後ろから）
+  for (let i = p.inv.length - 1; i >= 0; i--) { const k = p.inv[i].kind; if ((have[k] || 0) > (keep[k] || 0)) { have[k]--; acts.push(sellItem(G, i)); } }
+  const better = (list, cur) => list.filter(k => (ITEM[k].weapon || ITEM[k].shield) > cur && ITEM[k].price <= p.gold - 100).sort((a, b) => ITEM[b].price - ITEM[a].price)[0];
+  const w = better(SHOP.weapon.filter(k => ITEM[k].weapon), p.weapon ? ITEM[p.weapon].weapon : 0);
+  if (w) { acts.push(buyItem(G, w)); if (p.weapon) acts.push(sellEquipped(G, 'weapon')); equipItem(G, find(w)); }
+  const sh = better(SHOP.weapon.filter(k => ITEM[k].shield), pDef(G));
+  if (sh) { acts.push(buyItem(G, sh)); if (p.shield) acts.push(sellEquipped(G, 'shield')); equipItem(G, find(sh)); }
+  if (find('scroll_home') < 0) acts.push(buyItem(G, 'scroll_home'));
+  const want = { herb: 3, onigiri: 1, dart: 1 };
+  for (const [k, n] of Object.entries(want)) while (p.inv.filter(i => i.kind === k).length < n && p.gold >= ITEM[k].price + 30 && p.inv.length < INV_MAX - 1) { const r = buyItem(G, k); if (!r.endsWith('買った')) break; acts.push(r); }
+  if (p.hp < p.maxhp || p.hunger < 60) acts.push(rest(G));
+  return acts;
+}
+function botCampaign(G, maxRuns, maxSteps) { // 町と穴の往復。王を倒すまでの潜った回数を返す（倒せなければ -1）
+  for (let r = 0; r < maxRuns; r++) {
+    botTown(G); startDive(G, 1);
+    for (let n = 0; n < (maxSteps || 6000) && G.phase === 'play'; n++) botStep(G);
+    if (G.phase === 'win') { returnToTown(G, 'win'); return G.runs; }
+    if (G.phase === 'dead') returnToTown(G, 'dead');
+    if (G.phase === 'play') returnToTown(G, 'home');
+  }
+  return -1;
+}
+
+// ---------- 絵 ----------
+const FALLBACK = { // art.js に無いときの代わり（色と1文字）
+  player: ['#f0e6c8', '人'], slime: ['#6cc46a', 'ス'], bat: ['#9a7bd1', 'コ'], goblin: ['#7fa35a', 'ゴ'], rat: ['#b08b5e', 'ネ'], skeleton: ['#e8e4d8', '骨'], mage: ['#5c7fd6', '魔'], ghost: ['#a8c8e8', '霊'], boss: ['#c9643c', '王'],
+  herb: ['#5db85a', '草'], herb_big: ['#8de06a', '草'], onigiri: ['#f4f0e8', '飯'], dart: ['#c8c8d0', '矢'], bomb: ['#303038', '爆'], scroll: ['#e0d2a8', '巻'], scroll2: ['#d0a8e0', '巻'], stick: ['#a07848', '棒'], sword: ['#d8dce8', '剣'], greatsword: ['#f0d060', '剣'], shield_wood: ['#a07848', '盾'], shield_iron: ['#b8c0d0', '盾'], gold: ['#f0c040', '金'], fireball: ['#ff8030', '火'], sleep: ['#ffffff', 'z'],
+};
+const Art = {
+  sp: {}, ok: false,
+  init() {
+    const A = window.CHIKA_ART; if (!A || !A.palette || !A.sprites) return;
+    for (const [name, rows] of Object.entries(A.sprites)) {
+      if (!Array.isArray(rows) || !rows.length || rows.some(r => typeof r !== 'string' || r.length !== rows[0].length)) continue;
+      const w = rows[0].length, h = rows.length, c = document.createElement('canvas'); c.width = w; c.height = h;
+      const x = c.getContext('2d'); let bad = false;
+      for (let y = 0; y < h; y++) for (let i = 0; i < w; i++) { const ch = rows[y][i]; if (ch === '.') continue; const col = A.palette[ch]; if (!col) { bad = true; continue; } x.fillStyle = col; x.fillRect(i, y, 1, 1); }
+      if (!bad) this.sp[name] = c;
+    }
+    this.ok = Object.keys(this.sp).length > 0;
+  },
+  draw(ctx, name, x, y, size, flip) {
+    const c = this.sp[name];
+    if (c) {
+      if (flip) { ctx.save(); ctx.translate(x + size, y); ctx.scale(-1, 1); ctx.drawImage(c, 0, 0, c.width, c.height, 0, 0, size, size * c.height / c.width); ctx.restore(); }
+      else ctx.drawImage(c, 0, 0, c.width, c.height, x, y, size, size * c.height / c.width);
+      return;
+    }
+    const f = FALLBACK[name]; if (!f) return;
+    const r = size * .18;
+    ctx.fillStyle = f[0]; ctx.beginPath(); ctx.roundRect(x + size * .12, y + size * .12, size * .76, size * .76, r); ctx.fill();
+    ctx.fillStyle = (name === 'skeleton' || name === 'onigiri' || name === 'player' || name === 'sword' || name === 'shield_iron' || name === 'ghost' || name === 'dart' || name === 'scroll' || name === 'scroll2' || name === 'herb_big' || name === 'greatsword' || name === 'gold' || name === 'sleep') ? '#1a1620' : '#fff';
+    ctx.font = `800 ${Math.round(size * .5)}px "Hiragino Sans", system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(f[1], x + size / 2, y + size * .53);
+  },
+  tile(ctx, name, x, y, size, alt) {
+    const c = this.sp[name === 'floor' && alt ? 'floor2' : name] || this.sp[name];
+    if (c) { ctx.drawImage(c, x, y, size, size); return; }
+    ctx.fillStyle = name === 'wall' ? '#4a4452' : name === 'stairs' ? '#000' : name === 'hall' ? '#2a1c1e' : (alt ? '#211d26' : '#1e1a22');
+    ctx.fillRect(x, y, size, size);
+    if (name === 'wall') { ctx.fillStyle = '#5e5868'; ctx.fillRect(x, y, size, Math.max(1, size * .18)); }
+    if (name === 'stairs') { ctx.fillStyle = '#8a8296'; for (let i = 0; i < 3; i++) ctx.fillRect(x + size * .2, y + size * (.25 + i * .22), size * .6, size * .08); }
+  },
+};
+
+const MAP_SPOTS = [{ key: 'town', name: '町', x: 64, y: 100 }, { key: 'hole', name: '穴', x: 250, y: 95 }];
+const TOWN_SHOPS = [{ key: 'inn', name: '宿屋', face: 'inn_face', x: 55 }, { key: 'shop', name: '道具屋', face: 'shop_face', x: 160 }, { key: 'smith', name: '武器屋', face: 'smith_face', x: 265 }];
+function fitArt(view, aw, ah, pad) { // 絵を画面に収める倍率と左上
+  let k = Math.min((view.w - 16) / aw, (view.h - pad) / ah); k = k >= 2 ? Math.floor(k * 2) / 2 : Math.floor(k * 4) / 4; k = Math.max(.5, k);
+  return { k, x: Math.round((view.w - aw * k) / 2), y: Math.round(40 + (view.h - pad - ah * k) / 2) };
+}
+function statusLine(G) { const p = G.p; return `金貨 ${p.gold}　Lv ${p.lv}　HP ${p.hp}/${p.maxhp}　武器 ${p.weapon ? ITEM[p.weapon].name : 'なし'}　盾 ${p.shield ? ITEM[p.shield].name : 'なし'}　もちもの ${p.inv.length}/${INV_MAX}`; }
+function renderOutside(ctx, G, view, ui) {
+  const { w, h } = view; const town = G.phase === 'town';
+  const aw = town ? 320 : 320, ah = town ? 120 : 180, f = fitArt(view, aw, ah, 150), k = f.k;
+  const art = Art.sp[town ? 'town' : 'worldmap'];
+  if (art) ctx.drawImage(art, f.x, f.y, aw * k, ah * k);
+  else { // 代わりの絵
+    ctx.fillStyle = town ? '#2a2230' : '#1e2a1e'; ctx.fillRect(f.x, f.y, aw * k, ah * k);
+    if (town) TOWN_SHOPS.forEach(sh => { ctx.fillStyle = '#4a3c50'; ctx.fillRect(f.x + (sh.x - 42) * k, f.y + 30 * k, 84 * k, 70 * k); });
+    else { ctx.fillStyle = '#5a4a3a'; ctx.fillRect(f.x + 64 * k, f.y + 100 * k, 186 * k, 4 * k); MAP_SPOTS.forEach(sp => { ctx.fillStyle = sp.key === 'town' ? '#8a6a4a' : '#000'; ctx.fillRect(f.x + (sp.x - 12) * k, f.y + (sp.y - 8) * k, 24 * k, 16 * k); }); }
+  }
+  const fs = Math.max(13, Math.min(18, Math.round(6 * k)));
+  ctx.font = `800 ${fs}px "Hiragino Sans", system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const spots = town ? TOWN_SHOPS : MAP_SPOTS, cur = town ? ui.townCur : ui.mapCur;
+  spots.forEach((sp, i) => {
+    const px = f.x + sp.x * k, py = town ? f.y + 104 * k : f.y + sp.y * k;
+    if (i === cur) { Art.draw(ctx, 'player', px - 8 * k, py - 16 * k, 16 * k, false); const bob = Math.sin(G.now * 6) * 3; ctx.fillStyle = '#e0a44a'; ctx.beginPath(); ctx.moveTo(px, py - 22 * k + bob); ctx.lineTo(px - 6, py - 30 * k + bob); ctx.lineTo(px + 6, py - 30 * k + bob); ctx.fill(); }
+    const ly = town ? f.y + 18 * k : py + 14 * k, tw = ctx.measureText(sp.name).width;
+    ctx.fillStyle = 'rgba(13,11,16,.75)'; ctx.beginPath(); ctx.roundRect(px - tw / 2 - 8, ly - fs * .7, tw + 16, fs * 1.4, 6); ctx.fill();
+    ctx.fillStyle = i === cur ? '#f1ece0' : '#b8ae9a';
+    ctx.fillText(sp.name, px, ly);
+  });
+  ctx.textAlign = 'left'; ctx.font = `700 ${Math.max(12, Math.min(15, Math.round(5 * k)))}px "Hiragino Sans", system-ui, sans-serif`;
+  ctx.fillStyle = '#f1ece0'; ctx.fillText(statusLine(G), f.x, f.y - 16);
+  const hint = town ? '← → えらぶ　Z 入る　X 地図へ' : '← → えらぶ　Z 行く';
+  ctx.fillStyle = '#b8ae9a'; ctx.fillText(hint, f.x, f.y + ah * k + 18);
+  const last = G.town[G.town.length - 1];
+  if (last && !(ui.shop)) { const sh = TOWN_SHOPS.find(t => t.key === last.who); const fy = f.y + ah * k + 34; if (sh && Art.sp[sh.face]) ctx.drawImage(Art.sp[sh.face], f.x, fy, 40, 40); ctx.fillStyle = '#f1ece0'; ctx.font = `${Math.max(12, Math.min(15, Math.round(5 * k)))}px "Hiragino Sans", system-ui, sans-serif`; ctx.fillText((sh ? sh.name + 'の娘「' : '「') + last.s + '」', f.x + (sh && Art.sp[sh.face] ? 48 : 0), fy + 20, w - f.x * 2); }
+}
+function render(ctx, G, view, ui) {
+  const { w, h, s, ox, oy } = view, ts = T * s, now = G.now;
+  ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+  ctx.fillStyle = '#0d0b10'; ctx.fillRect(0, 0, w, h);
+  ctx.imageSmoothingEnabled = false;
+  if (G.phase === 'map' || G.phase === 'town') { renderOutside(ctx, G, view, ui); return; }
+  if (G.phase === 'title') return;
+  let sx = 0, sy = 0;
+  for (const f of G.fx) if (f.kind === 'shake' && now - f.t0 < f.life) { sx = (Math.random() - .5) * 6; sy = (Math.random() - .5) * 6; }
+  ctx.save(); ctx.translate(sx, sy);
+  if (G.map) {
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+      const i = idx(x, y); if (!G.seen[i]) continue;
+      const t = G.map[i], px = ox + x * ts, py = oy + y * ts;
+      Art.tile(ctx, t === WALL ? 'wall' : t === STAIRS ? 'stairs' : t === HALL ? 'hall' : 'floor', px, py, ts, ((x * 7 + y * 13) % 5) === 0);
+    }
+    for (const it of G.items) { if (!G.seen[idx(it.x, it.y)]) continue; Art.draw(ctx, ITEM_ART[it.kind] || it.kind, ox + it.x * ts, oy + it.y * ts, ts, false); }
+    for (const e of G.enemies) {
+      if (e.hp <= 0 || !enemyVisible(G, e)) continue;
+      const flash = G.fx.some(f => f.kind === 'flash' && f.e === e && now - f.t0 < f.life);
+      if (e.size === 3) {
+        Art.draw(ctx, 'boss', ox + (e.x - 1) * ts, oy + (e.y - 1) * ts, ts * 3, e.face > 0);
+        if (e.charge != null) { ctx.fillStyle = '#ff5050'; ctx.font = `800 ${ts}px system-ui`; ctx.textAlign = 'center'; ctx.fillText('！', ox + e.x * ts + ts / 2, oy + (e.y - 1.4) * ts); }
+      } else Art.draw(ctx, e.kind, ox + e.x * ts, oy + e.y * ts, ts, e.face > 0);
+      if (flash) { ctx.fillStyle = 'rgba(255,255,255,.7)'; const sz = e.size === 3 ? 3 : 1; ctx.fillRect(ox + (e.x - (sz - 1) / 2) * ts, oy + (e.y - (sz - 1) / 2) * ts, ts * sz, ts * sz); }
+      if (e.sleep > 0) Art.draw(ctx, 'sleep', ox + e.x * ts + ts * .5, oy + e.y * ts - ts * .6, ts * .7, false);
+      if (e.hp < e.maxhp) { ctx.fillStyle = '#000'; ctx.fillRect(ox + e.x * ts, oy + e.y * ts - 3, ts, 3); ctx.fillStyle = '#e04040'; ctx.fillRect(ox + e.x * ts, oy + e.y * ts - 3, ts * e.hp / e.maxhp, 3); }
+    }
+    Art.draw(ctx, 'player', ox + G.p.x * ts, oy + G.p.y * ts, ts, G.p.face < 0);
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { // 見えていない所を暗く
+      const i = idx(x, y); if (!G.seen[i] || G.vis[i]) continue;
+      ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(ox + x * ts, oy + y * ts, ts, ts);
+    }
+    for (const f of G.fx) {
+      const k = (now - f.t0) / f.life; if (k >= 1) continue;
+      if (f.kind === 'num') { ctx.fillStyle = f.me ? '#ff7070' : '#fff'; ctx.font = `800 ${Math.round(ts * .8)}px system-ui`; ctx.textAlign = 'center'; ctx.fillText(String(f.v), ox + f.x * ts + ts / 2, oy + f.y * ts - k * ts * .8); }
+      else if (f.kind === 'boom') { ctx.strokeStyle = `rgba(255,160,60,${1 - k})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(ox + f.x * ts + ts / 2, oy + f.y * ts + ts / 2, ts * (.3 + k * 1.4), 0, Math.PI * 2); ctx.stroke(); }
+      else if (f.kind === 'fly' && f.path.length >= 2) { const n = f.path.length - 1, q = k * n, i = Math.min(n - 1, Math.floor(q)), r = q - i, a = f.path[i], b = f.path[i + 1] || a; Art.draw(ctx, f.art, ox + (a[0] + (b[0] - a[0]) * r) * ts, oy + (a[1] + (b[1] - a[1]) * r) * ts, ts, !!f.flip); }
+    }
+  }
+  ctx.restore();
+  // 上の状態
+  const p = G.p, fs = Math.max(12, Math.min(16, Math.round(ts * .55)));
+  ctx.font = `700 ${fs}px "Hiragino Sans", system-ui, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#f1ece0';
+  const parts = [`地下${G.floor}階`, `HP ${p.hp}/${p.maxhp}`, `Lv ${p.lv}`, `こうげき ${pAtk(G)}`, `ぼうぎょ ${pDef(G)}`, `満腹 ${p.hunger}`, `金 ${p.gold}`, `ターン ${G.turn}`];
+  const widths = parts.map(t => ctx.measureText(t).width), gap = fs * 1.1, avail = MW * ts;
+  const total = widths.reduce((a, b) => a + b, 0) + gap * (parts.length - 1);
+  const rows = total <= avail ? [parts] : [parts.slice(0, 4), parts.slice(4)];
+  rows.forEach((row, ri) => {
+    const hudY = oy - fs * (rows.length === 1 ? 1.2 : (2.5 - ri * 1.25));
+    let x = ox + 2;
+    for (const t of row) {
+      ctx.fillStyle = t.startsWith('HP') && p.hp <= p.maxhp * .3 ? '#ff7070' : t.startsWith('満腹') && p.hunger <= 20 ? '#ffb060' : '#f1ece0';
+      ctx.fillText(t, x, hudY);
+      const tw = ctx.measureText(t).width;
+      if (t.startsWith('HP')) { ctx.fillStyle = '#30283a'; ctx.fillRect(x, hudY + fs * .62, tw, 3); ctx.fillStyle = p.hp <= p.maxhp * .3 ? '#e04040' : '#5fbf6a'; ctx.fillRect(x, hudY + fs * .62, tw * p.hp / p.maxhp, 3); }
+      x += tw + gap;
+    }
+  });
+  // 下の文
+  const lfs = Math.max(12, Math.min(15, Math.round(ts * .5))); ctx.font = `${lfs}px "Hiragino Sans", system-ui, sans-serif`;
+  const lines = G.log.slice(-3); let ly = oy + MH * ts + lfs * 1.1;
+  if (ui && ui.dirAsk != null) { ctx.fillStyle = '#e0a44a'; ctx.fillText(`${ITEM[G.p.inv[ui.dirAsk].kind].name}を どっちへ投げる？ ←↑↓→（Esc でやめる）`, ox + 2, ly); }
+  else lines.forEach((m, i) => { ctx.fillStyle = i === lines.length - 1 ? '#f1ece0' : '#8d8577'; ctx.fillText(m.s, ox + 2, ly + i * lfs * 1.45); });
+}
+function drawTitleArt(canvas) {
+  const hf = document.getElementById('heroface'); if (hf) { if (Art.sp.hero_face) hf.getContext('2d').drawImage(Art.sp.hero_face, 0, 0); else hf.hidden = true; }
+  const x = canvas.getContext('2d'); const c = Art.sp.title;
+  if (c) { x.imageSmoothingEnabled = false; x.drawImage(c, 0, 0); return; }
+  const g = x.createLinearGradient(0, 0, 0, 90); g.addColorStop(0, '#141022'); g.addColorStop(1, '#2a2030'); x.fillStyle = g; x.fillRect(0, 0, 160, 90);
+  x.fillStyle = '#000'; x.beginPath(); x.ellipse(80, 60, 44, 16, 0, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#3a3344'; for (let i = 0; i < 5; i++) x.fillRect(66 + i * 2, 50 + i * 4, 28 - i * 4, 2);
+  x.fillStyle = '#f0e6c8'; x.fillRect(40, 48, 3, 6);
+}
+
+// ---------- 音（その場で合成する） ----------
+const Sound = {
+  ac: null, muted: false,
+  wake() {
+    if (!this.ac) { try { this.ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.ac = null; } }
+    if (this.ac && this.ac.state === 'suspended') this.ac.resume();
+  },
+  noise(dur, freq, gain, type, delay) {
+    const ac = this.ac, n = Math.max(1, Math.floor(ac.sampleRate * dur)), buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = buf; f.type = type || 'lowpass'; f.frequency.value = freq; g.gain.value = gain;
+    src.connect(f); f.connect(g); g.connect(ac.destination); src.start(ac.currentTime + (delay || 0));
+  },
+  tone(f0, f1, dur, gain, type, delay) {
+    const ac = this.ac, t = ac.currentTime + (delay || 0), o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + dur + .02);
+  },
+  play(name) {
+    if (!this.ac || this.muted) return;
+    try {
+      switch (name) {
+        case 'hit': this.noise(.06, 1600, .4); this.tone(220, 90, .08, .35, 'square'); break;
+        case 'throwhit': this.noise(.05, 2400, .35, 'highpass'); this.tone(500, 160, .08, .3, 'triangle'); break;
+        case 'kill': this.noise(.18, 900, .45); this.tone(300, 60, .25, .4, 'sawtooth'); break;
+        case 'hurt': this.noise(.1, 700, .5); this.tone(160, 50, .18, .5, 'square'); break;
+        case 'pickup': this.tone(660, 990, .07, .15, 'square'); this.tone(990, 1320, .07, .12, 'square', .07); break;
+        case 'gold': [880, 1175, 1480].forEach((f, i) => this.tone(f, f, .07, .12, 'square', i * .05)); break;
+        case 'stairs': [330, 262, 208, 165].forEach((f, i) => this.tone(f, f * .98, .16, .14, 'triangle', i * .11)); break;
+        case 'levelup': [523, 659, 784, 1047].forEach((f, i) => this.tone(f, f, .13, .15, 'square', i * .09)); break;
+        case 'eat': this.noise(.08, 500, .3); this.tone(300, 420, .1, .15, 'triangle', .06); break;
+        case 'throw': this.noise(.09, 1200, .15, 'bandpass'); break;
+        case 'boom': this.noise(.5, 500, .7); this.tone(120, 30, .5, .5, 'sawtooth'); break;
+        case 'sleep': [784, 659, 523].forEach((f, i) => this.tone(f, f * .9, .3, .1, 'sine', i * .18)); break;
+        case 'roar': this.noise(.4, 300, .5); this.tone(90, 40, .5, .5, 'sawtooth'); break;
+        case 'stomp': this.noise(.25, 200, .7); this.tone(70, 30, .3, .6, 'square'); break;
+        case 'summon': this.noise(.2, 400, .4); this.tone(200, 400, .25, .2, 'triangle'); break;
+        case 'fire': this.noise(.15, 2000, .3, 'bandpass'); this.tone(600, 200, .15, .2, 'sawtooth'); break;
+        case 'equip': this.tone(420, 420, .05, .2, 'square'); this.tone(630, 630, .08, .2, 'square', .06); break;
+        case 'menu': this.tone(500, 500, .03, .08, 'square'); break;
+        case 'win': [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => this.tone(f, f, .2, .14, 'square', i * .12)); break;
+        case 'lose': [392, 330, 262, 196].forEach((f, i) => this.tone(f, f * .97, .3, .14, 'triangle', i * .22)); break;
+      }
+    } catch (e) { /* 音が出なくても遊べる */ }
+  },
+};
+
+// ---------- 自己テスト ----------
+function runTests() {
+  const out = [];
+  const check = (name, fn) => {
+    let ok = false, note = '';
+    try { const r = fn(); ok = r === true; if (!ok) note = '  ' + String(r); } catch (e) { note = '  ' + e.message; }
+    out.push({ ok, text: (ok ? 'OK  ' : 'NG  ') + name + note });
+  };
+  const fresh = (seed, fl, opt) => { const G = makeGame(seed, Object.assign({ noSave: true }, opt || {})); startGame(G, fl); return G; };
+  const connected = G => { const d = bfs(G, G.p.x, G.p.y, false); for (let i = 0; i < G.map.length; i++) if (G.map[i] !== WALL && d[i] < 0) return false; return true; };
+  const clearEnemies = G => { G.enemies = []; };
+  check('50 の seed × 1〜9 階：床がぜんぶつながり、階段がある', () => {
+    for (let s = 1; s <= 50; s++) for (let fl = 1; fl <= 9; fl++) {
+      const G = fresh(s, fl); if (!connected(G)) return `seed ${s} 階 ${fl} が分断`;
+      if (!G.map.includes(STAIRS)) return `seed ${s} 階 ${fl} に階段がない`;
+      if (G.rooms.length < 5) return `seed ${s} 階 ${fl} の部屋が ${G.rooms.length}`;
+      if (G.map[idx(G.p.x, G.p.y)] === WALL) return '自分が壁の中';
+      for (const e of G.enemies) { if (G.map[idx(e.x, e.y)] === WALL) return '敵が壁の中'; if (fl < ENEMY[e.kind].floors[0] || fl > ENEMY[e.kind].floors[1]) return `${e.name}が ${fl} 階に`; }
+      for (const it of G.items) if (G.map[idx(it.x, it.y)] !== FLOOR) return '物が床の上にない';
+      if (G.enemies.length < 5 || G.enemies.length > 9) return `敵 ${G.enemies.length} 体`;
+    }
+    return true;
+  });
+  check('同じ seed なら同じ地形', () => { const a = fresh(7, 3), b = fresh(7, 3); return a.map.every((v, i) => v === b.map[i]) && a.p.x === b.p.x || '違う'; });
+  check('階段は自分のいる部屋にはない', () => { for (let s = 1; s <= 30; s++) { const G = fresh(s, 2); const i = G.map.indexOf(STAIRS); if (G.roomId[i] === G.roomId[idx(G.p.x, G.p.y)]) return `seed ${s}`; } return true; });
+  check('10 階：大広間に 3×3 の地底の王。自分と重ならない', () => { const G = fresh(1, 10); const b = G.enemies.find(e => e.kind === 'boss'); if (!b || b.size !== 3) return '王がいない'; if (!bossFree(G, b.x, b.y, b)) return '置けていない'; return enemyAt(G, b.x + 1, b.y - 1) === b && !enemyAt(G, G.p.x, G.p.y) || '当たり判定'; });
+  check('見える範囲：部屋に入ると部屋ぜんぶが見える。通路は周り1マス', () => {
+    const G = fresh(3, 1); const r = G.rooms[G.roomId[idx(G.p.x, G.p.y)]];
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (!G.vis[idx(x, y)]) return '部屋が見えない';
+    // 通路のマスを探す
+    let cx = -1, cy = -1; for (let y = 0; y < MH && cx < 0; y++) for (let x = 0; x < MW; x++) if (G.map[idx(x, y)] === FLOOR && G.roomId[idx(x, y)] < 0) { cx = x; cy = y; break; }
+    G.p.x = cx; G.p.y = cy; updateVis(G); let n = 0; for (let i = 0; i < G.vis.length; i++) n += G.vis[i]; return n <= 9 && n >= 3 || `通路で ${n} マス見える`;
+  });
+  check('ダメージは最低 1。防御で減る', () => { const G = fresh(1, 1); const a = dmgRoll(G, 1, 10), b = dmgRoll(G, 20, 4); return a === 1 && b >= 12 && b <= 20 || `${a} ${b}`; });
+  check('ぶつかると攻撃。倒すと経験値。レベルが上がると HP とこうげきが増える', () => {
+    const G = fresh(1, 1); clearEnemies(G); const s = ENEMY.slime;
+    G.enemies.push({ id: 9, kind: 'slime', name: s.name, x: G.p.x + 1, y: G.p.y, hp: 1, maxhp: 8, atk: 3, def: 0, exp: 30, speed: 'slow', awake: true, sleep: 0, face: -1, size: 1, hidden: 0 });
+    const atk0 = pAtk(G), hp0 = G.p.maxhp; tryMove(G, 1);
+    return G.enemies.length === 0 && G.p.lv === 2 && pAtk(G) === atk0 + 1 && G.p.maxhp === hp0 + 5 && G.p.kills === 1 || `lv ${G.p.lv}`;
+  });
+  check('敵が隣に来ると攻撃してくる。やられると phase が dead', () => {
+    const G = fresh(2, 1); clearEnemies(G); G.p.hp = 3; const s = ENEMY.skeleton;
+    G.enemies.push({ id: 9, kind: 'skeleton', name: s.name, x: G.p.x + 1, y: G.p.y, hp: 30, maxhp: 30, atk: 30, def: 4, exp: 1, speed: 'normal', awake: true, sleep: 0, face: -1, size: 1, hidden: 0 });
+    wait(G); return G.phase === 'dead' && G.p.hp === 0 || `phase ${G.phase}`;
+  });
+  check('cheat なら HP は 1 で止まる', () => { const G = fresh(2, 1, { cheat: true }); clearEnemies(G); G.p.hp = 3; hurtPlayer(G, 50, 'x'); return G.p.hp === 1 && G.phase === 'play' || `hp ${G.p.hp}`; });
+  check('満腹は 10 ターンに 1 減る。0 になると毎ターン HP が減る', () => {
+    const G = fresh(1, 1); clearEnemies(G); for (let i = 0; i < 100; i++) wait(G); if (G.p.hunger !== 90) return `満腹 ${G.p.hunger}`;
+    G.p.hunger = 0; const hp = G.p.hp; wait(G); wait(G); return G.p.hp === hp - 2 || `hp ${G.p.hp}`;
+  });
+  check('薬草 +30、大薬草は全快して最大 +3、おにぎりは満腹 +60（上限 100）', () => {
+    const G = fresh(1, 1); clearEnemies(G); G.p.hp = 1; G.p.inv = [{ kind: 'herb', n: 1 }, { kind: 'herb_big', n: 1 }, { kind: 'onigiri', n: 1 }];
+    useItem(G, 0); if (G.p.hp !== 30) return `薬草 ${G.p.hp}`; G.p.hp = 1; useItem(G, 0); if (G.p.maxhp !== 33 || G.p.hp !== 33) return `大薬草 ${G.p.hp}/${G.p.maxhp}`;
+    G.p.hunger = 70; useItem(G, 0); return G.p.hunger === 100 && G.p.inv.length === 0 || `満腹 ${G.p.hunger}`;
+  });
+  check('武器と盾は装備するとこうげき・ぼうぎょが増え、前のは手元に戻る', () => {
+    const G = fresh(1, 1); clearEnemies(G); G.p.inv = [{ kind: 'stick', n: 1 }, { kind: 'sword', n: 1 }, { kind: 'shield_wood', n: 1 }];
+    const a0 = pAtk(G); equipItem(G, 0); if (pAtk(G) !== a0 + 2) return 'a'; equipItem(G, 0); if (pAtk(G) !== a0 + 5 || !G.p.inv.some(i => i.kind === 'stick')) return 'b';
+    equipItem(G, G.p.inv.findIndex(i => i.kind === 'shield_wood')); return pDef(G) === 2 || 'c';
+  });
+  check('投げ矢は直線に飛んで最初の敵に当たる。束は 1 本減る', () => {
+    const G = fresh(1, 1); clearEnemies(G); G.p.inv = [{ kind: 'dart', n: 5 }]; const s = ENEMY.goblin;
+    G.enemies.push({ id: 9, kind: 'goblin', name: s.name, x: G.p.x, y: G.p.y, hp: 100, maxhp: 100, atk: 0, def: 0, exp: 1, speed: 'normal', awake: false, sleep: 0, face: -1, size: 1, hidden: 0 });
+    let d = -1; for (let k = 0; k < 4; k++) if (passable(G, G.p.x + DIRS[k][0] * 2, G.p.y + DIRS[k][1] * 2) && passable(G, G.p.x + DIRS[k][0], G.p.y + DIRS[k][1])) { d = k; break; } if (d < 0) return '場所がない';
+    const e = G.enemies[0]; e.x = G.p.x + DIRS[d][0] * 2; e.y = G.p.y + DIRS[d][1] * 2; e.awake = false; e.sleep = 99;
+    throwItem(G, 0, d); return e.hp < 100 && G.p.inv[0].n === 4 || `hp ${e.hp} n ${G.p.inv[0] && G.p.inv[0].n}`;
+  });
+  check('爆弾は周り 1 マスをまきこむ。自分も', () => {
+    const G = fresh(1, 1); clearEnemies(G); G.p.hp = 100; G.p.maxhp = 100; const s = ENEMY.slime;
+    G.enemies.push({ id: 9, kind: 'slime', name: s.name, x: G.p.x, y: G.p.y, hp: 100, maxhp: 100, atk: 0, def: 0, exp: 1, speed: 'slow', awake: false, sleep: 99, face: -1, size: 1, hidden: 0 });
+    let d = -1; for (let k = 0; k < 4; k++) if (passable(G, G.p.x + DIRS[k][0], G.p.y + DIRS[k][1])) { d = k; break; }
+    G.enemies[0].x = G.p.x + DIRS[d][0]; G.enemies[0].y = G.p.y + DIRS[d][1];
+    explode(G, G.enemies[0].x, G.enemies[0].y, 25); return G.enemies[0].hp === 75 && G.p.hp === 75 || `${G.enemies[0].hp} ${G.p.hp}`;
+  });
+  check('眠りの巻物は見えている敵を 8 ターン眠らせる', () => {
+    const G = fresh(1, 1); clearEnemies(G); const s = ENEMY.goblin;
+    G.enemies.push({ id: 9, kind: 'goblin', name: s.name, x: G.p.x, y: G.p.y, hp: 16, maxhp: 16, atk: 6, def: 1, exp: 1, speed: 'normal', awake: true, sleep: 0, face: -1, size: 1, hidden: 0 });
+    for (let k = 0; k < 4; k++) if (passable(G, G.p.x + DIRS[k][0], G.p.y + DIRS[k][1])) { G.enemies[0].x = G.p.x + DIRS[k][0]; G.enemies[0].y = G.p.y + DIRS[k][1]; break; }
+    G.p.inv = [{ kind: 'scroll_sleep', n: 1 }]; const hp = G.p.hp; useItem(G, 0); const sl = G.enemies[0].sleep; for (let i = 0; i < 6; i++) wait(G);
+    return sl === 7 && G.p.hp === hp && G.enemies[0].sleep === 1 || `sleep ${sl} → ${G.enemies[0].sleep} hp ${G.p.hp}`;
+  });
+  check('階段の巻物と、階段で Z：次の階へ', () => {
+    const G = fresh(1, 1); G.p.inv = [{ kind: 'scroll_stairs', n: 1 }]; useItem(G, 0); if (G.floor !== 2) return `階 ${G.floor}`;
+    const i = G.map.indexOf(STAIRS); G.p.x = i % MW; G.p.y = Math.floor(i / MW); return zAction(G) === 'stairs' && G.floor === 3 && G.maxFloor === 3 || `階 ${G.floor}`;
+  });
+  check('踏むと拾う。10 個でいっぱい。置くと床に戻る', () => {
+    const G = fresh(1, 1); clearEnemies(G); G.items = []; G.p.inv = []; let d = -1; for (let k = 0; k < 4; k++) if (passable(G, G.p.x + DIRS[k][0], G.p.y + DIRS[k][1])) { d = k; break; }
+    G.items.push({ kind: 'herb', n: 1, x: G.p.x + DIRS[d][0], y: G.p.y + DIRS[d][1] }); tryMove(G, d); if (G.p.inv.length !== 1 || G.items.length) return '拾えない';
+    for (let i = 0; i < 9; i++) G.p.inv.push({ kind: 'bomb', n: 1 });
+    G.items.push({ kind: 'herb', n: 1, x: G.p.x + DIRS[d][0], y: G.p.y + DIRS[d][1] }); tryMove(G, d); if (G.p.inv.length !== 10 || G.items.length !== 1) return 'いっぱいなのに拾った';
+    tryMove(G, (d + 2) % 4); dropItem(G, 0); return G.p.inv.length === 9 && G.items.length === 2 || '置けない';
+  });
+  check('金貨は点になる', () => { const G = fresh(1, 1); clearEnemies(G); G.p.inv = []; G.p.gold = 0; G.items = [{ kind: 'gold', n: 40, x: G.p.x, y: G.p.y }]; pickup(G); return G.p.gold === 40 && G.p.inv.length === 0 || 'x'; });
+  check('走る：敵が見えるか、物の上か、部屋を出入りするまで進む', () => {
+    const G = fresh(5, 1); clearEnemies(G); G.items = []; const r = G.rooms[G.roomId[idx(G.p.x, G.p.y)]]; G.p.x = r.x; G.p.y = r.y; updateVis(G);
+    const n = run(G, 1); return n >= 1 && n <= r.w && G.turn === n || `n ${n}`;
+  });
+  check('スライムは 2 ターンに 1 歩、コウモリは 1 ターンに 2 歩', () => {
+    const mk = (G, kind, x, y) => { const s = ENEMY[kind]; return { id: G.nextId++, kind, name: s.name, x, y, hp: 99, maxhp: 99, atk: 0, def: 0, exp: 1, speed: s.speed, awake: true, sleep: 0, face: -1, size: 1, hidden: 0, erratic: false }; };
+    const setup = kind => { const G = fresh(1, 1); clearEnemies(G); G.items = []; const r = G.rooms.reduce((a, b) => a.w >= b.w ? a : b); G.p.x = r.x; G.p.y = r.y; G.p.hp = 999; const e = mk(G, kind, r.x + 4, r.y); G.enemies = [e]; G.turn = 0; updateVis(G); return { G, e }; };
+    const A = setup('slime'); wait(A.G); wait(A.G); const sl = (A.G.p.x + 4) - A.e.x;
+    const B = setup('bat'); wait(B.G); const bt = (B.G.p.x + 4) - B.e.x;
+    return sl === 1 && bt === 2 || `slime ${sl} bat ${bt}`;
+  });
+  check('亡霊は壁をすり抜けて来る', () => {
+    const G = fresh(1, 1); clearEnemies(G); let wx = -1, wy = -1;
+    for (let k = 0; k < 4 && wx < 0; k++) { const x = G.p.x + DIRS[k][0] * 2, y = G.p.y + DIRS[k][1] * 2, mx = G.p.x + DIRS[k][0], my = G.p.y + DIRS[k][1]; if (inMap(x, y) && inMap(mx, my) && G.map[idx(mx, my)] === WALL) { wx = x; wy = y; } }
+    if (wx < 0) { G.p.x = G.rooms[0].x; G.p.y = G.rooms[0].y; updateVis(G); wx = G.p.x - 2; wy = G.p.y; }
+    const s = ENEMY.ghost; const e = { id: 9, kind: 'ghost', name: s.name, x: wx, y: wy, hp: 22, maxhp: 22, atk: 0, def: 2, exp: 1, speed: 'normal', awake: true, sleep: 0, face: -1, size: 1, hidden: 0, phase: true }; G.enemies = [e];
+    G.rnd = () => .99; wait(G); return Math.abs(e.x - G.p.x) + Math.abs(e.y - G.p.y) === 1 || `距離 ${Math.abs(e.x - G.p.x) + Math.abs(e.y - G.p.y)}`;
+  });
+  check('大ネズミは HP が半分を切ると逃げる', () => {
+    const G = fresh(1, 1); clearEnemies(G); const r = G.rooms[G.roomId[idx(G.p.x, G.p.y)]]; G.p.x = r.x; G.p.y = r.y; updateVis(G);
+    const s = ENEMY.rat; const e = { id: 9, kind: 'rat', name: s.name, x: r.x + 1, y: r.y, hp: 5, maxhp: 14, atk: 0, def: 0, exp: 1, speed: 'normal', awake: true, sleep: 0, face: -1, size: 1, hidden: 0, coward: true }; G.enemies = [e];
+    G.rnd = () => .5; hitEnemy(G, e, 1, 'melee'); wait(G); return e.flee === true && Math.abs(e.x - G.p.x) + Math.abs(e.y - G.p.y) >= 2 || `flee ${e.flee} 距離 ${Math.abs(e.x - G.p.x) + Math.abs(e.y - G.p.y)}`;
+  });
+  check('魔術師は一直線のとき火の玉を飛ばす', () => {
+    const G = fresh(1, 1); clearEnemies(G); const r = G.rooms.reduce((a, b) => a.w >= b.w ? a : b); G.p.x = r.x; G.p.y = r.y; updateVis(G);
+    const s = ENEMY.mage; const e = { id: 9, kind: 'mage', name: s.name, x: r.x + 3, y: r.y, hp: 18, maxhp: 18, atk: 9, def: 1, exp: 1, speed: 'normal', awake: true, sleep: 0, face: -1, size: 1, hidden: 0, ranged: true }; G.enemies = [e];
+    G.rnd = () => .5; const hp = G.p.hp; wait(G); return G.p.hp < hp && e.x === r.x + 3 || `hp ${hp}→${G.p.hp}`;
+  });
+  check('地底の王：5 ターンごとにスライムを呼ぶ。突進は当たると大きい', () => {
+    const G = fresh(1, 10); const b = G.enemies[0]; G.p.hp = 200; G.p.maxhp = 200; G.rnd = () => .99;
+    for (let i = 0; i < 5; i++) wait(G); if (!G.enemies.some(e => e.kind === 'slime')) return 'スライムが出ない';
+    G.enemies = [b]; G.p.x = b.x - 5; G.p.y = b.y; updateVis(G); G.rnd = () => .1; const hp = G.p.hp; wait(G); if (b.charge == null) return '身をかがめない';
+    wait(G); if (!(hp - G.p.hp >= 15 && b.charge == null)) return `ダメージ ${hp - G.p.hp}`;
+    G.p.x = b.x; G.p.y = b.y - 5; updateVis(G); b.charge = null; const hp2 = G.p.hp; wait(G); if (b.charge !== 0) return '上向きに身をかがめない'; wait(G); return hp2 - G.p.hp >= 15 || `上向き ${hp2 - G.p.hp}`;
+  });
+  check('地底の王を倒すと phase が win', () => { const G = fresh(1, 10); const b = G.enemies[0]; b.hp = 1; G.p.x = b.x - 2; G.p.y = b.y; updateVis(G); tryMove(G, 1); return G.phase === 'win' && G.result === 'win' || G.phase; });
+  check('自動で潜る（cheat）：seed 1 で 10 階の王を倒せる', () => {
+    const G = fresh(1, 1, { cheat: true }); G.noHome = true; let n = 0; for (; n < 6000 && G.phase === 'play'; n++) botStep(G);
+    return G.phase === 'win' || `phase ${G.phase} 階 ${G.floor} ターン ${G.turn} 手 ${n}`;
+  });
+  check('自動で潜る（cheat なし）：seed 1〜8 で平均 3 階より深く行ける', () => {
+    let sum = 0; for (let s = 1; s <= 8; s++) { const G = fresh(s, 1); G.noHome = true; for (let n = 0; n < 4000 && G.phase === 'play'; n++) botStep(G); sum += Math.max(G.maxFloor, G.floor); }
+    return sum / 8 > 3 || `平均 ${sum / 8}`;
+  });
+  check('絵の表：art.js があれば名前と寸法がそろっている（無ければ代わりの図形）', () => {
+    if (!window.CHIKA_ART) return true; const need = ['floor', 'wall', 'stairs', 'hall', 'player', 'slime', 'bat', 'goblin', 'rat', 'skeleton', 'mage', 'ghost', 'boss', 'herb', 'herb_big', 'onigiri', 'dart', 'bomb', 'scroll', 'scroll2', 'scroll3', 'stick', 'sword', 'greatsword', 'dragonsword', 'shield_wood', 'shield_iron', 'shield_dragon', 'gold', 'fireball', 'sleep', 'title', 'hero_face', 'inn_face', 'shop_face', 'smith_face', 'worldmap', 'town', 't_pot', 't_gem', 't_cup', 't_statue', 't_crown', 't_kingcrown'];
+    const miss = need.filter(n => !Art.sp[n]); return miss.length === 0 || '足りない: ' + miss.join(' ');
+  });
+  check('お宝は階に応じて落ちている。売ると値がつく', () => {
+    let n = 0; for (let s = 1; s <= 20; s++) for (let fl = 1; fl <= 9; fl++) { const G = fresh(s, fl); for (const it of G.items) if (ITEM[it.kind].treasure) { n++; const f = ITEM[it.kind].floors; if (fl < f[0] || fl > f[1]) return `${ITEM[it.kind].name}が ${fl} 階に`; } }
+    return n > 100 && sellPrice({ kind: 't_gem', n: 1 }) === 150 && sellPrice({ kind: 'dart', n: 5 }) === 25 && sellPrice({ kind: 'herb', n: 1 }) === 15 && sellPrice({ kind: 'gold', n: 1 }) === 0 || `お宝 ${n}`;
+  });
+  check('はじめから：町で始まり、金貨 50 と薬草・おにぎり・帰還の巻物', () => { const G = makeGame(1, { noSave: true }); newGame(G); return G.phase === 'town' && G.p.gold === 50 && G.p.inv.length === 3 && G.p.inv.some(i => i.kind === 'scroll_home') || G.phase; });
+  check('買う：金貨が減り手元に入る。足りないと買えない。いっぱいだと買えない。矢は 5 本', () => {
+    const G = makeGame(1, { noSave: true }); newGame(G); G.p.inv = []; G.p.gold = 100;
+    if (!buyItem(G, 'herb').endsWith('買った') || G.p.gold !== 70) return 'a';
+    if (buyItem(G, 'dragonsword') !== '金貨が足りない') return 'b';
+    buyItem(G, 'dart'); if (G.p.inv.find(i => i.kind === 'dart').n !== 5 || G.p.gold !== 20) return 'c';
+    buyItem(G, 'dart'); G.p.gold = 1000; while (G.p.inv.length < INV_MAX) G.p.inv.push({ kind: 'bomb', n: 1 });
+    return buyItem(G, 'herb') === 'もちものがいっぱい' && buyItem(G, 'dart').endsWith('買った') && G.p.inv.find(i => i.kind === 'dart').n === 10 || 'd';
+  });
+  check('売る：お宝は値段どおり、道具は半額。装備中の武器も売れる', () => {
+    const G = makeGame(1, { noSave: true }); newGame(G); G.p.inv = [{ kind: 't_statue', n: 1 }, { kind: 'bomb', n: 1 }]; G.p.gold = 0; G.p.weapon = 'sword';
+    sellItem(G, 0); if (G.p.gold !== 500) return `像 ${G.p.gold}`; sellItem(G, 0); if (G.p.gold !== 540) return `爆弾 ${G.p.gold}`;
+    sellEquipped(G, 'weapon'); return G.p.gold === 665 && G.p.weapon === null && G.p.inv.length === 0 || `剣 ${G.p.gold}`;
+  });
+  check('宿屋：20 金貨で全快。足りなければただ', () => {
+    const G = makeGame(1, { noSave: true }); newGame(G); G.p.hp = 1; G.p.hunger = 3; G.p.gold = 25; rest(G); if (G.p.hp !== G.p.maxhp || G.p.hunger !== 100 || G.p.gold !== 5) return 'a';
+    G.p.hp = 1; rest(G); return G.p.hp === G.p.maxhp && G.p.gold === 5 || 'b';
+  });
+  check('帰還の巻物で町へ。持ち物と金貨はそのまま', () => {
+    const G = fresh(1, 3); G.p.inv = [{ kind: 'scroll_home', n: 1 }, { kind: 't_gem', n: 1 }]; G.p.gold = 300; useItem(G, 0);
+    return G.phase === 'town' && G.p.inv.length === 1 && G.p.gold === 300 && G.maxFloor === 3 || G.phase;
+  });
+  check('倒れると、持ち物と穴で拾った金貨をなくす。装備とレベルは残る。HP は半分', () => {
+    const G = fresh(1, 3); G.p.gold = 500; G.p.weapon = 'sword'; G.p.lv = 4; G.p.maxhp = 50; G.p.inv = [{ kind: 't_gem', n: 1 }]; G.entryGold = 100; G.p.hp = 1; hurtPlayer(G, 9, 'x');
+    if (G.phase !== 'dead') return 'dead でない'; returnToTown(G, 'dead');
+    return G.phase === 'town' && G.p.inv.length === 0 && G.p.gold === 100 && G.p.weapon === 'sword' && G.p.lv === 4 && G.p.hp === 25 || `gold ${G.p.gold} hp ${G.p.hp}`;
+  });
+  check('王を倒すと冠が手に入る', () => { const G = fresh(1, 10); const b = G.enemies[0]; b.hp = 1; G.p.inv = []; G.p.x = b.x - 2; G.p.y = b.y; updateVis(G); tryMove(G, 1); return G.phase === 'win' && G.p.inv.some(i => i.kind === 't_kingcrown') || G.phase; });
+  check('記憶：保存して読み戻すと同じ', () => {
+    const G = makeGame(1, {}); G.saveKey = 'chika10-test'; newGame(G); G.p.gold = 777; G.p.weapon = 'greatsword'; G.p.lv = 5; G.p.inv = [{ kind: 'dart', n: 7 }]; G.runs = 3;
+    if (!saveGame(G)) return '保存できない';
+    const H = makeGame(2, {}); H.saveKey = 'chika10-test'; const ok = loadGame(H); try { localStorage.removeItem('chika10-test'); } catch (e) { /* */ }
+    return ok && H.p.gold === 777 && H.p.weapon === 'greatsword' && H.p.lv === 5 && H.p.inv[0].n === 7 && H.runs === 3 && H.phase === 'map' || '違う';
+  });
+  check('壁に向かって投げても落ちる（描画の道筋が空でも平気）', () => {
+    const G = fresh(1, 1); clearEnemies(G); G.items = []; let d = -1; for (let k = 0; k < 4; k++) if (!passable(G, G.p.x + DIRS[k][0], G.p.y + DIRS[k][1])) { d = k; break; }
+    if (d < 0) { G.p.x = G.rooms[0].x; G.p.y = G.rooms[0].y; updateVis(G); d = 3; }
+    G.p.inv = [{ kind: 'herb', n: 1 }]; throwItem(G, 0, d); G.now = 0.01;
+    const fly = G.fx.find(f => f.kind === 'fly'); return G.items.length === 1 && (!fly || fly.path.length >= 2) || `items ${G.items.length}`;
+  });
+  check('物のある床に投げても消えない（近くの床に落ちる）', () => {
+    const G = fresh(1, 10); G.enemies = []; G.items = [{ kind: 'herb', n: 1, x: G.p.x + 10, y: G.p.y }]; G.p.inv = [{ kind: 'sword', n: 1 }]; throwItem(G, 0, 1);
+    return G.items.length === 2 && G.items.some(i => i.kind === 'sword') || `items ${G.items.length}`;
+  });
+  check('魔術師は、自分の後ろが床でも撃つ', () => {
+    const G = fresh(1, 10); G.enemies = []; const s = ENEMY.mage; const e = { id: 9, kind: 'mage', name: s.name, x: G.p.x + 3, y: G.p.y, hp: 18, maxhp: 18, atk: 9, def: 1, exp: 1, speed: 'normal', awake: true, sleep: 0, face: -1, size: 1, hidden: 0, ranged: true }; G.enemies = [e];
+    G.rnd = () => .5; const hp = G.p.hp; wait(G); return G.p.hp < hp || `hp ${hp}→${G.p.hp}`;
+  });
+  check('投げ矢はこうげき +6 で当たる', () => { const G = fresh(1, 10); G.enemies = []; G.p.weapon = 'greatsword'; G.p.inv = [{ kind: 'dart', n: 1 }]; const s = ENEMY.slime; const e = { id: 9, kind: 'slime', name: s.name, x: G.p.x + 2, y: G.p.y, hp: 999, maxhp: 999, atk: 0, def: 0, exp: 1, speed: 'slow', awake: false, sleep: 99, face: -1, size: 1, hidden: 0 }; G.enemies = [e]; G.rnd = () => .5; throwItem(G, 0, 1); return 999 - e.hp === pAtk(G) + 6 || `${999 - e.hp}`; });
+  check('町と穴の往復（自動）：seed 1 で 2〜15 回の潜りで王を倒す', () => {
+    const G = makeGame(1, { noSave: true }); newGame(G); const n = botCampaign(G, 15, 5000);
+    return n >= 2 && n <= 15 && G.p.inv.some(i => i.kind === 't_kingcrown') && G.phase === 'town' || `回数 ${n} 階 ${G.maxFloor} 金 ${G.p.gold} 武器 ${G.p.weapon}`;
+  });
+  return { out, check };
+}
+
+// ---------- 動かす ----------
+(function main() {
+  const Q = new URLSearchParams(location.search);
+  const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+  const pad = document.getElementById('pad'), back = document.getElementById('back'), inv = document.getElementById('inv'), shopEl = document.getElementById('shop');
+  const screens = { title: document.getElementById('title'), pause: document.getElementById('pause'), result: document.getElementById('result') };
+  const published = /\/games\/[a-z0-9-]+\//.test(location.pathname);
+  if (published) back.hidden = false;
+  const touch = Q.has('touch') || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  if (touch) pad.hidden = false;
+  Art.init(); drawTitleArt(document.getElementById('titleart'));
+  if (Q.has('reset')) clearSave();
+
+  const fixedSeed = Q.has('seed');
+  const seed = fixedSeed ? (parseInt(Q.get('seed'), 10) || 0) : (Date.now() & 0xffff);
+  const testing = Q.has('test') || Q.has('floor') || Q.has('skip') || Q.has('seed') || Q.has('auto'); // 確認用のときは記憶を触らない
+  const G = makeGame(seed, { cheat: Q.has('cheat'), noSave: testing }); G.sfx = n => Sound.play(n);
+  const ui = { inv: false, cur: 0, sub: -1, dirAsk: null, paused: false, auto: Q.has('auto'), mapCur: 0, townCur: 0, shop: null, resetArmed: false };
+  const view = { w: 1, h: 1, dpr: 1, s: 1, ox: 0, oy: 0 };
+  window.G = G; window.UI = ui;
+  let shown = 'title', resultTimer = null;
+
+  function resize() {
+    view.w = window.innerWidth; view.h = window.innerHeight; view.dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(view.w * view.dpr); canvas.height = Math.round(view.h * view.dpr);
+    const padH = touch ? 180 : 0;
+    let s = Math.min((view.w - 8) / (MW * T), (view.h - 110 - padH) / (MH * T)); s = s >= 3 ? Math.floor(s) : Math.floor(s * 4) / 4; view.s = Math.max(.5, s);
+    view.ox = Math.round((view.w - MW * T * view.s) / 2); view.oy = Math.round(42 + (view.h - padH - 110 - MH * T * view.s) / 2);
+  }
+  resize(); window.addEventListener('resize', resize);
+
+  function show(name) { for (const k in screens) screens[k].hidden = k !== name; }
+  function refreshTitle() { const has = hasSave(); document.getElementById('start').textContent = has ? 'つづきから（Z キーでも）' : 'はじめる（Z キーでも）'; document.getElementById('reset').hidden = !has; }
+  refreshTitle();
+  function reseed() { if (!fixedSeed) { G.seed = Date.now() & 0xffff; } G.rnd = rng32((G.seed * 7 + 3) >>> 0); }
+  function begin() { // 題名から
+    Sound.wake(); reseed(); closeAll();
+    if (!loadGame(G)) newGame(G);
+    show(null); shown = 'out';
+  }
+  function dive(floor) { Sound.wake(); reseed(); closeAll(); startDive(G, floor || 1); show(null); shown = 'play'; }
+  function closeAll() { ui.inv = false; ui.dirAsk = null; ui.sub = -1; inv.hidden = true; ui.shop = null; shopEl.hidden = true; if (resultTimer) { clearTimeout(resultTimer); resultTimer = null; } }
+  function backToTown() { closeAll(); returnToTown(G, G.result === 'win' ? 'win' : 'dead'); show(null); shown = 'out'; }
+
+  // ---- もちもの ----
+  function renderInv() {
+    const p = G.p; const items = p.inv;
+    let h = `<div class="h">もちもの ${items.length}/${INV_MAX}<span>装備: ${p.weapon ? ITEM[p.weapon].name : 'なし'} / ${p.shield ? ITEM[p.shield].name : 'なし'}</span></div>`;
+    if (!items.length) h += '<p class="tip">なにも持っていない</p>';
+    else {
+      h += '<ul>' + items.map((it, i) => `<li class="${i === ui.cur ? 'cur' : ''}"><span>${itemLabel(it)}</span><span class="e">${ITEM[it.kind].weapon ? 'こうげき+' + ITEM[it.kind].weapon : ITEM[it.kind].shield ? 'ぼうぎょ+' + ITEM[it.kind].shield : ITEM[it.kind].treasure ? '売ると ' + ITEM[it.kind].treasure : ''}</span></li>`).join('') + '</ul>';
+      const it = items[ui.cur], note = ITEM[it.kind].note; if (note) h += `<p class="tip">${note}</p>`;
+      if (ui.sub >= 0) { const acts = actsFor(it); h += '<div class="acts">' + acts.map((a, i) => `<span class="${i === ui.sub ? 'cur' : ''}">${a}</span>`).join('') + '</div>'; }
+    }
+    h += `<p class="tip">${ui.sub >= 0 ? '← → えらぶ　Z 決定　X もどる' : '↑ ↓ えらぶ　Z つかう・投げる　X とじる'}</p>`;
+    inv.innerHTML = h;
+  }
+  function actsFor(it) { const d = ITEM[it.kind]; const a = []; if (d.weapon || d.shield) a.push('装備'); else if (d.use) a.push(d.use); a.push('投げる', '置く'); return a; }
+  function doAct(it, i, name) {
+    if (name === '投げる') { ui.dirAsk = i; ui.inv = false; inv.hidden = true; ui.sub = -1; return; }
+    let done = false;
+    if (name === '置く') done = dropItem(G, i); else done = useItem(G, i);
+    if (done) { ui.inv = false; inv.hidden = true; ui.sub = -1; ui.cur = 0; }
+  }
+
+  // ---- 店 ----
+  const LINES = {
+    inn: { enter: ['いらっしゃい。一晩 20 金貨。朝には元気になるよ', 'おかえり。顔が土だらけ。泊まっていきなよ'], rest: ['おやすみ。……おはよう。元気そうだね'], free: ['今日はいいよ、お金は。そのかわり、生きて帰ってきて'], leave: ['いってらっしゃい。帰還の巻物、持った？'] },
+    shop: { enter: ['いらっしゃい。穴に持っていくなら薬草と帰還の巻物。拾ったものは買い取るよ'], buy: ['まいど', 'それ、よく効くよ'], sell: ['いいもの持ってきたね', 'これは……高く買うよ'], none: ['それは、うちでは買い取れない'], poor: ['金貨が足りないみたい'], full: ['もちものがいっぱい。何か置いてきて'], leave: ['気をつけてね'] },
+    smith: { enter: ['強い武器がほしけりゃ金貨を持ってきな。買い取りは半額だ'], buy: ['いい買い物だ。すぐ装備しときな', 'それで王まで行ける……かもな'], sell: ['まあ、半額だ'], poor: ['金貨が足りないね。穴でお宝を拾ってきな'], full: ['荷物がいっぱいだ'], leave: ['死ぬなよ'] },
+  };
+  const pickLine = (key, ev) => { const a = LINES[key][ev] || LINES[key].enter; return a[Math.floor(Math.random() * a.length)]; };
+  function openShop(key) { Sound.play('menu'); ui.shop = { key, mode: 'menu', cur: 0, line: pickLine(key, 'enter') }; shopEl.hidden = false; renderShop(); }
+  function closeShop() { if (ui.shop) townSay(G, ui.shop.key, pickLine(ui.shop.key, 'leave')); ui.shop = null; shopEl.hidden = true; }
+  function shopRows() { // いまの画面の行
+    const sh = ui.shop, p = G.p;
+    if (sh.mode === 'menu') return sh.key === 'inn' ? [{ t: `休む（${p.gold >= INN_PRICE ? INN_PRICE + ' 金貨' : 'ただ'}）`, a: 'rest' }, { t: '出る', a: 'leave' }] : [{ t: '買う', a: 'buy' }, { t: '売る', a: 'sell' }, { t: '出る', a: 'leave' }];
+    if (sh.mode === 'buy') return SHOP[sh.key === 'smith' ? 'weapon' : 'item'].map(k => { const d = ITEM[k]; return { t: d.name + (d.stack ? ' ×5' : ''), n: d.weapon ? `こうげき +${d.weapon}` : d.shield ? `ぼうぎょ +${d.shield}` : (d.note || ''), pr: d.price, no: p.gold < d.price, a: 'buy', k }; });
+    const rows = [];
+    if (sh.key === 'smith') { if (p.weapon) rows.push({ t: `装備中の${ITEM[p.weapon].name}`, pr: Math.floor(ITEM[p.weapon].price / 2), a: 'sellEq', slot: 'weapon' }); if (p.shield) rows.push({ t: `装備中の${ITEM[p.shield].name}`, pr: Math.floor(ITEM[p.shield].price / 2), a: 'sellEq', slot: 'shield' }); }
+    p.inv.forEach((it, i) => { const d = ITEM[it.kind]; const mine = sh.key === 'smith' ? !!(d.weapon || d.shield) : !(d.weapon || d.shield); if (!mine) return; rows.push({ t: itemLabel(it), pr: sellPrice(it), no: sellPrice(it) <= 0, a: 'sell', i }); });
+    if (!rows.length) rows.push({ t: '（売れるものがない）', a: 'none', no: true });
+    return rows;
+  }
+  function renderShop() {
+    const sh = ui.shop; if (!sh) return; const spec = TOWN_SHOPS.find(t => t.key === sh.key), rows = shopRows();
+    sh.cur = Math.min(sh.cur, rows.length - 1);
+    const fc = document.getElementById('shopface'), fx = fc.getContext('2d'); fx.clearRect(0, 0, 64, 64);
+    if (Art.sp[spec.face]) fx.drawImage(Art.sp[spec.face], 0, 0); else { fx.fillStyle = '#6a5a7a'; fx.beginPath(); fx.arc(32, 26, 14, 0, Math.PI * 2); fx.fill(); fx.fillRect(16, 42, 32, 22); }
+    document.getElementById('shopwho').textContent = spec.name + 'の娘' + (sh.mode === 'buy' ? '　— 買う' : sh.mode === 'sell' ? '　— 売る' : '') + `　　金貨 ${G.p.gold}`;
+    document.getElementById('shopline').textContent = sh.line;
+    document.getElementById('shoplist').innerHTML = rows.map((r, i) => `<li class="${i === sh.cur ? 'cur' : ''}${r.no ? ' no' : ''}"><span>${r.t}</span>${r.n ? `<span class="n">${r.n}</span>` : ''}${r.pr != null ? `<span class="pr">${r.pr} 金貨</span>` : ''}</li>`).join('');
+    document.getElementById('shoptip').textContent = sh.mode === 'menu' ? '↑ ↓ えらぶ　Z 決定　X 出る' : '↑ ↓ えらぶ　Z 決定　X もどる';
+  }
+  function shopKey(k, D) {
+    const sh = ui.shop, rows = shopRows();
+    if (k === 'x') { if (sh.mode === 'menu') closeShop(); else { sh.mode = 'menu'; sh.cur = 0; sh.line = pickLine(sh.key, 'enter'); renderShop(); } return; }
+    if (D[k] === 0) sh.cur = (sh.cur + rows.length - 1) % rows.length; else if (D[k] === 2) sh.cur = (sh.cur + 1) % rows.length;
+    else if (k === 'z') {
+      const r = rows[sh.cur]; Sound.play('menu');
+      if (r.a === 'leave') { closeShop(); return; }
+      if (r.a === 'buy' || r.a === 'sell') { sh.mode = r.a; sh.cur = 0; sh.line = r.a === 'buy' ? 'どれにする？' : '何を売る？'; }
+      else if (r.a === 'rest') { const paid = G.p.gold >= INN_PRICE; sh.line = rest(G) + '　' + pickLine('inn', paid ? 'rest' : 'free'); Sound.play('eat'); }
+      else if (r.a === 'buy' || (r.a === 'buy' && r.k)) { /* 上で処理 */ }
+      if (r.k) { // 買う
+        const msg = buyItem(G, r.k);
+        if (msg.endsWith('買った')) {
+          Sound.play('gold'); let extra = '';
+          const d = ITEM[r.k]; const i = G.p.inv.findIndex(it => it.kind === r.k);
+          if ((d.weapon && d.weapon > (G.p.weapon ? ITEM[G.p.weapon].weapon : 0)) || (d.shield && d.shield > pDef(G))) { equipItem(G, i); extra = '　そのまま装備した'; }
+          sh.line = msg + extra + '　' + pickLine(sh.key, 'buy');
+        } else sh.line = msg + '　' + pickLine(sh.key, msg.includes('金貨') ? 'poor' : 'full');
+      } else if (r.a === 'sell') { const it = G.p.inv[r.i]; const msg = sellItem(G, r.i); sh.line = msg + '　' + pickLine(sh.key, ITEM[it.kind].treasure ? 'sell' : 'buy'); Sound.play('gold'); }
+      else if (r.a === 'sellEq') { sh.line = sellEquipped(G, r.slot) + '　' + pickLine('smith', 'sell'); Sound.play('gold'); }
+    }
+    renderShop();
+  }
+
+  // ---- キー ----
+  const D = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3, w: 0, d: 1, s: 2, a: 3 };
+  function key(k, shift) {
+    if (G.phase === 'title') { if (k === 'z' || k === 'Enter') begin(); else if (k === 'r' && hasSave()) resetSave(); return; }
+    if (G.phase === 'dead' || G.phase === 'win') { if (k === 'z' || k === 'Enter') backToTown(); return; }
+    if (G.phase === 'map') {
+      if (D[k] === 1 || D[k] === 3) { ui.mapCur = 1 - ui.mapCur; Sound.play('menu'); }
+      else if (k === 'z') { if (ui.mapCur === 0) { G.phase = 'town'; Sound.play('menu'); } else dive(1); }
+      return;
+    }
+    if (G.phase === 'town') {
+      if (ui.shop) { shopKey(k, D); return; }
+      if (D[k] === 1) { ui.townCur = (ui.townCur + 1) % 3; Sound.play('menu'); } else if (D[k] === 3) { ui.townCur = (ui.townCur + 2) % 3; Sound.play('menu'); }
+      else if (k === 'z') openShop(TOWN_SHOPS[ui.townCur].key);
+      else if (k === 'x' || k === 'Escape') { G.phase = 'map'; ui.mapCur = 0; saveGame(G); }
+      return;
+    }
+    if (k === 'Escape') {
+      if (ui.dirAsk != null) { ui.dirAsk = null; return; }
+      if (ui.inv) { ui.inv = false; inv.hidden = true; ui.sub = -1; return; }
+      ui.paused = !ui.paused; show(ui.paused ? 'pause' : null); return;
+    }
+    if (ui.paused) return;
+    if (ui.dirAsk != null) { if (k in D) { throwItem(G, ui.dirAsk, D[k]); ui.dirAsk = null; } else if (k === 'x') ui.dirAsk = null; return; }
+    if (ui.inv) {
+      const n = G.p.inv.length;
+      if (k === 'x') { if (ui.sub >= 0) ui.sub = -1; else { ui.inv = false; inv.hidden = true; } }
+      else if (!n) { if (k === 'z') { ui.inv = false; inv.hidden = true; } }
+      else if (ui.sub < 0) {
+        if (D[k] === 0) ui.cur = (ui.cur + n - 1) % n; else if (D[k] === 2) ui.cur = (ui.cur + 1) % n;
+        else if (k === 'z') { ui.sub = 0; Sound.play('menu'); }
+      } else {
+        const acts = actsFor(G.p.inv[ui.cur]);
+        if (D[k] === 3) ui.sub = (ui.sub + acts.length - 1) % acts.length; else if (D[k] === 1) ui.sub = (ui.sub + 1) % acts.length;
+        else if (k === 'z') doAct(G.p.inv[ui.cur], ui.cur, acts[ui.sub]);
+      }
+      ui.cur = Math.min(ui.cur, Math.max(0, G.p.inv.length - 1)); if (ui.inv) renderInv(); return;
+    }
+    if (k in D) { if (shift) run(G, D[k]); else tryMove(G, D[k]); }
+    else if (k === 'z') zAction(G);
+    else if (k === 'x') { ui.inv = true; ui.cur = 0; ui.sub = -1; inv.hidden = false; renderInv(); Sound.play('menu'); }
+  }
+  function resetSave() { if (!ui.resetArmed) { ui.resetArmed = true; document.getElementById('reset').textContent = 'もう一度押すと、記憶が消えます'; return; } clearSave(); ui.resetArmed = false; refreshTitle(); document.getElementById('reset').textContent = '記憶を消して、はじめから（R キー）'; }
+  window.addEventListener('keydown', e => {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (k === 'm') { Sound.muted = !Sound.muted; return; }
+    if (!(k in { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, w: 1, a: 1, s: 1, d: 1, z: 1, x: 1, r: 1, Enter: 1, Escape: 1, ' ': 1 })) return;
+    e.preventDefault(); Sound.wake();
+    if (e.repeat && !(k in { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, w: 1, a: 1, s: 1, d: 1 })) return;
+    key(k === ' ' ? 'z' : k, e.shiftKey);
+  });
+  const PADK = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', z: 'z', x: 'x' };
+  for (const b of pad.querySelectorAll('button')) {
+    let timer = null; const k = PADK[b.dataset.k];
+    b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('on'); Sound.wake(); key(k, false); if (k.startsWith('Arrow')) timer = setInterval(() => key(k, false), 160); });
+    const up = e => { e.preventDefault(); b.classList.remove('on'); clearInterval(timer); timer = null; };
+    b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
+    b.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  document.getElementById('start').addEventListener('click', begin);
+  document.getElementById('reset').addEventListener('click', resetSave);
+  document.getElementById('retry').addEventListener('click', backToTown);
+  canvas.addEventListener('pointerdown', () => { Sound.wake(); if (G.phase === 'title') begin(); });
+
+  if (Q.has('test')) {
+    const { out } = runTests();
+    const pre = document.getElementById('test'); pre.hidden = false;
+    const ok = out.filter(o => o.ok).length;
+    pre.textContent = `自己テスト ${ok}/${out.length}\n` + out.map(o => o.text).join('\n');
+    window.TEST_RESULT = { ok, total: out.length, lines: out.map(o => o.text) };
+  }
+  if (Q.has('auto') || Q.has('skip') || Q.has('floor')) {
+    Sound.wake(); reseed(); newGame(G); show(null); shown = 'out';
+    if (Q.has('skip') || Q.has('floor')) { startDive(G, parseInt(Q.get('floor'), 10) || 1); shown = 'play'; const n = parseInt(Q.get('skip'), 10) || 0; for (let i = 0; i < n && G.phase === 'play'; i++) botStep(G); }
+  }
+  if (ui.auto) setInterval(() => {
+    if (ui.paused || ui.inv || ui.dirAsk != null || ui.shop) return;
+    if (G.phase === 'play') botStep(G);
+    else if (G.phase === 'town' || G.phase === 'map') { botTown(G); dive(1); }
+    else if (G.phase === 'dead' || G.phase === 'win') backToTown();
+  }, 90);
+
+  function loop() {
+    G.now = performance.now() / 1000;
+    G.fx = G.fx.filter(f => G.now - f.t0 < f.life + .05);
+    if ((G.phase === 'dead' || G.phase === 'win') && shown !== G.phase) {
+      shown = G.phase; const gen = G.runs;
+      document.getElementById('verdict').textContent = G.phase === 'win' ? '地底の王を たおした' : `地下${G.floor}階で たおれた`;
+      document.getElementById('stats').innerHTML = `到達 地下${Math.max(G.maxFloor, G.floor)}階　レベル ${G.p.lv}　たおした数 ${G.p.kills}　ターン ${G.turn}<br>` +
+        (G.phase === 'win' ? `${G.runs} 回目の潜りで、王を倒した。冠は道具屋が買い取る` : `持ち物と、穴で拾った金貨 ${G.p.gold - G.entryGold} をなくした。装備とレベルは残る`) +
+        `<br><span class="dim">${G.log.length ? G.log[G.log.length - 1].s : ''}</span>`;
+      inv.hidden = true; ui.inv = false; ui.dirAsk = null;
+      if (resultTimer) clearTimeout(resultTimer);
+      resultTimer = setTimeout(() => { resultTimer = null; if (G.runs === gen && (G.phase === 'dead' || G.phase === 'win')) show('result'); }, 900);
+    }
+    render(ctx, G, view, ui);
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+</script>
+</body>
+</html>
