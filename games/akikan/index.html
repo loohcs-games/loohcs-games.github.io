@@ -42,6 +42,10 @@
     border: 2px solid var(--gold); border-radius: 6px; padding: 12px 36px; cursor: pointer;
   }
   button.big:hover, button.big:focus-visible { background: rgba(234, 164, 86, .2); outline: none; }
+  .guns { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  button.gun { padding: 12px 22px; min-width: 230px; border-color: rgba(234, 164, 86, .35); }
+  button.gun.on { border-color: var(--gold); background: rgba(234, 164, 86, .2); }
+  button.gun small { display: block; margin-top: 4px; font-size: 12px; font-weight: 400; letter-spacing: .05em; text-indent: 0; color: var(--dim); }
   #back { position: fixed; left: 14px; top: 12px; z-index: 5; color: var(--dim); text-decoration: none; font-size: 13px; }
   #back:hover { color: var(--ink); }
   #back[hidden] { display: none; }
@@ -69,8 +73,11 @@
   <h1>空き缶撃ち</h1>
   <div class="rule"></div>
   <p>夕方の空き地。柵の上に、空き缶が並んでいる。<br>撃って、落とす。それだけ。……最後の面をのぞいては。</p>
-  <button class="big" id="go">はじめる</button>
-  <p class="dim">Space キーでも進みます。マウスでも、キーボードだけでも遊べます。<br>音が出ます（M で消音）。</p>
+  <div class="guns">
+    <button class="big gun on" data-gun="pistol">拳銃<small>六発。一発ずつ撃つ</small></button>
+    <button class="big gun" data-gun="mg">機関銃<small>六十発。押しっぱなしで撃ちつづける</small></button>
+  </div>
+  <p class="dim"><kbd>←</kbd> <kbd>→</kbd> で銃をえらび、Space ではじめます。マウスでも、キーボードだけでも遊べます。<br>音が出ます（M で消音）。</p>
 </div>
 
 <div id="howto" class="screen" hidden>
@@ -93,7 +100,7 @@
         <g fill="#e2b25a44"><rect x="88" y="64" width="9" height="20" rx="4"/><rect x="104" y="64" width="9" height="20" rx="4"/></g>
         <path d="M150 90 L176 28 L194 30 L178 92z" fill="#34373d"/><rect x="166" y="54" width="34" height="22" rx="5" fill="#45484f"/>
         <circle cx="186" cy="20" r="11" fill="#ffd27a"/><circle cx="186" cy="20" r="5" fill="#fff6d8"/></svg>
-      <kbd>Space</kbd> で撃つ。<br>弾は六発。なくなると、自動でこめ直す。<br><kbd>R</kbd> で、好きなときにこめ直す。<br>
+      <span id="hshot"><kbd>Space</kbd> で撃つ。<br>弾は六発。</span>なくなると、自動でこめ直す。<br><kbd>R</kbd> で、好きなときにこめ直す。<br>
       <span class="dim">左クリック、Z J Enter でも撃てる。</span>
     </div>
     <div class="card">
@@ -179,7 +186,12 @@ const fwd = (yaw, pitch) => [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), M
 const H = 1 / 120, G = 9.8, NEAR = .08;
 const EYE = [0, 1.5, 0];
 const CAN_R = .05, CAN_H = .085;            // 缶の半径と、高さの半分
-const MAG = 6, RELOAD = 1.1, FIRE_GAP = .16;
+// 銃。gap は次の弾までの秒、auto は押しっぱなしで撃ちつづけるか、spread は弾のばらつき（ラジアン）
+const GUNS = {
+  pistol: { name: '拳銃', mag: 6, reload: 1.1, gap: .16, auto: false, spread: 0, kick: 1, shot: 'shot' },
+  mg: { name: '機関銃', mag: 60, reload: 1.3, gap: .06, auto: true, spread: .003, kick: .55, shot: 'burst' },
+};
+const MAG = GUNS.pistol.mag, RELOAD = GUNS.pistol.reload;
 const FOV = 46 * Math.PI / 180, FOV_Z = 17 * Math.PI / 180;
 const YAW_MAX = 1.1, PITCH_MIN = -.4, PITCH_MAX = .95;
 const MOUSE = .0022;                         // マウス1ピクセルあたりの回る角度（ラジアン）
@@ -271,9 +283,10 @@ function makeWorld(seed, opt) {
   return w;
 }
 function startStage(w, i) {
+  if (!w.gun) w.gun = GUNS.pistol;
   Object.assign(w, {
     stage: i, t: 0, state: 'play', endT: 0, cans: [], props: [], fx: [], sfx: [], boss: null, toss: null, got: 0, airBest: 0,
-    yaw: 0, pitch: -.04, zoomK: 0, ammo: MAG, reloadT: 0, fireT: 0, kick: 0, shake: 0, flash: 0, tracer: null, msg: null,
+    yaw: 0, pitch: -.04, zoomK: 0, ammo: w.gun.mag, reloadT: 0, fireT: 0, kick: 0, shake: 0, flash: 0, tracer: null, msg: null,
     hold: { l: 0, r: 0, u: 0, d: 0 }, shots: 0, hits: 0, score: 0, why: '', goalText: '', paused: false,
   });
   STAGES[i].build(w);
@@ -339,9 +352,10 @@ function fire(w) {
   if (w.state !== 'play') return false;
   if (w.reloadT > 0 || w.fireT > 0) return false;
   if (w.ammo <= 0) { w.sfx.push({ k: 'empty' }); startReload(w); return false; }
-  w.ammo--; w.fireT = FIRE_GAP; w.shots++; w.kick = 1; w.flash = 1;
-  w.sfx.push({ k: 'shot' });
-  const d = fwd(w.yaw, w.pitch), hit = trace(w, EYE, d);
+  const g = w.gun, sp = g.spread * (1 - .7 * w.zoomK); // のぞくと、ばらつきが小さくなる
+  w.ammo--; w.fireT = g.gap; w.shots++; w.kick = g.kick; w.flash = 1;
+  w.sfx.push({ k: g.shot });
+  const d = fwd(w.yaw + (sp ? (w.R() - .5) * 2 * sp : 0), w.pitch + (sp ? (w.R() - .5) * 2 * sp : 0)), hit = trace(w, EYE, d);
   w.tracer = { q: hit.q, t: 0 };
   if (hit.k === 'can') hitCan(w, hit.c, hit.q, d);
   else if (hit.k === 'boss') hitBoss(w, hit.q, d);
@@ -351,8 +365,8 @@ function fire(w) {
   return hit.k;
 }
 function startReload(w, delay) {
-  if (w.reloadT > 0 || w.ammo >= MAG) return;
-  w.reloadT = RELOAD + (delay || 0); w.sfx.push({ k: 'reload' });
+  if (w.reloadT > 0 || w.ammo >= w.gun.mag) return;
+  w.reloadT = w.gun.reload + (delay || 0); w.sfx.push({ k: 'reload' });
 }
 function hitCan(w, c, q, d) {
   const R = w.R, airborne = c.state === 'fly' && !c.touch;
@@ -417,11 +431,11 @@ function step(w, dt, keys) {
   else {
     w.yaw = clamp(w.yaw + (sp('r') - sp('l')) * dt, -YAW_MAX, YAW_MAX);
     w.pitch = clamp(w.pitch + (sp('u') - sp('d')) * dt, PITCH_MIN, PITCH_MAX);
-    if (keys.fire) fire(w);
+    if (keys.fire || (keys.held && w.gun.auto)) fire(w);
     if (keys.reload && w.state === 'play') startReload(w);
   }
   if (w.fireT > 0) w.fireT -= dt;
-  if (w.reloadT > 0) { w.reloadT -= dt; if (w.reloadT <= 0) { w.reloadT = 0; w.ammo = MAG; w.sfx.push({ k: 'loaded' }); } }
+  if (w.reloadT > 0) { w.reloadT -= dt; if (w.reloadT <= 0) { w.reloadT = 0; w.ammo = w.gun.mag; w.sfx.push({ k: 'loaded' }); } }
   w.kick = Math.max(0, w.kick - dt * 9); w.flash = Math.max(0, w.flash - dt * 22); w.shake = Math.max(0, w.shake - dt * 1.6);
   if (w.tracer && (w.tracer.t += dt) > .07) w.tracer = null;
   if (w.msg && (w.msg.t += dt) > 2.6) w.msg = null;
@@ -528,7 +542,7 @@ function autoTarget(w) {
 }
 function autoAim(w, dt) {
   const P = w.state === 'play' && autoTarget(w);
-  if (!P) { if (w.ammo < MAG && w.state === 'play') startReload(w); return; }
+  if (!P) { if (w.ammo < w.gun.mag && w.state === 'play') startReload(w); return; }
   const v = sub(P, EYE), ty = Math.atan2(v[0], v[2]), tp = Math.atan2(v[1], Math.hypot(v[0], v[2]));
   const mx = 2.4 * dt, dy = clamp(ty - w.yaw, -mx, mx), dp = clamp(tp - w.pitch, -mx, mx);
   w.yaw = clamp(w.yaw + dy, -YAW_MAX, YAW_MAX); w.pitch = clamp(w.pitch + dp, PITCH_MIN, PITCH_MAX);
@@ -742,7 +756,7 @@ function render(ctx, w, V, live) {
   }
 }
 function drawGun(ctx, w, V) {
-  const zk = smooth(w.zoomK), rp = w.reloadT > 0 ? Math.sin(Math.PI * clamp(1 - w.reloadT / RELOAD, 0, 1)) : 0;
+  const zk = smooth(w.zoomK), rp = w.reloadT > 0 ? Math.sin(Math.PI * clamp(1 - w.reloadT / w.gun.reload, 0, 1)) : 0;
   const s = V.H / 900, k = w.kick;
   const bx = V.W / 2 + V.H * lerp(.36, .0, zk), by = V.H * (lerp(1.03, 1.1, zk) + .3 * rp) + 34 * s * k;
   const th = lerp(-.42, 0, zk) - .1 * k + .55 * rp;
@@ -757,6 +771,15 @@ function drawGun(ctx, w, V) {
   ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(-2, -428, 3, 166);
   ctx.fillStyle = '#111'; ctx.fillRect(-3, -440, 6, 12); ctx.fillRect(-16, -270, 9, 10); ctx.fillRect(7, -270, 9, 10);
   ctx.fillStyle = 'rgba(255,170,90,.12)'; ctx.fillRect(-46, -262, 18, 64);
+  if (w.gun.auto) { // 機関銃：穴のあいた放熱筒と、左に出た箱の弾倉
+    ctx.fillStyle = metal(-27, 27); ctx.beginPath(); ctx.roundRect(-27, -404, 54, 146, 9); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.6)';
+    for (let y = -384; y <= -280; y += 26) for (const x of [-14, 0, 14]) { ctx.beginPath(); ctx.ellipse(x, y, 4, 8, 0, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = 'rgba(255,170,90,.12)'; ctx.fillRect(-27, -400, 9, 138);
+    ctx.fillStyle = '#1b1d21'; ctx.beginPath(); ctx.roundRect(-136, -250, 94, 50, 7); ctx.fill();
+    ctx.fillStyle = '#2f3238'; ctx.beginPath(); ctx.roundRect(-136, -250, 94, 12, 6); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.1)'; ctx.lineWidth = 2; for (const x of [-116, -96, -76]) { ctx.beginPath(); ctx.moveTo(x, -234); ctx.lineTo(x, -204); ctx.stroke(); }
+  }
   ctx.restore();
   // 銃口の位置
   const L = 432 * s; return [bx + L * Math.sin(th), by - L * Math.cos(th)];
@@ -789,14 +812,15 @@ function hud(ctx, w, V) {
   }
   // 弾
   const by = Hh - 26;
-  for (let i = 0; i < MAG; i++) {
+  const gn = w.gun, many = gn.mag > 12, bp = many ? 5 : 15, bw = many ? 3 : 9, barW = gn.mag * bp - (bp - bw);
+  for (let i = 0; i < gn.mag; i++) {
     const on = i < w.ammo; ctx.fillStyle = on ? '#e9b75e' : 'rgba(233,183,94,.22)';
-    ctx.beginPath(); ctx.roundRect(18 + i * 15, by - 26, 9, 26, [4.5, 4.5, 1, 1]); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(18 + i * bp, by - 26, bw, 26, [bw / 2, bw / 2, 1, 1]); ctx.fill();
   }
   if (w.reloadT > 0) {
-    const p = clamp(1 - (w.reloadT) / RELOAD, 0, 1);
+    const p = clamp(1 - (w.reloadT) / gn.reload, 0, 1);
     txt('こめ直し', 18, by - 36, 13, 'left', '#eaa456');
-    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(18, by + 6, 87, 5); ctx.fillStyle = '#eaa456'; ctx.fillRect(18, by + 6, 87 * p, 5);
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(18, by + 6, barW, 5); ctx.fillStyle = '#eaa456'; ctx.fillRect(18, by + 6, barW * p, 5);
   }
   if (w.msg) { const a = clamp(Math.min(w.msg.t * 4, (2.6 - w.msg.t) * 2), 0, 1); ctx.globalAlpha = a; txt(w.msg.s, cx, Hh * .3, 22, 'center', '#ffd27a'); ctx.globalAlpha = 1; }
   if (w.state === 'clear') txt(w.stage === 4 ? 'やった' : 'クリア', cx, cy - 60, 40, 'center', '#ffd27a');
@@ -851,6 +875,22 @@ function runTests() {
     step(w, H, { reload: true }); if (w.reloadT > 0) return '満タンでこめ直した';
     fire(w); step(w, H, { reload: true }); if (w.reloadT <= 0) return 'こめ直さない';
     run(w, 1.2); return w.ammo === MAG || w.ammo;
+  });
+  check('機関銃：押しっぱなしで撃ちつづける（1秒に15発ほど）。六十発でこめ直し、また撃ちつづける。拳銃は押しっぱなしでは撃たない', () => {
+    const w = makeWorld(2); w.gun = GUNS.mg; startStage(w, 0); w.pitch = .5;
+    if (w.ammo !== 60) return `弾 ${w.ammo}`;
+    run(w, 1, { held: true }); const n1 = w.shots;
+    if (n1 < 13 || n1 > 17 || w.ammo !== 60 - n1) return `1秒で ${n1} 発、残り ${w.ammo}`;
+    run(w, 3.2, { held: true }); if (w.shots !== 60 || w.reloadT <= 0) return `撃ちきらない ${w.shots} ${w.reloadT}`;
+    run(w, 2.5, { held: true }); if (w.shots <= 60) return 'こめ直したあと撃たない';
+    const p = makeWorld(2); startStage(p, 0); p.pitch = .5; run(p, 1, { held: true });
+    return p.shots === 0 || `拳銃が ${p.shots} 発`;
+  });
+  check('機関銃：缶をねらって押しつづけると、缶に当たる。大缶も削れる', () => {
+    const w = makeWorld(2); w.gun = GUNS.mg; startStage(w, 0); aimAt(w, w.cans[2].p);
+    run(w, .3, { held: true }); if (!w.cans[2].down) return '缶に当たらない';
+    startStage(w, 4); aimAt(w, w.boss.p); run(w, 1, { held: true });
+    return w.boss.hp < BOSS_HP - 5 || `大缶 ${w.boss.hp}`;
   });
   check('一面：六つぜんぶ落とすとクリア', () => {
     const w = makeWorld(3); startStage(w, 0);
@@ -969,6 +1009,7 @@ function makeAudio() {
       if (this.muted) return;
       const t = ctx.currentTime, r = Math.random(); v = v == null ? 1 : v;
       if (k === 'shot') { hiss(t, .2, .9, 'lowpass', 3200, 380); tone(120, t, .12, .7, 42); hiss(t, .03, .45, 'highpass', 2200); }
+      else if (k === 'burst') { hiss(t, .09, .6, 'lowpass', 2800, 500); tone(150 * (.94 + r * .12), t, .06, .5, 55); hiss(t, .02, .32, 'highpass', 2400); }
       else if (k === 'can') { metal(1100 * (.85 + r * .3), [1, 2.32, 3.9, 5.6, 7.7], t, .55, .3 * v); hiss(t, .012, .4 * v, 'highpass', 3000); }
       else if (k === 'clink') metal(1500 * (.8 + r * .4), [1, 2.6, 4.4], t, .16, .16 * v);
       else if (k === 'thud') { hiss(t, .09, .45, 'lowpass', 650); tone(150, t, .08, .25, 80); }
@@ -997,12 +1038,18 @@ function makeAudio() {
   const seed = Q.has('seed') ? (parseInt(Q.get('seed'), 10) || 0) : (Date.now() & 0xffff);
   const w = makeWorld(seed, { auto: Q.has('auto') });
   const V = { W: 0, H: 0, dpr: 1 };
-  const keys = { l: false, r: false, u: false, d: false, zoom: false, mzoom: false, fire: false, reload: false };
+  const keys = { l: false, r: false, u: false, d: false, zoom: false, mzoom: false, fire: false, held: false, reload: false };
   const touch = Q.has('touch') || matchMedia('(pointer: coarse)').matches;
   let audio = null, ui = 'title', last = 0, acc = 0;
   const first = clamp((parseInt(Q.get('stage'), 10) || 1) - 1, 0, 4);
   startStage(w, first);
   window.akikan = w; // 確認用に、外から見えるようにしておく
+  function setGun(id) {
+    const g = GUNS[id] || GUNS.pistol; w.gun = g; w.ammo = g.mag; w.reloadT = 0;
+    for (const b of document.querySelectorAll('button.gun')) b.classList.toggle('on', GUNS[b.dataset.gun] === g);
+    $('hshot').innerHTML = g.auto ? '<kbd>Space</kbd> を押しているあいだ、撃ちつづける。<br>弾は六十発。' : '<kbd>Space</kbd> で撃つ。<br>弾は六発。';
+  }
+  setGun(Q.get('gun'));
 
   const onSite = /\/games\/[^/]+\/(index\.html)?$/.test(location.pathname);
   function show(name) {
@@ -1042,14 +1089,17 @@ function makeAudio() {
       else intro(w.stage);
     }
   }
-  for (const id of ['go', 'go2', 'go3', 'go4']) $(id).addEventListener('click', e => { e.currentTarget.blur(); advance(); });
+  for (const b of document.querySelectorAll('button.gun')) b.addEventListener('click', e => { e.currentTarget.blur(); setGun(b.dataset.gun); advance(); });
+  for (const id of ['go2', 'go3', 'go4']) $(id).addEventListener('click', e => { e.currentTarget.blur(); advance(); });
 
+  const FIRE_KEYS = [' ', 'enter', 'z', 'j'];
   const KEYMAP = { arrowleft: 'l', a: 'l', arrowright: 'r', d: 'r', arrowup: 'u', w: 'u', arrowdown: 'd', s: 'd', shift: 'zoom', x: 'zoom' };
   window.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
-    if (k === ' ' || k === 'enter' || k === 'z' || k === 'j') {
+    if (ui === 'title' && KEYMAP[k] && 'lr'.includes(KEYMAP[k])) { e.preventDefault(); setGun(KEYMAP[k] === 'r' ? 'mg' : 'pistol'); return; }
+    if (FIRE_KEYS.includes(k)) {
       e.preventDefault(); if (e.repeat) return;
-      if (ui === 'play') { if (!w.paused) keys.fire = true; } else advance();
+      if (ui === 'play') { if (!w.paused) keys.fire = keys.held = true; } else advance();
     } else if (KEYMAP[k]) { e.preventDefault(); keys[KEYMAP[k]] = true; }
     else if (k === 'r') keys.reload = true;
     else if (k === 'm' && audio) audio.setMute(!audio.muted);
@@ -1064,10 +1114,10 @@ function makeAudio() {
     if (ui !== 'play') return;
     e.preventDefault();
     if (!locked()) { lock(); if (w.paused) w.paused = false; return; }
-    if (e.button === 0 && !w.paused) keys.fire = true;
+    if (e.button === 0 && !w.paused) keys.fire = keys.held = true;
     else if (e.button === 2) keys.mzoom = true;
   });
-  window.addEventListener('mouseup', e => { if (e.button === 2) keys.mzoom = false; });
+  window.addEventListener('mouseup', e => { if (e.button === 2) keys.mzoom = false; else if (e.button === 0) keys.held = false; });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('pointerlockerror', () => { free = true; if (ui === 'play') w.paused = false; });
   document.addEventListener('mousemove', e => { if (ui === 'play' && locked() && !w.paused && !w.auto) mouseAim(w, e.movementX || 0, e.movementY || 0); });
@@ -1075,12 +1125,12 @@ function makeAudio() {
     if (document.pointerLockElement !== canvas && !free) { keys.mzoom = false; if (ui === 'play' && w.state === 'play') w.paused = true; } // Esc でカーソルが戻ったら止める
   });
   const unlock = () => { if (document.pointerLockElement === canvas) document.exitPointerLock(); };
-  window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (KEYMAP[k]) keys[KEYMAP[k]] = false; });
+  window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (KEYMAP[k]) keys[KEYMAP[k]] = false; else if (FIRE_KEYS.includes(k)) keys.held = false; });
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
   for (const b of document.querySelectorAll('#pad button')) {
     const k = b.dataset.k;
-    b.addEventListener('pointerdown', e => { e.preventDefault(); if (!audio) audio = makeAudio(); keys[k] = true; });
-    for (const t of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(t, () => { if (k !== 'fire') keys[k] = false; });
+    b.addEventListener('pointerdown', e => { e.preventDefault(); if (!audio) audio = makeAudio(); keys[k] = true; if (k === 'fire') keys.held = true; });
+    for (const t of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(t, () => { if (k !== 'fire') keys[k] = false; else keys.held = false; });
   }
 
   function resize() {
@@ -1112,7 +1162,9 @@ function makeAudio() {
       const res = [], send = (type, key) => window.dispatchEvent(new KeyboardEvent(type, { key }));
       const run = n => { for (let i = 0; i < n; i++) { step(w, H, keys); keys.fire = false; keys.reload = false; } };
       w.auto = false;
-      show('title'); send('keydown', ' '); res.push(ui === 'howto' ? 'o' : '説明が出ない');
+      show('title'); send('keydown', 'ArrowRight'); res.push(w.gun === GUNS.mg && w.ammo === 60 ? 'o' : '→ で機関銃にならない');
+      send('keydown', 'ArrowLeft'); send('keyup', 'ArrowLeft'); send('keyup', 'ArrowRight'); res.push(w.gun === GUNS.pistol && w.ammo === 6 ? 'o' : '← で拳銃にならない');
+      send('keydown', ' '); res.push(ui === 'howto' ? 'o' : '説明が出ない');
       send('keydown', 'Enter'); res.push(ui === 'intro' ? 'o' : '面の紹介が出ない');
       send('keydown', ' '); res.push(ui === 'play' && w.state === 'play' ? 'o' : '始まらない');
       for (const [key, f] of [['ArrowRight', (y, p) => w.yaw > y], ['ArrowLeft', y => w.yaw < y], ['d', y => w.yaw > y], ['a', y => w.yaw < y],
@@ -1121,6 +1173,8 @@ function makeAudio() {
       }
       for (const key of [' ', 'z', 'j', 'Enter']) { w.fireT = 0; w.reloadT = 0; w.ammo = MAG; const n = w.shots; send('keydown', key); run(1); send('keyup', key); res.push(w.shots === n + 1 ? 'o' : `${key} で撃てない`); }
       send('keydown', 'r'); run(1); res.push(w.reloadT > 0 ? 'o' : 'R');
+      setGun('mg'); { const n = w.shots; send('keydown', ' '); run(120); const m = w.shots - n; send('keyup', ' '); run(60); res.push(m >= 13 && w.shots - n === m ? 'o' : `機関銃の押しっぱなし ${m} ${w.shots - n}`); }
+      setGun('pistol');
       send('keydown', 'Shift'); run(40); res.push(w.zoomK > .99 ? 'o' : 'Shift'); send('keyup', 'Shift'); run(40);
       send('keydown', 'x'); run(40); res.push(w.zoomK > .99 ? 'o' : 'X'); send('keyup', 'x'); run(40);
       send('keydown', 'Escape'); res.push(w.paused ? 'o' : 'Esc'); send('keydown', 'Escape');
