@@ -13,10 +13,11 @@ window.GAMES = [
   { id: "sensuikan", title: "潜水艦バトル", author: "loohcskshirasaki", date: "2026-11-06 03:10", description: "海の上の船から爆雷を落として、潜水艦を沈める。レーダーつき、全4海域、最後に巨大潜水艦。昔の「Super Depth」の海の面が手本。音あり" },
   { id: "tamatsuki", title: "夜のビリヤード", author: "loohcskshirasaki", date: "2026-11-12 15:54", description: "閉店まぎわの撞球場で、ナインボールを三番勝負。← → でねらい、↑ ↓ で強さ、Space で撞く。キーボードだけで遊べる。最後の相手は奥の間に。小さな音あり" },
   { id: "danmaku", title: "月夜の弾幕", author: "loohcskshirasaki", description: "弾のすき間を、まん中の白い点だけでくぐる縦画面の弾幕シューティング。Z で撃つ、Shift でゆっくり、X で月光（ボム）。道中・中ボスのあと、月を食む大蛾と五つの術。難しさ3段階。キーボードだけで遊べる。音あり" },
-  { id: "akikan", title: "空き缶撃ち", author: "loohcskshirasaki", date: "2026-11-15 09:35", description: "夕方の空き地で、柵の上の空き缶を撃つ FPS。マウスでも、キーボードだけでもねらえる。空中の缶を撃つとまた浮く。全5面、最後に跳ねて近づく大缶。音あり" },
+  { id: "akikan", title: "空き缶撃ち", author: "loohcskshirasaki", date: "2026-11-15 09:35", description: "夕方の空き地で、柵の上の空き缶を撃つ FPS。マウスでも、キーボードだけでもねらえる。空中の缶を撃つとまた浮く。全5面、最後に跳ねて近づく大缶。はじめに拳銃か機関銃をえらべる。音あり" },
   { id: "gyaku-invader", title: "逆インベーダー", author: "loohcskshirasaki", date: "2026-11-15 14:05", description: "こんどは自分が UFO。空から弾を落として、街のビルを1ブロックずつ削って更地にする。必殺レーザーで軒並み。更地にすると地面が割れて都市要塞が出てくる。キーボードだけで遊べる。音あり" },
   { id: "ookami", title: "狼のいる夜", author: "loohcskshirasaki", date: "2026-11-15 15:26", description: "20:00 から翌朝 6:00 までの 20 コマを、狼に見つからずに生き延びる選択肢ゲーム。謎解き（生存）、戦い（吸血鬼）、恋愛（白猫）、世界観への引き込み、読み物、の5つの軸で面白さを組む。最初はコミカルに、何度か死ぬうちに、思っていたより深い夜に入っていく。キーボードだけで遊べる。音あり" },
   { id: "chika10", title: "地下十階", author: "loohcskshirasaki", date: "2026-11-18 03:20", description: "町の外れの穴に潜る、不思議のダンジョン風のローグライク。地形は毎回ちがう。お宝を持ち帰って道具屋で売り、武器屋で強い武器と盾を買って、また潜る。十階の地底の王は、何度か往復しないと倒せない。進みは自動で記憶される。キーボードだけで遊べる。音あり" },
+  { id: "wakusei", title: "惑星こわし", author: "loohcskshirasaki", date: "2026-11-18 03:17", description: "月から順に出てくる惑星を、魔法でひたすらこわす。Z で弾、X で魔法、ゲージがたまったら Space で必殺技。カットインが入って、こわすと粉々に飛び散る。最後はブラックホール。負けはない。キーボードだけで遊べる。音あり" },
   // ---- yuuuuuuuuuuhh ----
   { id: "yuuuuuuuuuuhh", title: "モチモチグランプリ", author: "yuuuuuuuuuuhh", date: "2026-10-29 14:40", description: "おもちのモチが食べものレーサーと走る3Dカートレース。1人・2人・オンライン対戦" },
   { id: "yuuuuuuuuuuhh-2", title: "てっぺん", author: "yuuuuuuuuuuhh", date: "2026-10-29 16:05", description: "街の上空に積み上がったガラクタを、ひたすら上へ。落ちたら、落ちたところから" },
