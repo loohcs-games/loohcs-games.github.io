@@ -52,6 +52,7 @@ window.GAMES = [
   { id: "stevenfridley42-tech-15", title: "渋谷3D探索", author: "stevenfridley42-tech", date: "2026-11-15 01:29", description: "国交省の3D都市モデル「PLATEAU」で再現した渋谷駅周辺1.5km四方を、一人称で歩いて・飛んで自由に探索する。昼と夜の切り替え、ミニマップつき。WASD で移動、マウスで視点、F で飛行。PC のキーボード・マウス向け（初回の読み込み約40MB）" },
   { id: "stevenfridley42-tech-16", title: "遍照の道 〜空海伝〜", author: "stevenfridley42-tech", date: "2026-11-17 16:03", description: "空海になって、讃岐の少年時代から唐への留学、高野山の開創、入定までの生涯を生きるドット絵の歴史RPG。読経・瞑想・書・儀式などの修行、建物の中での暮らし、昼と夜、伽藍づくり。セーブあり。PC のキーボード・マウス向け。音あり" },
   { id: "stevenfridley42-tech-17", title: "荒野の早撃ち", author: "stevenfridley42-tech", date: "2026-11-20 01:48", description: "夕焼けの荒野で、鐘を合図に照準を合わせて撃つ西部劇の早撃ち決闘。跳んでかわす8人の賞金首と、物陰から顔を出す無法者を撃ち倒す迎撃モード。マウスでねらってクリック、スマホはタップ。音あり" },
+  { id: "stevenfridley42-tech-18", title: "みつけて！ライブカメラ", author: "stevenfridley42-tech", date: "2026-11-20 02:07", description: "街の防犯カメラを見回し、ズームして、手がかりに合う人物を見つけてビームで撃退する。1レベル3人、駅前・港・海水浴場…と場所が変わる。まちがえると −10秒、ライフ3つ。マウス・キーボード・タッチで遊べる" },
 
   // ---- mineiyuki ----
   // { id: "mineiyuki", title: "ゲームの名前", author: "mineiyuki", description: "ひとこと説明" },
