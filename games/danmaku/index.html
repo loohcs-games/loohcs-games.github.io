@@ -134,6 +134,7 @@
 </div>
 <pre id="test" hidden></pre>
 
+<script src="sprites.js"></script>
 <script>
 'use strict';
 /*
@@ -735,60 +736,22 @@ function portrait(ctx, who, mood, x, y, width, height, cropHeight = 1536) {
   if (im) ctx.drawImage(im, 0, 0, 1024, cropHeight, x, y, width, height);
   else {
     // 画像がなくても会話を読める。代替の姿は場内のドット絵と共通。
-    smallPerson(ctx, who, x + width / 2, y + height * .5, 5);
+    smallPerson(ctx, who, x + width / 2, y + height * .45, who === 'akari' ? 5 : 3);
     ctx.fillStyle = PEOPLE[who].color; ctx.textAlign = 'center'; ctx.font = '12px sans-serif';
     ctx.fillText(ART[`${who}-normal`]?.state === 'error' ? '人物絵を読み込めませんでした' : '人物絵を読み込み中…', x + width / 2, y + height * .8);
   }
 }
-// 24×34 程度のドット絵。頭の印・三色・シルエットは原画と共通。
-// 傾きは行ごとの整数ずらしなので、左右移動中もドットの輪郭がにじまない。
-const MINI_CACHE = new Map();
-function smallPerson(ctx, who, x, y, scale, tilt = 0) {
-  const lean = Math.abs(tilt) > .25 ? Math.sign(tilt) : 0, key = `${who}:${lean}`;
-  if (!MINI_CACHE.has(key)) MINI_CACHE.set(key, makeMini(who, lean));
-  ctx.save(); ctx.imageSmoothingEnabled = false;
-  const size = Math.round(40 * scale);
-  ctx.drawImage(MINI_CACHE.get(key), Math.round(x - size / 2), Math.round(y - size / 2), size, size);
-  ctx.restore();
+// 絵だけを描く。座標の丸めは描画時だけで、遊びの座標には書き戻さない。
+function drawPixel(ctx, key, x, y, frame = 0, options = {}) {
+  if (typeof PixelArt !== 'undefined' && PixelArt.draw(ctx, key, x, y, frame, options)) return;
+  // sprites.js が読めない場合も、遊びを止めない小さな代替表示。
+  ctx.save(); ctx.fillStyle = '#756b86';
+  ctx.fillRect(Math.round(x) - 3, Math.round(y) - 5, 6, 10);
+  ctx.fillStyle = '#d7c7af'; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 3, 2, 2); ctx.restore();
 }
-function makeMini(who, lean) {
-  const c = document.createElement('canvas'); c.width = c.height = 40;
-  const ctx = c.getContext('2d'); ctx.save(); ctx.translate(20, 20);
-  function px(c, x, y, w, h) {
-    ctx.fillStyle = c;
-    for (let row = y; row < y + h; row++) ctx.fillRect(x + Math.round(-row / 12) * lean, row, w, 1);
-  }
-  const ink = '#171a30', skin = '#f8d7b7', gold = '#ffcf75';
-  if (who === 'akari') {
-    px(ink,-5,-13,10,10); px('#344762',-5,-13,9,4); px(skin,-3,-8,7,6);
-    px('#213a50',-6,-8,2,7); px(gold,3,-17,2,6); px('#ffebad',6,-15,2,4);
-    px('#ee8c83',-6,-2,12,3); px('#c65c68',-8,1,3,12); px('#ee8c83',7,3,2,11);
-    px('#285c63',-6,1,12,10); px('#4e9b92',-6,2,3,9); px('#fff0d2',-1,1,3,7);
-    px('#b68557',-5,7,10,2); px(gold,-1,7,3,3);
-    px('#23344e',-7,10,14,5); px('#f7ddbd',-7,14,14,1);
-    px(ink,-5,15,4,3); px(ink,2,15,4,3);
-    px(gold,9,1,1,3); px('#714652',8,4,5,1); px('#ffb75b',8,5,5,5); px('#fff0b0',9,5,3,4); px('#714652',8,10,5,1);
-  } else if (who === 'touya') {
-    px('#8a3f37',-6,-12,12,10); px('#b65b3e',-10,-13,6,6); px('#b65b3e',5,-13,6,6);
-    px('#e58a58',-9,-12,3,2); px('#e58a58',6,-12,3,2);
-    px('#754f42',-3,-18,6,6); px(gold,-2,-17,4,5); px('#fff2b5',-1,-16,2,3);
-    px(skin,-4,-7,8,6); px('#6c304a',-4,0,8,12);
-    px('#cf6048',-11,0,7,10); px('#cf6048',4,0,7,10); px('#f09560',-10,1,3,7); px('#f09560',7,1,3,7);
-    px('#74374a',-8,0,1,10); px('#74374a',6,0,1,10);
-    px(gold,-5,6,10,2); px('#983d4e',-8,10,16,5); px('#e37851',-8,11,5,3); px(gold,-7,14,14,1);
-    px(ink,-5,15,4,3); px(ink,2,15,4,3);
-    px('#e2ad64',13,-16,1,34); px('#6c3543',11,-15,6,2); px('#ffb35c',11,-13,6,7); px('#ffecaa',12,-12,4,4); px('#6c3543',11,-6,6,1);
-  } else {
-    px('#524579',-13,-7,26,16); px('#baa6d2',-12,-10,6,14); px('#baa6d2',7,-10,6,14);
-    px('#f4dfbd',-11,-7,3,4); px('#f4dfbd',9,-7,3,4); px('#594270',-10,-6,2,2); px('#594270',10,-6,2,2);
-    px('#ded6ef',-6,-13,12,14); px('#f3e8f6',-5,-13,10,4); px(skin,-3,-8,6,6);
-    px('#c9a66c',-5,-18,1,4); px('#c9a66c',5,-18,1,4); px('#eee1b6',-7,-19,3,2); px('#eee1b6',5,-19,3,2);
-    px(gold,-2,-14,4,3); px('#a998c5',0,-14,2,2);
-    px('#5a3b79',-5,1,10,9); px('#eee3ec',-2,0,4,12); px(gold,-5,5,10,2);
-    px('#77568e',-7,10,14,7); px('#e4d5e7',-2,10,4,7); px('#cab5d6',-7,16,14,1); px(ink,-3,17,6,1);
-  }
-  px(ink,-2,-6,1,2); px(ink,2,-6,1,2);
-  ctx.restore(); return c;
+function smallPerson(ctx, who, x, y, scale = 1, tilt = 0, tick = 0, pose = 'idle', hurt = false) {
+  const f = typeof PixelArt !== 'undefined' ? PixelArt.frame(who, tick, tilt, pose) : { key: who + '-idle', index: 0 };
+  drawPixel(ctx, f.key, x, y, f.index, { scale, tint: hurt ? 'hurt' : '' });
 }
 function drawCutin(ctx, w) {
   if (!w.cutin) return;
@@ -895,146 +858,97 @@ function render(ctx, w, V, playing, paused) {
 }
 
 function drawBack(ctx, w) {
-  const E = w.eclipse, sc = w.frame * 1.2;
-  const g = ctx.createLinearGradient(0, 0, 0, FH);
-  g.addColorStop(0, mix('#0a0b2e', '#1a0208', E)); g.addColorStop(.6, mix('#1a1640', '#2c0610', E)); g.addColorStop(1, mix('#2a1d3a', '#12030a', E));
-  ctx.fillStyle = g; ctx.fillRect(0, 0, FW, FH);
-  for (const st of SCENE.stars) { ctx.globalAlpha = (.3 + .7 * Math.abs(Math.sin(w.frame * .02 + st.a * 9))) * (1 - E * .5); ctx.fillStyle = '#fff'; ctx.fillRect(st.x, (st.y + w.frame * .08) % FH, st.s, st.s); }
-  ctx.globalAlpha = 1;
-  // 参道（石畳）
-  ctx.fillStyle = mix('#2d2742', '#2a0c12', E); ctx.fillRect(FW / 2 - 70, 0, 140, FH);
-  ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
-  for (let y = (sc % 28) - 28; y < FH; y += 28) { ctx.beginPath(); ctx.moveTo(FW / 2 - 70, y); ctx.lineTo(FW / 2 + 70, y); ctx.stroke(); const o = (Math.floor((y - sc) / 28) & 1) * 23; for (let x = FW / 2 - 70 + o; x < FW / 2 + 70; x += 46) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 28); ctx.stroke(); } }
-  // 灯籠
+  const E = w.eclipse, sc = Math.floor(w.frame * 1.2), tint = E > .4 ? 'red' : '';
+  // 帯状の空。ぼかしではなく、1pxの絵と同じ明確な色面。
+  for (let y = 0; y < FH; y += 28) {
+    const t = y / FH, night = [12 + Math.round(t * 12), 16 + Math.round(t * 10), 37 + Math.round(t * 10)];
+    ctx.fillStyle = `rgb(${mixRGB(night, [33,13,27], E)})`;
+    ctx.fillRect(0, y, FW, 28);
+  }
+  ctx.fillStyle = E > .4 ? '#563440' : '#4d526b';
+  for (const st of SCENE.stars) ctx.fillRect(Math.round(st.x), Math.floor((st.y + w.frame * .08) % FH), 1, 1);
+  // 石畳は46×28をそのまま敷く。縁石だけ1pxの明暗を付ける。
+  ctx.save(); ctx.beginPath(); ctx.rect(122, 0, 140, FH); ctx.clip();
+  for (let y = sc % 28 - 28; y < FH; y += 28) {
+    const row = Math.floor((y - sc) / 28), shift = (row & 1) * 23;
+    for (let col = -1; col < 4; col++) drawPixel(ctx, 'paving-' + ((row + col) % 3 + 3) % 3, 122 + col * 46 + shift + 23, y + 14, 0, { tint });
+  }
+  ctx.restore(); ctx.fillStyle = E > .4 ? '#3a2028' : '#2d3342';
+  ctx.fillRect(120,0,2,FH);ctx.fillRect(262,0,2,FH);
   for (const l of SCENE.lamps) {
-    const y = (l.y + sc) % 1400 - 60, x = FW / 2 + l.s * 92; if (y > FH + 40) continue;
-    const fl = .7 + .3 * Math.sin(w.frame * .2 + l.y);
-    const lg = ctx.createRadialGradient(x, y, 0, x, y, 40); lg.addColorStop(0, `rgba(255,190,110,${.35 * fl})`); lg.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(x, y, 40, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#4b4560'; ctx.fillRect(x - 9, y - 12, 18, 4); ctx.fillRect(x - 4, y + 8, 8, 14); ctx.fillRect(x - 8, y + 20, 16, 4);
-    ctx.fillStyle = `rgba(255,205,130,${fl})`; ctx.fillRect(x - 5, y - 7, 10, 13);
+    const y = (l.y + sc) % 1400 - 60; if (y > FH + 40) continue;
+    drawPixel(ctx, 'stone-lamp-' + ((w.frame >> 4) & 1), FW / 2 + l.s * 92, y + 8, 0, { tint });
   }
-  // 月（食になると黒く欠け、赤い縁だけが残る）
-  const mx = FW * .72, my = 86, mr = 46;
-  const mg = ctx.createRadialGradient(mx, my, mr * .6, mx, my, mr * 2.6); mg.addColorStop(0, `rgba(${mixRGB([255, 240, 200], [255, 60, 40], E)},.35)`); mg.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = mg; ctx.beginPath(); ctx.arc(mx, my, mr * 2.6, 0, TAU); ctx.fill();
-  ctx.fillStyle = mix('#fff4d8', '#3a0a0a', E); ctx.beginPath(); ctx.arc(mx, my, mr, 0, TAU); ctx.fill();
-  if (E < .9) { ctx.globalAlpha = .12 * (1 - E); ctx.fillStyle = '#b9a77a'; for (const [a, b, r] of [[-12, -8, 10], [14, 10, 7], [6, -20, 5], [-16, 18, 6]]) { ctx.beginPath(); ctx.arc(mx + a, my + b, r, 0, TAU); ctx.fill(); } ctx.globalAlpha = 1; }
-  if (E > 0) { ctx.strokeStyle = `rgba(255,70,50,${E})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(mx, my, mr, 0, TAU); ctx.stroke(); }
-  // 杉の木立（奥ほど暗く、遅く流れる）
+  // 月は段階ごとのドット絵。月食の進行は従来の w.eclipse を読むだけ。
+  drawPixel(ctx, 'moon-' + Math.round(E * 8), 276, 86, 0, { tint });
   for (const t of SCENE.trees) {
-    const y = (t.y + sc * t.d) % 1400 - 140; if (y > FH + 20) continue;
-    ctx.fillStyle = mix(t.d > .8 ? '#0d1022' : '#151834', '#140306', E);
-    for (let k = 0; k < 3; k++) { const hw = t.h * (.22 + k * .1); ctx.beginPath(); ctx.moveTo(t.x, y + k * t.h * .22); ctx.lineTo(t.x - hw, y + t.h * (.4 + k * .22)); ctx.lineTo(t.x + hw, y + t.h * (.4 + k * .22)); ctx.fill(); }
+    const y = Math.floor((t.y + sc * t.d) % 1400 - 140); if (y > FH + 20) continue;
+    const size = t.h < 83 ? 0 : t.h < 106 ? 1 : 2;
+    drawPixel(ctx, 'cedar-' + size, t.x, y + [40,54,68][size], 0, { tint });
   }
-  // 舞う花びら
-  ctx.fillStyle = mix('rgba(255,180,215,.55)', 'rgba(255,90,90,.6)', E);
-  for (let i = 0; i < 18; i++) { const x = (i * 97 + Math.sin(w.frame * .01 + i) * 40 + w.frame * .3) % FW, y = (i * 61 + w.frame * (.6 + i % 3 * .25)) % FH; ctx.save(); ctx.translate(x, y); ctx.rotate(w.frame * .03 + i); ctx.beginPath(); ctx.ellipse(0, 0, 3.4, 1.6, 0, 0, TAU); ctx.fill(); ctx.restore(); }
-  if (E > 0) { ctx.fillStyle = `rgba(120,0,20,${E * .18})`; ctx.fillRect(0, 0, FW, FH); }
+  for (let i = 0; i < 18; i++) {
+    const x = (i * 97 + Math.sin(w.frame * .01 + i) * 40 + w.frame * .3) % FW;
+    const y = (i * 61 + w.frame * (.6 + i % 3 * .25)) % FH;
+    drawPixel(ctx, 'petal-' + ((Math.floor(w.frame / 12) + i) % 4), x, y);
+  }
 }
 function mix(a, b, t) { if (a[0] !== '#') return t < .5 ? a : b; const A = hex(a), B = hex(b); return `rgb(${mixRGB(A, B, t)})`; }
 function hex(h) { return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); }
 function mixRGB(A, B, t) { return A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(','); }
 
+// 被弾の点滅は描画用の履歴だけに保存。敵の状態や乱数は変えない。
+const ENEMY_ART = new WeakMap();
+function enemyHurt(e, frame) {
+  let last = ENEMY_ART.get(e);
+  if (!last) { last = { hp: e.hp, until: -1 }; ENEMY_ART.set(e, last); }
+  if (e.hp < last.hp) last.until = frame + 5;
+  last.hp = e.hp;
+  return frame < last.until && (frame & 1) === 1;
+}
 function drawEnemy(ctx, w, e) {
-  const f = w.frame + e.x;
-  ctx.save(); ctx.translate(e.x, e.y);
-  if (e.kind === 'wisp') {
-    const [core, glow] = COL[e.c];
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 20); g.addColorStop(0, glow); g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g; ctx.globalAlpha = .6; ctx.beginPath(); ctx.arc(0, 0, 20, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
-    ctx.fillStyle = glow; ctx.beginPath(); ctx.moveTo(0, -14 - Math.sin(f * .3) * 3); ctx.quadraticCurveTo(9, -2, 7, 4); ctx.arc(0, 4, 7, 0, Math.PI); ctx.quadraticCurveTo(-9, -2, 0, -14 - Math.sin(f * .3) * 3); ctx.fill();
-    ctx.fillStyle = core; ctx.beginPath(); ctx.arc(0, 4, 3.5, 0, TAU); ctx.fill();
-  } else if (e.kind === 'bird') {
-    ctx.scale(-e.side, 1); const fl = Math.sin(f * .25) * 7;
-    ctx.fillStyle = '#e8f6ff'; ctx.strokeStyle = '#5ce8ff'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-12, -3); ctx.lineTo(-16, -10); ctx.lineTo(-8, 1); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(-4, -12 - fl); ctx.lineTo(-8, 0); ctx.closePath(); ctx.fillStyle = '#c8ecff'; ctx.fill(); ctx.stroke();
-  } else {
-    const big = e.kind === 'bigLantern', R = big ? 30 : 18;
-    const g = ctx.createRadialGradient(0, 0, R * .3, 0, 0, R * 2); g.addColorStop(0, 'rgba(255,120,80,.4)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R * 2, 0, TAU); ctx.fill();
-    ctx.rotate(Math.sin(f * .04) * .08);
-    ctx.fillStyle = '#2a1a1a'; ctx.fillRect(-R * .5, -R * 1.15, R, R * .25); ctx.fillRect(-R * .5, R * .9, R, R * .25);
-    const lg = ctx.createRadialGradient(-R * .2, -R * .2, 2, 0, 0, R * 1.1); lg.addColorStop(0, '#ffd2a0'); lg.addColorStop(.5, '#ff5a3c'); lg.addColorStop(1, '#a01c22');
-    ctx.fillStyle = lg; ctx.beginPath(); ctx.ellipse(0, 0, R * .9, R, 0, 0, TAU); ctx.fill();
-    ctx.strokeStyle = 'rgba(80,10,10,.5)'; ctx.lineWidth = 1;
-    for (let k = -3; k <= 3; k++) { ctx.beginPath(); ctx.ellipse(0, k * R * .27, R * .9 * Math.sqrt(1 - (k * .27) ** 2), 1, 0, 0, TAU); ctx.stroke(); }
-    // 顔: 目と口
-    ctx.fillStyle = '#2a0508'; ctx.beginPath(); ctx.ellipse(-R * .32, -R * .15, R * .12, R * .17, 0, 0, TAU); ctx.ellipse(R * .32, -R * .15, R * .12, R * .17, 0, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.arc(0, R * .25, R * .3, 0, Math.PI); ctx.fill();
-    ctx.fillStyle = '#ffd84a'; ctx.beginPath(); ctx.arc(-R * .3, -R * .2, R * .04, 0, TAU); ctx.arc(R * .34, -R * .2, R * .04, 0, TAU); ctx.fill();
-    if (big) { // 長い舌
-      ctx.fillStyle = '#ff6a8a'; ctx.beginPath(); ctx.moveTo(-5, R * .45); ctx.quadraticCurveTo(Math.sin(f * .1) * 12, R * 1.2, 0, R * 1.5); ctx.quadraticCurveTo(6, R, 5, R * .45); ctx.fill();
-      const hp = e.hp / e.maxhp; ctx.rotate(-Math.sin(f * .04) * .08);
-      ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(-30, -R - 18, 60, 4); ctx.fillStyle = '#ff8fc8'; ctx.fillRect(-30, -R - 18, 60 * hp, 4);
-      smallPerson(ctx, 'touya', -R * .52, -R * .12, 1.15, Math.sin(f * .04));
-    }
-  }
-  ctx.restore();
+  const f = Math.floor((w.frame + e.t) / 9) % 4, hurt = enemyHurt(e, w.frame);
+  if (e.kind === 'bigLantern') {
+    const bob = [0,-1,0,1][Math.floor(w.frame / 12) % 4];
+    // 燈弥を中央の前面へ。大提灯は竿の先に、少し低く添える。
+    drawPixel(ctx, 'great-lantern', e.x + 43, e.y + 8 + bob, f, { tint: hurt ? 'hurt' : '' });
+    ctx.fillStyle = '#886045'; ctx.fillRect(Math.round(e.x + 22), Math.round(e.y - 30 + bob), 22, 1);
+    smallPerson(ctx, 'touya', e.x - 8, e.y + 4 + bob, 1, 0, w.frame, e.t >= 100 && e.t % 120 < 42 ? 'cast' : 'idle', hurt);
+    ctx.fillStyle = '#231c32'; ctx.fillRect(Math.round(e.x - 32), Math.round(e.y - 47), 64, 4);
+    ctx.fillStyle = '#ce83a3'; ctx.fillRect(Math.round(e.x - 32), Math.round(e.y - 47), Math.round(64 * Math.max(0, e.hp / e.maxhp)), 4);
+  } else if (e.kind === 'wisp') drawPixel(ctx, 'wisp', e.x, e.y, f, { tint: hurt ? 'hurt' : COL[e.c][1] });
+  else if (e.kind === 'bird') drawPixel(ctx, 'bird', e.x, e.y, f, { flip: e.side > 0, tint: hurt ? 'hurt' : '' });
+  else drawPixel(ctx, 'lantern', e.x, e.y, f, { tint: hurt ? 'hurt' : '' });
 }
 
 function drawBoss(ctx, w) {
   const b = w.boss; if (!b) return;
-  const S = b.scale, fl = Math.sin(b.flap), E = w.eclipse;
-  ctx.save(); ctx.translate(b.x, b.y);
-  // 術の陣（回る輪）
+  const S = b.scale, E = w.eclipse;
+  ctx.save(); ctx.translate(Math.round(b.x), Math.round(b.y));
+  // 術の陣は従来どおり。翅・人物より奥。
   if (w.spell || b.phase === 5) {
     ctx.save(); ctx.rotate(w.frame * .01); ctx.strokeStyle = E > .5 ? 'rgba(255,80,80,.45)' : 'rgba(255,143,200,.4)'; ctx.lineWidth = 1.5;
     const R = 70 * S; ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.arc(0, 0, R * .78, 0, TAU); ctx.stroke();
     ctx.beginPath(); for (let i = 0; i <= 5; i++) { const a = i * TAU * 2 / 5 - Math.PI / 2; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * R * .78, Math.sin(a) * R * .78); } ctx.stroke();
     ctx.restore();
   }
-  ctx.scale(S, S);
-  const aura = ctx.createRadialGradient(0, 0, 10, 0, 0, 110); aura.addColorStop(0, E > .5 ? 'rgba(255,40,60,.35)' : 'rgba(200,140,255,.3)'); aura.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = aura; ctx.beginPath(); ctx.arc(0, 0, 110, 0, TAU); ctx.fill();
-  const hurt = b.hurt > 0 && w.frame % 2;
-  for (const s of [-1, 1]) {
-    ctx.save(); ctx.scale(s, 1);
-    // 前の翅
-    ctx.save(); ctx.rotate(-.15 + fl * .18); ctx.scale(1, .8 + fl * .2);
-    const g1 = ctx.createLinearGradient(0, 0, 100, -40); g1.addColorStop(0, mix('#6a4ca8', '#5a0a1a', E)); g1.addColorStop(1, mix('#e7c7ff', '#ff6a50', E));
-    ctx.fillStyle = hurt ? '#fff' : g1; ctx.beginPath(); ctx.moveTo(6, -6); ctx.bezierCurveTo(40, -70, 100, -66, 104, -30); ctx.bezierCurveTo(100, -6, 50, 4, 6, 4); ctx.fill();
-    ctx.strokeStyle = 'rgba(30,10,40,.45)'; ctx.lineWidth = 1; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(8, -2); ctx.quadraticCurveTo(50, -30 - k * 6, 96 - k * 6, -46 + k * 14); ctx.stroke(); }
-    // 目玉模様
-    ctx.fillStyle = mix('#ffe9a8', '#ffd84a', E); ctx.beginPath(); ctx.arc(66, -32, 12, 0, TAU); ctx.fill();
-    ctx.fillStyle = mix('#3a1a6a', '#200', E); ctx.beginPath(); ctx.arc(66, -32, 7.5, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(63, -35, 2.2, 0, TAU); ctx.fill();
-    ctx.restore();
-    // 後ろの翅
-    ctx.save(); ctx.rotate(.25 - fl * .14);
-    const g2 = ctx.createLinearGradient(0, 0, 70, 60); g2.addColorStop(0, mix('#5a3c90', '#4a0612', E)); g2.addColorStop(1, mix('#ffb6e1', '#ff3a3a', E));
-    ctx.fillStyle = hurt ? '#fff' : g2; ctx.beginPath(); ctx.moveTo(4, 4); ctx.bezierCurveTo(40, 6, 80, 30, 66, 58); ctx.bezierCurveTo(56, 76, 30, 60, 4, 16); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(50, 40, 6, 0, TAU); ctx.fill();
-    ctx.restore();
-    // 触角
-    ctx.strokeStyle = mix('#d9c8ff', '#ff9a8a', E); ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(2, -16); ctx.quadraticCurveTo(10, -38, 24, -44); ctx.stroke();
-    for (let k = 0; k < 6; k++) { ctx.beginPath(); ctx.moveTo(6 + k * 3, -26 - k * 3); ctx.lineTo(10 + k * 3, -30 - k * 3); ctx.stroke(); }
-    ctx.restore();
+  const hurt = (b.hurt > 0 || b.dead > 0) && (w.frame >> 1) % 2 === 1;
+  const f = Math.floor(b.flap / (Math.PI / 2)) % 4, bob = [0,-1,0,1][Math.floor(w.frame / 12) % 4];
+  if (b.phase === 5) {
+    drawPixel(ctx, 'moth', 0, bob, f, { scale: S, eclipse: true, tint: hurt ? 'hurt' : E > .25 ? 'red' : '' });
+  } else {
+    drawPixel(ctx, 'mayo-wings', 0, bob, f, { tint: hurt ? 'hurt' : '' });
+    smallPerson(ctx, 'mayo', 0, bob, 1, 0, w.frame, w.spell && (b.inv > 0 || b.pt % 180 < 70) ? 'cast' : 'idle', hurt);
   }
-  // 胴
-  const bg = ctx.createLinearGradient(0, -20, 0, 30); bg.addColorStop(0, '#f0e0ff'); bg.addColorStop(1, mix('#7a5aa8', '#6a1020', E));
-  ctx.fillStyle = bg; ctx.beginPath(); ctx.ellipse(0, 4, 8, 26, 0, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(0, -14, 9, 8, 0, 0, TAU); ctx.fill();
-  ctx.fillStyle = E > .5 ? '#ff2020' : '#2a1050'; ctx.beginPath(); ctx.arc(-4, -15, 2.6, 0, TAU); ctx.arc(4, -15, 2.6, 0, TAU); ctx.fill();
-  // 終の術では人影が退き、蛾そのものが巨大化する。
-  if (b.phase !== 5) smallPerson(ctx, 'mayo', 0, 0, 1.35);
   ctx.restore();
 }
 
 function drawPlayer(ctx, w) {
   const p = w.p; if (p.dead > 0) return;
   if (p.inv > 0 && (w.frame >> 2) % 2) ctx.globalAlpha = .45;
-  // 小さな灯たち
-  for (const o of optionPos(w)) {
-    const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, 9); g.addColorStop(0, '#fff'); g.addColorStop(.4, '#ffb27a'); g.addColorStop(1, 'rgba(255,120,60,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(o.x, o.y, 9, 0, TAU); ctx.fill();
-  }
-  ctx.save(); ctx.translate(p.x, p.y);
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 28); g.addColorStop(0, 'rgba(255,220,160,.55)'); g.addColorStop(1, 'rgba(255,160,90,0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 28, 0, TAU); ctx.fill();
-  smallPerson(ctx, 'akari', 0, 0, 1.25, p.tilt);
-  ctx.restore(); ctx.globalAlpha = 1;
+  // 炎、襟巻き、裾のこまは遊びの frame と tilt から選ぶだけ。
+  for (const o of optionPos(w)) drawPixel(ctx, 'option', o.x, o.y, Math.floor(w.frame / 6) % 4);
+  smallPerson(ctx, 'akari', p.x, p.y, 1, p.tilt, w.frame);
+  ctx.globalAlpha = 1;
   if (p.slow) { // 当たり判定を見せる
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(w.frame * .05);
     ctx.strokeStyle = 'rgba(255,143,200,.8)'; ctx.lineWidth = 1.2; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(0, 0, 18, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
@@ -1044,14 +958,8 @@ function drawPlayer(ctx, w) {
 }
 
 function drawBullets(ctx, w) {
-  // 自機の弾
-  ctx.globalCompositeOperation = 'lighter';
-  for (const s of w.shots) {
-    if (s.dead) continue;
-    ctx.fillStyle = s.k === 'main' ? 'rgba(255,225,150,.75)' : 'rgba(255,150,200,.6)';
-    ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(s.vy, s.vx) + Math.PI / 2); ctx.fillRect(-1.6, -9, 3.2, 18); ctx.restore();
-  }
-  ctx.globalCompositeOperation = 'source-over';
+  // 自機の弾。形の向きも整数座標の絵にし、敵弾の光より控えめに。
+  for (const s of w.shots) if (!s.dead) drawPixel(ctx, 'shot-' + (s.k === 'main' ? 'main' : 'sub'), s.x, s.y);
   // 敵の弾。大きいものから先に描く
   for (const pass of [0, 1]) for (const b of w.bullets) {
     if (b.dead || (pass === 0) !== (b.k === 'big')) continue;
@@ -1066,17 +974,14 @@ function drawBullets(ctx, w) {
 }
 
 function drawItems(ctx, w) {
-  ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (const it of w.items) {
     if (it.dead) continue;
-    if (it.k === 'star') { ctx.fillStyle = '#c8f0ff'; ctx.fillRect(it.x - 1.5, it.y - 1.5, 3, 3); continue; }
-    const big = it.k === 'BP' || it.k === 'B' || it.k === '1UP', R = big ? 8 : 5.5;
-    ctx.fillStyle = { P: '#ff4f60', BP: '#ff4f60', pt: '#4f7dff', B: '#3fd07a', '1UP': '#ff8fc8' }[it.k];
-    if (it.y < 0) { ctx.globalAlpha = .7; ctx.fillRect(it.x - 3, 2, 6, 4); ctx.globalAlpha = 1; continue; }
-    ctx.fillRect(it.x - R, it.y - R, R * 2, R * 2); ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1; ctx.strokeRect(it.x - R + .5, it.y - R + .5, R * 2 - 1, R * 2 - 1);
-    ctx.fillStyle = '#fff'; ctx.fillText({ P: 'P', BP: 'P', pt: '点', B: '月', '1UP': '命' }[it.k], it.x, it.y + .5);
+    if (it.y < 0 && it.k !== 'star') {
+      ctx.fillStyle = '#b09c92'; ctx.fillRect(Math.round(it.x)-1,1,2,1);ctx.fillRect(Math.round(it.x)-2,2,4,1);
+      continue;
+    }
+    drawPixel(ctx, 'item-' + it.k, it.x, it.y);
   }
-  ctx.textBaseline = 'alphabetic';
 }
 
 function drawFx(ctx, w) {
@@ -1086,14 +991,11 @@ function drawFx(ctx, w) {
     g.addColorStop(0, 'rgba(200,220,255,0)'); g.addColorStop(.8, `rgba(220,230,255,${.5 * a})`); g.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, FW, FH);
   }
-  ctx.globalCompositeOperation = 'lighter';
   for (const q of w.parts) {
-    if (q.dead) continue; const a = q.life / q.max;
-    ctx.fillStyle = q.c < 0 ? `rgba(255,255,255,${a})` : COL[q.c][1]; ctx.globalAlpha = q.c < 0 ? 1 : a;
-    if (q.k === 'pop') { ctx.beginPath(); ctx.arc(q.x, q.y, (1 - a) * 8 + 1, 0, TAU); ctx.fill(); }
-    else ctx.fillRect(q.x - 1.5, q.y - 1.5, 3, 3);
+    if (q.dead) continue;
+    const phase = Math.min(3, Math.floor((1 - q.life / q.max) * 4));
+    drawPixel(ctx, 'fx-' + (q.k === 'pop' ? 'pop' : 'spark'), q.x, q.y, phase);
   }
-  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   ctx.font = '11px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center';
   for (const q of w.texts) { if (q.dead) continue; ctx.globalAlpha = Math.min(1, q.life / 15); ctx.fillStyle = q.c; ctx.fillText(q.s, q.x, q.y); }
   ctx.globalAlpha = 1;
@@ -1135,8 +1037,8 @@ function drawPanel(ctx, w) {
   row(104, 'ハイスコア', Math.max(w.hi, w.score).toLocaleString(), '#bfc4e8');
   row(128, 'スコア', w.score.toLocaleString());
   ctx.fillStyle = '#9aa0c8'; ctx.font = `13px ${J}`; ctx.fillText('残機', x, 168); ctx.fillText('月光', x, 194);
-  for (let i = 0; i < Math.max(0, w.p.lives); i++) star(ctx, x + 60 + i * 17, 163, 6.5, '#ff8fc8');
-  for (let i = 0; i < w.p.bombs; i++) { ctx.fillStyle = '#7fe0a8'; ctx.beginPath(); ctx.arc(x + 60 + i * 17, 189, 5.5, 0, TAU); ctx.fill(); ctx.fillStyle = '#07061a'; ctx.beginPath(); ctx.arc(x + 63 + i * 17, 187, 4.5, 0, TAU); ctx.fill(); }
+  for (let i = 0; i < Math.max(0, w.p.lives); i++) drawPixel(ctx, 'item-1UP', x + 60 + i * 20, 163);
+  for (let i = 0; i < w.p.bombs; i++) drawPixel(ctx, 'item-B', x + 60 + i * 20, 189);
   row(232, 'パワー', w.p.power >= 4 ? 'MAX' : w.p.power.toFixed(2), '#ff7080');
   row(256, 'かすり', String(w.graze), '#c8f0ff');
   row(280, '点', String(w.points), '#8fb4ff');
@@ -1311,6 +1213,57 @@ function runTests() {
     return Object.values(PEOPLE).reduce((n, p) => n + p.moods.length, 0) === 11 && Object.values(PEOPLE).every(p => {
       const [x, y, w, h] = p.face; return x > 0 && y > 0 && w > 80 && h > 60 && x + w < 1024 && y + h < 400;
     });
+  });
+
+  check('ドット絵の全こまに寸法・色番号・20色以下のパレットがある', () => {
+    if (typeof PixelArt === 'undefined') return 'sprites.js が未読込';
+    return Object.values(PixelArt.data.sprites).every(s => {
+      const pal = PixelArt.data.palettes[s.palette];
+      return pal && pal.length <= 20 && s.frames.length > 0 && s.frames.every(rows => rows.length === s.h && rows.every(row => row.length === s.w && [...row].every(c => c === '.' || parseInt(c,18) < pal.length)));
+    });
+  });
+  check('灯は48px以内、待機4こまと左右それぞれ2段階が別の絵', () => {
+    const a = PixelArt.data.sprites, poses = ['idle','left1','left2','right1','right2'];
+    return poses.every(p => a['akari-'+p].h <= 48 && new Set(a['akari-'+p].frames.map(r=>r.join(''))).size === 4) &&
+      new Set([0,-.3,-1,.3,1].map(t=>PixelArt.frame('akari',0,t).key)).size === 5 &&
+      new Set(poses.map(p=>a['akari-'+p].frames[0].join(''))).size === 5;
+  });
+  check('移動しても灯の足元は同じ画素に残り、手提灯は右手側にある', () => {
+    const a = PixelArt.data.sprites;
+    const soles = s => s.frames.map(rows=>rows.slice(43,48).map(row=>row.slice(14,28)).join(''));
+    const all = ['idle','left1','left2','right1','right2'].flatMap(p=>soles(a['akari-'+p]));
+    // 提灯の明るい紙は全こま、画面左側（本人の右手）に置く。
+    return new Set(all).size === 1 && ['idle','left1','left2','right1','right2'].every(p=>a['akari-'+p].frames.every(rows=>rows.slice(30,36).some(r=>r.slice(0,14).includes('C'))));
+  });
+  check('燈弥と繭夜は待機と術の構えを持ち、翅・敵・炎は4こま動く', () => {
+    const a = PixelArt.data.sprites;
+    return ['touya','mayo'].every(p=>a[p+'-idle'].frames.length===4 && a[p+'-cast'].frames.length===4 && a[p+'-idle'].frames[0].join('')!==a[p+'-cast'].frames[0].join('')) &&
+      ['mayo-wings','moth','wisp','bird','lantern','great-lantern','option'].every(p=>a[p].frames.length===4 && new Set(a[p].frames.map(r=>r.join(''))).size>=3);
+  });
+  check('全スプライトを描ける。通常の拡大は整数倍、巨大化だけ補間なしの例外', () => {
+    const calls = [], g = {save(){},restore(){},translate(){},scale(){},drawImage(...a){calls.push(a);}};
+    for (const [key,s] of Object.entries(PixelArt.data.sprites)) for (let i=0;i<s.frames.length;i++) {
+      const c=PixelArt.canvas(key,i); if(c.width!==s.w || c.height!==s.h)return false;
+      PixelArt.draw(g,key,10.3,20.7,i,{scale:1.25});
+      const q=calls.at(-1);if(q.slice(1).some(n=>!Number.isInteger(n)) || q[3]!==s.w || q[4]!==s.h || g.imageSmoothingEnabled!==false)return false;
+    }
+    PixelArt.draw(g,'moth',0,0,0,{scale:1.7,eclipse:true});
+    return calls.at(-1)[3]===272 && g.imageSmoothingEnabled===false;
+  });
+  check('アイテム6種と残機・月光を形で区別でき、大PはPより大きい', () => {
+    const a=PixelArt.data.sprites, kinds=['P','BP','pt','B','1UP','star'];
+    return new Set(kinds.map(k=>a['item-'+k].frames[0].join(''))).size===6 && a['item-BP'].w>a['item-P'].w;
+  });
+  check('月食の9段階で影は月面の中に収まり、円の輪郭を保つ', () => {
+    const a=PixelArt.data.sprites,mask=rows=>rows.join('').replace(/[^.]/g,'#');
+    return Array.from({length:9},(_,i)=>a['moon-'+i]).every(s=>s.w===96 && s.h===96 && mask(s.frames[0])===mask(a['moon-0'].frames[0]));
+  });
+  check('絵を描いてもゲームの状態・遊びの乱数は進まない', () => {
+    const a=makeWorld(17,1,{auto:true,cheat:true}),b=makeWorld(17,1,{auto:true,cheat:true});
+    midboss(a);midboss(b);spawnBoss(a,3);spawnBoss(b,3);run(a,180);run(b,180);
+    const before=JSON.stringify(a),g=document.createElement('canvas').getContext('2d');
+    for(let i=0;i<3;i++){drawBack(g,a);drawBoss(g,a);for(const e of a.enemies)drawEnemy(g,a,e);drawPlayer(g,a);drawItems(g,a);drawFx(g,a);}
+    return JSON.stringify(a)===before && a.rnd()===b.rnd();
   });
 
   out.info = full ? `自動で最後まで: ${full.t.toFixed(0)} 秒、弾の最大 ${full.maxB}、点 ${full.score.toLocaleString()}、術 ${full.spells}/5` : '';
