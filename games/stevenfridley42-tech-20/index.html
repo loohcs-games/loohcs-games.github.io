@@ -1,0 +1,3210 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>海賊船長 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap">
+<style>
+/* Layout: full-bleed 3D sea; brass-and-navy ship's instruments pinned to the four corners */
+:root{
+  color-scheme: dark;
+  --ink:#0b1826;
+  --panel:rgba(9,21,34,.80);
+  --panel-edge:rgba(212,166,74,.38);
+  --brass:#d4a64a;
+  --parch:#efe3c8;
+  --dim:#93a6b6;
+  --blood:#e5583f;
+  --kelp:#72c98f;
+  --gold:#f0c75e;
+  --tide:#2c6f9c;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--ink);color:var(--parch);font-family:var(--body);overflow:hidden;user-select:none;-webkit-user-select:none;font-size:13px}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#c:active{cursor:grabbing}
+.panel{background:var(--panel);border:1px solid var(--panel-edge);border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.35);backdrop-filter:blur(3px)}
+.num{font-variant-numeric:tabular-nums}
+#hud{position:fixed;inset:0;pointer-events:none}
+#topbar{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));top:calc(10px + env(safe-area-inset-top,0px));padding:8px 12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;max-width:calc(100vw - 250px)}
+#topbar .cap{font-family:var(--display);font-size:16px;color:var(--gold);letter-spacing:.04em}
+#topbar .rank{color:var(--dim)}
+#topbar b{color:var(--gold)}
+#topbar .fame{color:var(--blood)}
+#mapwrap{position:absolute;right:calc(10px + env(safe-area-inset-right,0px));top:calc(10px + env(safe-area-inset-top,0px));padding:6px;display:flex;flex-direction:column;gap:6px;align-items:center}
+#minimap{width:190px;height:190px;border-radius:4px;display:block}
+#compass{width:190px;height:64px;display:block}
+#status{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));padding:10px 12px;width:270px;display:grid;gap:4px}
+#status h3{font-family:var(--display);font-size:15px;color:var(--gold);margin:0 0 2px;font-weight:800;letter-spacing:.03em}
+.row{display:grid;grid-template-columns:34px 1fr 64px;gap:6px;align-items:center}
+.row span:last-child{text-align:right}
+.bar{height:7px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:4px}
+.line{display:flex;justify-content:space-between;gap:8px}
+.k{color:var(--dim)}
+.good{color:var(--kelp)}.warn{color:var(--gold)}.bad{color:var(--blood)}
+#guns{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));padding:8px 12px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;width:min(520px,calc(100vw - 600px));min-width:330px}
+.side{display:grid;gap:3px}
+.side .lbl{font-size:12px}
+.side.ready .lbl{color:var(--parch)}
+.side.inarc .lbl{color:var(--kelp);font-weight:700}
+.ammo{display:flex;gap:4px}
+.ammo span{padding:3px 7px;border-radius:4px;border:1px solid rgba(255,255,255,.12);color:var(--dim);font-size:12px;white-space:nowrap}
+.ammo span.on{border-color:var(--brass);color:var(--ink);background:var(--brass);font-weight:700}
+#gunsHint{grid-column:1/-1;text-align:center;color:var(--dim);font-size:11px}
+#target{position:absolute;right:calc(10px + env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));padding:10px 12px;width:250px;display:grid;gap:4px}
+#target h4{margin:0;font-family:var(--display);font-size:14px}
+#nearby{position:absolute;right:calc(10px + env(safe-area-inset-right,0px));top:calc(290px + env(safe-area-inset-top,0px));padding:8px 10px;width:230px;display:grid;gap:3px;font-size:12px}
+#nearby .t{color:var(--dim);font-size:11px;letter-spacing:.08em}
+#log{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(330px + env(safe-area-inset-bottom,0px));width:min(470px,calc(100vw - 30px));display:flex;flex-direction:column;gap:3px}
+#log div{background:rgba(9,21,34,.66);padding:3px 9px;border-radius:4px;transition:opacity .8s;text-shadow:0 1px 2px #000;width:fit-content;max-width:100%}
+#prompt{position:absolute;left:50%;top:58%;transform:translateX(-50%);padding:8px 16px;font-size:15px;color:var(--gold);font-weight:700;white-space:nowrap}
+#labels{position:absolute;inset:0;overflow:hidden}
+.tag{position:absolute;transform:translate(-50%,-100%);font-size:11px;padding:2px 6px;border-radius:3px;background:rgba(9,21,34,.72);white-space:nowrap;border-left:3px solid currentColor}
+.tag.port{font-family:var(--display);font-size:14px;color:var(--parch);border-left-color:var(--brass);padding:3px 8px}
+#title{position:fixed;inset:0;display:grid;place-items:center;background:linear-gradient(180deg,rgba(11,24,38,.15),rgba(11,24,38,.75));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.tcard{display:grid;gap:14px;justify-items:center;text-align:center;max-width:460px}
+.tcard h1{font-family:var(--display);font-weight:800;font-size:clamp(44px,9vw,84px);margin:0;letter-spacing:.08em;color:var(--parch);text-shadow:0 4px 30px rgba(0,0,0,.6);line-height:1}
+.tcard h1 small{display:block;font-size:.34em;color:var(--brass);letter-spacing:.3em;margin-top:10px}
+.tcard p{margin:0;color:var(--parch);opacity:.85;line-height:1.7;text-shadow:0 1px 4px #000}
+.field{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+.field label{color:var(--dim)}
+input#captain-name{font:inherit;font-size:16px;padding:8px 10px;border-radius:5px;border:1px solid var(--panel-edge);background:rgba(9,21,34,.85);color:var(--parch);width:200px}
+input#captain-name:focus{outline:2px solid var(--brass)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+button{font:inherit;cursor:pointer}
+.btn{padding:10px 18px;border-radius:5px;border:1px solid var(--brass);background:rgba(9,21,34,.85);color:var(--parch);font-weight:700}
+.btn.primary{background:var(--brass);color:var(--ink)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:focus-visible,.mi:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#modal{position:fixed;inset:0;display:grid;place-items:center;background:rgba(5,12,20,.45);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));z-index:5}
+#mbox{width:min(560px,100%);max-height:calc(100% - 40px);overflow:auto;padding:16px 18px;display:grid;gap:10px}
+#mbox h2{margin:0;font-family:var(--display);font-size:21px;color:var(--gold);font-weight:800;letter-spacing:.04em}
+#mbody{white-space:pre-line;line-height:1.65}
+#mlist{display:grid;gap:3px}
+.mi{display:flex;justify-content:space-between;gap:10px;text-align:left;padding:7px 10px;border-radius:4px;border:1px solid transparent;background:transparent;color:var(--parch)}
+.mi .n{color:var(--dim);margin-right:8px}
+.mi.sel{background:rgba(44,111,156,.55);border-color:var(--panel-edge)}
+.mi.off{color:var(--dim)}
+#mdesc{color:var(--dim);min-height:1.4em;font-size:12px}
+#mfoot{color:var(--dim);font-size:11px}
+#help,#bigmap{position:fixed;inset:0;display:grid;place-items:center;background:rgba(5,12,20,.6);z-index:6;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#helpbox{width:min(760px,100%);max-height:calc(100% - 40px);overflow:auto;padding:18px 22px;line-height:1.7}
+#helpbox h2{font-family:var(--display);color:var(--gold);margin:0 0 6px;font-size:22px}
+#helpbox h3{font-family:var(--display);color:var(--brass);margin:12px 0 2px;font-size:15px}
+#helpbox p{margin:0}
+kbd{font-family:var(--body);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-bottom-width:2px;border-radius:3px;padding:0 5px;font-size:12px}
+#bigmapbox{padding:10px;display:grid;gap:6px;justify-items:center}
+#bigcanvas{width:min(640px,calc(100vw - 60px),calc(100vh - 110px));aspect-ratio:1;max-width:100%;display:block}
+#touch{position:fixed;inset:auto 0 0 0;pointer-events:none;display:none}
+#touch button{pointer-events:auto;position:absolute;width:58px;height:58px;border-radius:50%;border:1px solid var(--panel-edge);background:rgba(9,21,34,.7);color:var(--parch);font-size:13px;font-weight:700;touch-action:none}
+@media (pointer:coarse){#touch{display:block}}
+@media (max-width:900px){
+  #nearby{display:none}
+  #guns{min-width:0;width:auto;left:auto;right:calc(10px + env(safe-area-inset-right,0px));transform:none;bottom:calc(10px + env(safe-area-inset-bottom,0px));grid-template-columns:1fr}
+  #target{display:none!important}
+}
+@media (max-width:640px){
+  #minimap{width:120px;height:120px}#compass{width:120px;height:44px}
+  #status{width:200px;font-size:11px;padding:7px 9px}
+  #topbar{max-width:calc(100vw - 170px);font-size:11px;gap:8px}
+  #log{bottom:calc(270px + env(safe-area-inset-bottom,0px));font-size:11px}
+  #guns{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+}
+#duelc{width:100%;display:block;border-radius:4px;aspect-ratio:1120/500}
+.duelline{margin-top:6px;font-weight:700;color:var(--gold);min-height:1.5em;white-space:normal}
+#mlist.duelbtns{grid-template-columns:repeat(4,1fr)}
+.mi.duelbtn{justify-content:center;border-color:var(--panel-edge);touch-action:none}
+.stars{color:#ff8a3a;letter-spacing:1px}
+.goal{border-top:1px solid rgba(212,166,74,.3);padding-top:4px;margin-top:2px;display:grid;gap:2px}
+@media (prefers-reduced-motion:reduce){#log div{transition:none}}
+.backlink{color:var(--dim);font-size:13px;text-decoration:none;border-bottom:1px solid rgba(147,166,182,.4)}
+.backlink:hover{color:var(--parch)}
+</style>
+</head>
+<body>
+
+<canvas id="c" aria-label="3Dの海と帆船"></canvas>
+
+<div id="hud" hidden>
+  <div id="topbar" class="panel"></div>
+  <div id="mapwrap" class="panel"><canvas id="minimap" width="380" height="380"></canvas><canvas id="compass" width="380" height="128"></canvas></div>
+  <div id="nearby" class="panel"></div>
+  <div id="status" class="panel"></div>
+  <div id="guns" class="panel"></div>
+  <div id="target" class="panel" hidden></div>
+  <div id="log"></div>
+  <div id="prompt" class="panel" hidden></div>
+  <div id="labels"></div>
+</div>
+
+<div id="touch">
+  <button id="tL" style="left:14px;bottom:84px">◀ 舵</button>
+  <button id="tR" style="left:80px;bottom:84px">舵 ▶</button>
+  <button id="tUp" style="left:47px;bottom:150px">帆＋</button>
+  <button id="tDn" style="left:47px;bottom:18px">帆－</button>
+  <button id="tZ" style="right:90px;bottom:84px">左舷</button>
+  <button id="tX" style="right:20px;bottom:84px">右舷</button>
+  <button id="tAm" style="right:55px;bottom:150px">弾種</button>
+  <button id="tB" style="right:90px;bottom:18px">乗込</button>
+  <button id="tE" style="right:20px;bottom:18px">入港</button>
+  <button id="tQ" style="right:125px;bottom:150px">備え</button>
+  <button id="tT" style="left:113px;bottom:150px">早送</button>
+</div>
+
+<div id="title">
+  <div class="tcard">
+    <h1>海賊船長<small>— 3D 風と舷側砲 —</small></h1>
+    <p>風を読み、舷側砲で撃ち合い、敵の船長と剣を交えよ。<br>三つの国の戦争を利用し、賞金首を狩り、宝を掘り当て、<br>海軍提督の旗艦を沈めて海賊王になろう。</p>
+    <div class="field"><label for="captain-name">船長の名前</label><input id="captain-name" maxlength="12" placeholder="ジャック" autocomplete="off"></div>
+    <div class="btns">
+      <button class="btn primary" id="bNew">新しく航海を始める</button>
+      <button class="btn" id="bCont" disabled>続きから</button>
+      <button class="btn" id="bHelp">遊び方</button>
+    </div>
+    <a class="backlink" href="../../">← ゲーム一覧にもどる</a>
+  </div>
+</div>
+
+<div id="modal" hidden>
+  <div id="mbox" class="panel" role="dialog" aria-modal="true" aria-labelledby="mtitle">
+    <h2 id="mtitle"></h2>
+    <div id="mbody"></div>
+    <div id="mlist"></div>
+    <div id="mdesc"></div>
+    <div id="mfoot">上下キーで選択 ・ Enterで決定 ・ 数字キーで直接選択</div>
+  </div>
+</div>
+
+<div id="help" hidden>
+  <div id="helpbox" class="panel">
+    <h2>遊び方</h2>
+    <h3>目標</h3>
+    <p>商船を襲って稼ぎ、船と本拠地を強くしよう。悪名が400を超えると海軍提督の旗艦《レヴィアタン号》が現れる。これを倒せば海賊王だ。</p>
+    <h3>航海</h3>
+    <p><kbd>←</kbd><kbd>→</kbd> または <kbd>A</kbd><kbd>D</kbd> 舵を切る（押している間） ・ <kbd>↑</kbd><kbd>↓</kbd> または <kbd>W</kbd><kbd>S</kbd> 帆を上げ下げ<br>
+    帆船は風しだい。斜め後ろからの風がいちばん速く、向かい風ではほとんど進めない。右上の羅針盤の青い矢印が風の向き。<br>
+    <kbd>F</kbd> 旗の切り替え。偽装旗なら商船に警戒されずに近づける。海賊旗は商船を怯えさせるが、海軍に追われる。</p>
+    <h3>海戦</h3>
+    <p><kbd>Z</kbd> 左舷砲撃 ・ <kbd>X</kbd> 右舷砲撃 ・ <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 弾種<br>
+    大砲は船の左右にしか撃てない。海面の扇形が射界で、敵が入ると緑に光る。<br>
+    球形弾＝船体を壊す（射程が長い） ・ 鎖弾＝帆を裂いて足を止める ・ ぶどう弾＝船員を倒す（射程が短い）<br>
+    弱った敵は白旗を揚げて降伏する。近づいて <kbd>B</kbd> で拿捕。降伏していない船にも <kbd>B</kbd> で乗り込める（白兵戦）。<br>
+    沈めた船の漂流物（樽）は、上を通ると拾える。</p>
+    <h3>一騎打ち（乗り込み）</h3>
+    <p>乗り込むと敵の船長との一騎打ちになる。<kbd>↑</kbd> 上段斬り ・ <kbd>→</kbd> 突き ・ <kbd>↓</kbd> 下段斬り。<br>
+    敵が構えていない所を斬ればダメージ。構えている所を斬ると防がれて反撃される。<br>
+    敵の頭上に「！」が出たら、同じ方向キーで受け流す。成功すると大きく斬り返す。船員が多く士気が高いほど、あなたの剣は重くなる。</p>
+    <h3>三つの国と私掠免許</h3>
+    <p>交易港はエスパーダ・アルビオン・ネーデルのどれかの国に属する。国の船を襲うとその国の評判が下がり、戦争中の敵国では評判が上がる。<br>
+    評判が−30以下の国の港には入れない（偽装旗なら忍び込めるかも）。総督府で私掠免許を受けると、敵国の船を沈めるたびに報奨金がもらえる。評判を上げると爵位と褒美も。<br>
+    <kbd>F</kbd> で旗を切り替え：海賊旗 → 各国の旗（偽装）。戦争中の国の旗を掲げると、その敵国の海軍に狙われる。</p>
+    <h3>手配度 ★</h3>
+    <p>国の船を襲うと手配度が上がる。★3以上で海賊狩りが追ってくる。日がたつと下がる。酒場で手配書を買い取るか、総督府で恩赦を買えば消える。</p>
+    <h3>依頼・宝・番付</h3>
+    <p>酒場の依頼掲示板で、賞金首の討伐・物資の運送・宝の地図の購入ができる。印は海図と羅針盤に出る。宝の島では船を止めて <kbd>E</kbd> で掘る。<br>
+    酒場の「海賊番付」で名だたる海賊たちと悪名を競おう。士官（航海士・砲術長・船医・船大工・剣術指南役）を雇うと船が強くなる。</p>
+    <h3>任務・お金・新しい船</h3>
+    <p>交易港の総督府で「国の任務」（敵国船や海賊の討伐、偵察）を受けられる。報酬は今の船が大きいほど高い。任務で評判を上げると爵位がもらえ、その国の港で大きな船を買えるようになる。<br>
+    どの港の造船所でも船を買える（港ごとに品ぞろえが違う）。気に入った船は「目標にする」と、画面左下に金貨のたまり具合が出る。<br>
+    買った船や拿捕した船は髑髏湾のドック（3隻まで）に置いておき、本拠地でいつでも乗り換えられる。強化は船ごとに残る。</p>
+    <h3>港</h3>
+    <p>港の近くで <kbd>E</kbd> で入港。本拠地「髑髏湾」では船の強化・購入・港の開発ができ、入港すると自動でセーブされる。他の港は港ごとに高く売れる品が違う。</p>
+    <h3>補給と士気</h3>
+    <p>1日は約2分半（昼夜は約7分半でひと巡り）。食料は1日に船員10人あたり1樽。尽きると船員が逃げ出す。戦果がないと士気が落ち、反乱が起きることもある。酒場の宴会で士気が戻る。</p>
+    <h3>その他</h3>
+    <h3>航海のおたのしみ</h3>
+    <p><kbd>T</kbd> 早送り（4倍。敵が見えると自動で解除）。<br>
+    海面の白い筋は「突風の帯」。帆を張って突っ込むと8秒間船足が大きく上がる。<br>
+    見張りが知らせる漂流物を拾おう：樽（金貨・積荷）、光る瓶（宝の地図や手紙）、筏の漂流者（仲間になる）。イルカやクジラに会えることも。</p>
+    <p><kbd>Q</kbd> 衝撃に備える（2.5秒間被害半減） ・ <kbd>V</kbd> 望遠鏡（遠くの船の積荷が見える）<br>マウスのドラッグで視点を回す ・ ホイールで拡大縮小 ・ <kbd>C</kbd> 視点を戻す ・ <kbd>M</kbd> 海図 ・ <kbd>N</kbd> 音のオン・オフ ・ <kbd>P</kbd> 一時停止</p>
+    <p style="margin-top:12px;color:var(--dim)">何かキーを押すか、クリックで閉じる</p>
+  </div>
+</div>
+
+<div id="bigmap" hidden>
+  <div id="bigmapbox" class="panel">
+    <canvas id="bigcanvas" width="1200" height="1200"></canvas>
+    <div class="k">海図 ・ H＝本拠地　T＝交易港 ・ 点線の輪＝海域の境目（外側ほど危険で豊か） ・ Mで閉じる</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const TAU = Math.PI * 2;
+const norm = a => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const rr = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const pround = v => { const k = Math.floor(v); return k + (Math.random() < v - k ? 1 : 0); };
+const bearing = (x0, z0, x1, z1) => Math.atan2(x1 - x0, -(z1 - z0));
+const DIR8 = ['北','北東','東','南東','南','南西','西','北西'];
+const dir8 = a => { a = norm(a); if (a < 0) a += TAU; return Math.floor((a + Math.PI / 8) / (Math.PI / 4)) % 8; };
+const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+/* ===================== データ ===================== */
+const SC = [
+  { name:'スループ',       hull:90,  crew:40,  guns:8,  hold:40,  price:0,     tier:0, speed:1.00, turn:1.00, len:14, masts:1 },
+  { name:'スクーナー',     hull:120, crew:60,  guns:12, hold:60,  price:3000,  tier:1, speed:1.06, turn:0.90, len:17, masts:2 },
+  { name:'ブリガンティン', hull:170, crew:90,  guns:16, hold:90,  price:6500,  tier:1, speed:0.95, turn:0.80, len:20, masts:2 },
+  { name:'フリゲート',     hull:260, crew:160, guns:28, hold:120, price:14000, tier:2, speed:0.92, turn:0.65, len:27, masts:3 },
+  { name:'ガレオン',       hull:380, crew:220, guns:36, hold:260, price:22000, tier:3, speed:0.72, turn:0.45, len:32, masts:3 },
+  { name:'戦列艦',         hull:520, crew:320, guns:56, hold:150, price:40000, tier:4, speed:0.66, turn:0.40, len:38, masts:3 },
+  { name:'カッター',       hull:80,  crew:35,  guns:6,  hold:35,  price:1500,  tier:0, speed:1.18, turn:1.15, len:13, masts:1 },
+  { name:'コルベット',     hull:200, crew:110, guns:20, hold:80,  price:9500,  tier:2, speed:1.08, turn:0.85, len:22, masts:3 },
+  { name:'武装商船',       hull:300, crew:150, guns:24, hold:300, price:16000, tier:2, speed:0.78, turn:0.55, len:30, masts:3 },
+  { name:'重フリゲート',   hull:340, crew:220, guns:40, hold:140, price:28000, tier:3, speed:0.92, turn:0.60, len:31, masts:3 },
+];
+const GN = ['砂糖','ラム酒','タバコ','香辛料','銀'];
+const GP = [18, 30, 26, 55, 110];
+const F = { PLAYER:0, MERCH:1, PIRATE:2, NAVY:3, BOSS:4 };
+const FACN = ['自船','商船','海賊船','海軍','提督旗艦'];
+const FACCSS = ['#ffffff','#f0c75e','#e57ad6','#78b8ff','#ff4a4a'];
+const AMMON = ['球形弾','鎖弾','ぶどう弾'];
+const RANGE = [150, 105, 75];
+const BALL_SPEED = 80, GRAV = 30, DAY_LEN = 150, SKY_LEN = 450, WORLD = 1500;
+const NAT = [
+  { name:'エスパーダ王国', short:'エスパーダ', css:'#f0c75e' },
+  { name:'アルビオン連合', short:'アルビオン', css:'#ff8a8a' },
+  { name:'ネーデル共和国', short:'ネーデル',   css:'#ffb060' },
+];
+const WAR_PAIRS = [[0, 1], [0, 2], [1, 2]];
+const atWar = (a, b) => { if (a < 0 || b < 0 || a === b) return false; const i = WAR_PAIRS.findIndex(p => (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a)); return !!G.wars[i]; };
+const TITLES = ['なし', '名誉市民', '騎士', '男爵', '伯爵'];
+const TITLE_REP = [0, 25, 50, 75, 95];
+const TITLE_GOLD = [0, 600, 1500, 3000, 6000];
+const OFFICERS = [
+  { k:'nav',  name:'航海士',     desc:'船の速さ +8%',                       cost:1800 },
+  { k:'gun',  name:'砲術長',     desc:'大砲の装填時間 -20%',                 cost:2400 },
+  { k:'doc',  name:'船医',       desc:'砲撃で失う船員 -30%、一騎打ち後の損失も減る', cost:1600 },
+  { k:'carp', name:'船大工',     desc:'航海中、毎日船体と帆を少しずつ修理する', cost:2000 },
+  { k:'fen',  name:'剣術指南役', desc:'一騎打ちで受けるダメージ -30%',         cost:2200 },
+];
+const RIVAL_NAMES = ['赤髭のモルガ','片目のヴァスケス','鉄鉤のブラント','黒薔薇のアンヌ','嵐のトール','骸骨ジェイク','銀牙のレイ','毒蛇のカシム'];
+function genRivals() {
+  return RIVAL_NAMES.map((name, i) => ({ name, fame:420 - i * 50 + rr(-15, 15), cls:clamp(3 - Math.floor(i / 2), 1, 3), alive:true }));
+}
+const SAILF = [0, 0.55, 1];
+const PLAYER_SHIP = '暁の鴉号';
+const NAMES = ['セレナ','アウロラ','サンタ・ルシア','グッドホープ','ラ・ペルラ','シーウルフ','ヴィジラント','フォーチュン','マリーゴールド','ドーントレス','エル・ドラド','スワロー','ヘロン','コンコルディア','ヴァリアント','ニンブル'];
+const SAVE_KEY = 'kaizoku3d_save_v1';
+
+const PORTS = [
+  { name:'髑髏湾',         home:true,  cx:-1080, cz:260,   demand:-1, nat:-1 },
+  { name:'サン・ミゲル',   home:false, cx:250,   cz:-1000, demand:3,  nat:0 },
+  { name:'ポート・ベルナ', home:false, cx:1120,  cz:720,   demand:4,  nat:1 },
+  { name:'ブランカ島',     home:false, cx:-60,   cz:1080,  demand:1,  nat:2 },
+  { name:'エル・ソル',     home:false, cx:-640,  cz:-960,  demand:2,  nat:0 },
+  { name:'ミドルハーフェン', home:false, cx:1060, cz:-560, demand:0,  nat:2 },
+];
+const PORT_SHIPS = [null, [6, 1, 3, 4], [2, 7, 3, 9], [6, 1, 8], [2, 4, 5], [7, 8, 9]];
+PORTS.forEach((p, i) => { p.ships = PORT_SHIPS[i]; });
+for (const p of PORTS) {
+  p.r = 85;
+  p.dockAng = bearing(p.cx, p.cz, 0, 0);
+  p.dx = p.cx + Math.sin(p.dockAng) * (p.r + 18);
+  p.dz = p.cz - Math.cos(p.dockAng) * (p.r + 18);
+  p.price = GP.map(v => v);
+}
+
+/* ===================== 状態 ===================== */
+let G = null;          // ゲーム状態
+let P = null;          // 自船
+const npcs = [];
+const balls = [];
+const loot = [];
+let T = 0;             // 経過時間（波）
+let mode = 'title';
+let manualPause = false;
+
+function freshGame(name) {
+  return { name, gold:400, food:20, fame:0, day:1, dayT:0, morale:70, flag:3,
+    up:{ hull:0, guns:0, copper:0 }, dev:{ shipyard:0, tavern:0, market:0, fort:0 },
+    prizes:[], bossDone:false, bossSpawned:false, portIdx:0, daysNoLoot:0,
+    wind: Math.PI / 4 * rr(0, 7), storm:0, clock:20,
+    rep:[0, 0, 0], heat:0, wars:[true, false, false], marque:-1, bounty:0, titles:[0, 0, 0],
+    jobs:[], rivals:genRivals(), off:{}, huntT:30, fleet:[], goal:-1 };
+}
+
+/* ===================== 音 ===================== */
+let AC = null, soundOn = true;
+function audioInit() { if (AC) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } }
+function noise(dur, freq, vol, type) {
+  if (!AC || !soundOn || vol <= 0.01) return;
+  try {
+    const n = Math.floor(AC.sampleRate * dur), buf = AC.createBuffer(1, n, AC.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2.5);
+    const src = AC.createBufferSource(); src.buffer = buf;
+    const f = AC.createBiquadFilter(); f.type = type || 'lowpass'; f.frequency.value = freq;
+    const g = AC.createGain(); g.gain.value = vol;
+    src.connect(f); f.connect(g); g.connect(AC.destination); src.start();
+  } catch (e) { /* ignore */ }
+}
+const vol = (x, z, r) => P ? clamp(1 - Math.hypot(x - P.x, z - P.z) / r, 0, 1) : 0;
+const sndBoom = (x, z) => noise(1.2, 320, 0.9 * vol(x, z, 800));
+const sndHit = (x, z) => noise(0.35, 1100, 0.55 * vol(x, z, 600));
+const sndSplash = (x, z) => noise(0.45, 1800, 0.18 * vol(x, z, 400), 'highpass');
+
+/* ===================== 3D 基本 ===================== */
+const renderer = new THREE.WebGLRenderer({ canvas: $('#c'), antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8fc3e0);
+scene.fog = new THREE.Fog(0x8fc3e0, 250, 1100);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.5, 4000);
+const hemi = new THREE.HemisphereLight(0xd6ecff, 0x1b3346, 0.75);
+const sun = new THREE.DirectionalLight(0xfff1d6, 0.95);
+scene.add(hemi, sun, sun.target);
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+const matCache = {};
+function mat(color, opts) {
+  const key = color + (opts ? JSON.stringify(opts) : '');
+  if (!matCache[key]) matCache[key] = new THREE.MeshPhongMaterial(Object.assign({ color, flatShading:true, shininess:10 }, opts || {}));
+  return matCache[key];
+}
+
+/* ---------- 海 ---------- */
+const SEA_SIZE = 2600, SEA_SEG = 140;
+const seaGeo = new THREE.PlaneGeometry(SEA_SIZE, SEA_SIZE, SEA_SEG, SEA_SEG);
+seaGeo.rotateX(-Math.PI / 2);
+const seaBase = Float32Array.from(seaGeo.attributes.position.array);
+const seaMat = new THREE.MeshPhongMaterial({ color:0x1d5a85, flatShading:true, shininess:80, specular:0x5588aa });
+const sea = new THREE.Mesh(seaGeo, seaMat);
+scene.add(sea);
+let waveAmp = 1;
+function waveH(x, z) {
+  return waveAmp * (Math.sin(x * 0.031 + T * 1.1) * 0.7 + Math.sin(z * 0.037 - T * 0.85) * 0.6 +
+    Math.sin((x + z) * 0.018 + T * 0.6) * 0.9 + Math.sin((x - z) * 0.06 + T * 1.7) * 0.25);
+}
+function updateSea(cx, cz) {
+  const step = SEA_SIZE / SEA_SEG;
+  const ox = Math.round(cx / step) * step, oz = Math.round(cz / step) * step;
+  sea.position.set(ox, 0, oz);
+  const p = seaGeo.attributes.position.array;
+  for (let i = 0; i < p.length; i += 3) p[i + 1] = waveH(seaBase[i] + ox, seaBase[i + 2] + oz);
+  seaGeo.attributes.position.needsUpdate = true;
+}
+
+/* ---------- 旗のテクスチャ ---------- */
+function flagTex(kind) {
+  const c = document.createElement('canvas'); c.width = 96; c.height = 64;
+  const x = c.getContext('2d');
+  const skull = (col, bone) => {
+    x.strokeStyle = bone; x.lineWidth = 6; x.lineCap = 'round';
+    x.beginPath(); x.moveTo(28, 48); x.lineTo(68, 22); x.moveTo(28, 22); x.lineTo(68, 48); x.stroke();
+    x.fillStyle = col; x.beginPath(); x.arc(48, 28, 13, 0, TAU); x.fill(); x.fillRect(41, 34, 14, 10);
+    x.fillStyle = '#000'; x.beginPath(); x.arc(43, 27, 3.5, 0, TAU); x.arc(53, 27, 3.5, 0, TAU); x.fill();
+  };
+  if (kind === 'jolly') { x.fillStyle = '#111'; x.fillRect(0, 0, 96, 64); skull('#f1ede2', '#f1ede2'); }
+  else if (kind === 'pirate') { x.fillStyle = '#5a0f0f'; x.fillRect(0, 0, 96, 64); skull('#111', '#111'); }
+  else if (kind === 'merchant') { x.fillStyle = '#1f4f88'; x.fillRect(0, 0, 96, 64); x.fillStyle = '#f2e8cf'; x.fillRect(0, 22, 96, 20); x.fillStyle = '#e1b93b'; x.fillRect(38, 0, 20, 64); }
+  else if (kind === 'navy') { x.fillStyle = '#f5f5f0'; x.fillRect(0, 0, 96, 64); x.fillStyle = '#c0262b'; x.fillRect(40, 0, 16, 64); x.fillRect(0, 24, 96, 16); }
+  else if (kind === 'boss') { x.fillStyle = '#10204a'; x.fillRect(0, 0, 96, 64); x.fillStyle = '#e1b93b'; x.fillRect(40, 0, 16, 64); x.fillRect(0, 24, 96, 16); x.beginPath(); x.arc(48, 32, 14, 0, TAU); x.fill(); }
+  else if (kind === 'n0') { x.fillStyle = '#c8202a'; x.fillRect(0, 0, 96, 64); x.fillStyle = '#f2c230'; x.fillRect(0, 16, 96, 32); x.fillStyle = '#c8202a'; x.beginPath(); x.arc(32, 32, 9, 0, TAU); x.fill(); }
+  else if (kind === 'n1') { x.fillStyle = '#f5f3ec'; x.fillRect(0, 0, 96, 64); x.fillStyle = '#1d3f8a'; x.fillRect(0, 0, 40, 28); x.fillStyle = '#c0262b'; x.fillRect(0, 28, 96, 8); x.fillRect(0, 48, 96, 8); }
+  else if (kind === 'n2') { x.fillStyle = '#ef7d1a'; x.fillRect(0, 0, 96, 22); x.fillStyle = '#f5f3ec'; x.fillRect(0, 22, 96, 20); x.fillStyle = '#1f5f7a'; x.fillRect(0, 42, 96, 22); }
+  else { x.fillStyle = '#fafafa'; x.fillRect(0, 0, 96, 64); }
+  const t = new THREE.CanvasTexture(c);
+  return new THREE.MeshBasicMaterial({ map:t, side:THREE.DoubleSide, fog:true });
+}
+const FLAGS = {};
+for (const k of ['jolly','pirate','merchant','navy','boss','white','n0','n1','n2']) FLAGS[k] = flagTex(k);
+const FAC_FLAG = ['jolly', 'merchant', 'pirate', 'navy', 'boss'];
+const shipFlag = s => (s.fac === F.MERCH || s.fac === F.NAVY) && s.nat >= 0 ? 'n' + s.nat : FAC_FLAG[s.fac];
+const playerFlag = () => G.flag ? 'n' + (G.flag - 1) : 'jolly';
+
+/* ---------- 船の模型 ---------- */
+const PAL = [
+  { hull:0x4a2e1c, deck:0x9b7a4e, sail:0xeadfc4, stripe:0x16120f },
+  { hull:0x80583a, deck:0xb08f62, sail:0xf4eedf, stripe:0x2f4f6f },
+  { hull:0x2a2422, deck:0x5e5048, sail:0x6e655e, stripe:0x7a1f1f },
+  { hull:0x1f2f52, deck:0x9b8a6a, sail:0xfbfbf6, stripe:0xd8b23a },
+  { hull:0x141414, deck:0x5a4a3a, sail:0x8a1414, stripe:0xd8b23a },
+];
+function sailGeo(w, h) {
+  const geo = new THREE.PlaneGeometry(w, h, 6, 3);
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i);
+    p.setZ(i, -Math.cos(x / w * Math.PI) * Math.cos(y / h * Math.PI * 0.9) * w * 0.15);
+  }
+  geo.translate(0, -h / 2, 0);
+  geo.computeVertexNormals();
+  return geo;
+}
+function buildShipMesh(s) {
+  const c = SC[s.cls], L = c.len, B = L * 0.3, H = Math.max(3, L * 0.2);
+  const pal = PAL[s.fac];
+  const g = new THREE.Group();
+  const body = new THREE.Group();
+  body.rotation.order = 'XZY';
+  g.add(body);
+  const sh = new THREE.Shape();
+  sh.moveTo(0, L / 2);
+  sh.quadraticCurveTo(B / 2, L * 0.28, B / 2, -L * 0.08);
+  sh.lineTo(B * 0.42, -L / 2); sh.lineTo(-B * 0.42, -L / 2); sh.lineTo(-B / 2, -L * 0.08);
+  sh.quadraticCurveTo(-B / 2, L * 0.28, 0, L / 2);
+  const hg = new THREE.ExtrudeGeometry(sh, { depth:H, bevelEnabled:false, curveSegments:8 });
+  hg.rotateX(-Math.PI / 2);
+  hg.translate(0, -H * 0.45, 0);
+  body.add(new THREE.Mesh(hg, [mat(pal.deck), mat(pal.hull)]));
+  const deckY = H * 0.55;
+  // 舷側の帯と砲門
+  const nPorts = Math.min(14, Math.max(2, Math.floor(c.guns / 4)));
+  for (const sx of [-1, 1]) {
+    const st = new THREE.Mesh(new THREE.BoxGeometry(0.3, H * 0.2, L * 0.55), mat(pal.stripe));
+    st.position.set(sx * B * 0.49, deckY - H * 0.3, L * 0.17);
+    body.add(st);
+    for (let i = 0; i < nPorts; i++) {
+      const gp = new THREE.Mesh(new THREE.BoxGeometry(0.4, H * 0.13, H * 0.13), mat(0x050505));
+      gp.position.set(sx * B * 0.5, deckY - H * 0.3, L * (-0.08 + 0.48 * (i + 0.5) / nPorts));
+      body.add(gp);
+    }
+  }
+  // 船尾楼
+  const castle = new THREE.Mesh(new THREE.BoxGeometry(B * 0.8, H * 0.55, L * 0.17), mat(pal.hull));
+  castle.position.set(0, deckY + H * 0.27, L * 0.4);
+  body.add(castle);
+  const lantern = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.7), new THREE.MeshBasicMaterial({ color:0xffd27a }));
+  lantern.position.set(0, deckY + H * 0.75, L * 0.5);
+  body.add(lantern);
+  // 船首斜檣
+  const bs = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, L * 0.35, 5), mat(0x3a2818));
+  bs.rotation.x = Math.PI / 2 - 0.35;
+  bs.position.set(0, deckY + 1.2, -L * 0.6);
+  body.add(bs);
+  // マスト・帆
+  const mz = c.masts === 1 ? [-0.04] : c.masts === 2 ? [-0.2, 0.14] : [-0.28, -0.03, 0.22];
+  const sails = [], rigs = [];
+  const sailM = new THREE.MeshPhongMaterial({ color:pal.sail, side:THREE.DoubleSide, flatShading:true, shininess:5, emissive:0x2a2620 });
+  let flag = null;
+  mz.forEach((zf, mi) => {
+    const mh = L * (mi === Math.floor(mz.length / 2) ? 0.95 : 0.82);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.38, mh, 6), mat(0x3a2818));
+    mast.position.set(0, deckY + mh / 2, L * zf);
+    body.add(mast);
+    const rig = new THREE.Group();
+    rig.position.set(0, deckY, L * zf);
+    body.add(rig);
+    rigs.push(rig);
+    const spec = [[mh * 0.56, B * 1.75, mh * 0.33], [mh * 0.9, B * 1.35, mh * 0.28]];
+    for (const [yy, w, h] of spec) {
+      const yard = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, w * 1.08, 5), mat(0x3a2818));
+      yard.rotation.z = Math.PI / 2;
+      yard.position.y = yy;
+      rig.add(yard);
+      const sl = new THREE.Mesh(sailGeo(w, h), sailM);
+      sl.position.y = yy;
+      rig.add(sl);
+      sails.push(sl);
+    }
+    if (mi === Math.floor(mz.length / 2)) {
+      const fs = L / 18;
+      const fg = new THREE.PlaneGeometry(3.6 * fs, 2.4 * fs);
+      fg.translate(1.8 * fs, 0, 0);
+      flag = new THREE.Mesh(fg, FLAGS[shipFlag(s)]);
+      flag.position.set(0, deckY + mh + 1.2 * fs, L * zf);
+      body.add(flag);
+    }
+  });
+  s.mesh = g; s.body = body; s.sailMeshes = sails; s.rigs = rigs; s.flag = flag; s.sailM = sailM;
+  s.sailScale = 1;
+  scene.add(g);
+}
+function setFlag(s, kind) { if (s.flag) s.flag.material = FLAGS[kind]; }
+function removeShipMesh(s) {
+  if (!s.mesh) return;
+  scene.remove(s.mesh);
+  s.mesh.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+  if (s.sailM) s.sailM.dispose();
+  s.mesh = null;
+  if (s.tag) { s.tag.remove(); s.tag = null; }
+}
+
+/* ---------- 島と港 ---------- */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const islands = [];
+function jitterGeo(geo, amt, seed) {
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const h = Math.sin(Math.round(x * 10) * 12.9898 + Math.round(z * 10) * 78.233 + Math.round(y * 10) * 3.1 + seed) * 43758.5453;
+    const f = 1 + (h - Math.floor(h) - 0.5) * amt;
+    p.setX(i, x * f); p.setZ(i, z * f);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+function buildIsland(is, R, port) {
+  const g = new THREE.Group();
+  g.position.set(is.x, 0, is.z);
+  const sand = new THREE.Mesh(jitterGeo(new THREE.CylinderGeometry(is.r * 0.97, is.r * 1.06, 7, 22), 0.1, is.x), mat(0xd9c28c));
+  sand.position.y = -1.5;
+  g.add(sand);
+  const hillH = is.r * (0.22 + R() * 0.32) * (port ? 0.6 : 1);
+  const hill = new THREE.Mesh(jitterGeo(new THREE.ConeGeometry(is.r * 0.8, hillH, 11, 3), 0.25, is.z), mat(0x4f7d3b));
+  hill.position.set(port ? -Math.sin(port.dockAng) * is.r * 0.25 : 0, 1.5 + hillH / 2, port ? Math.cos(port.dockAng) * is.r * 0.25 : 0);
+  g.add(hill);
+  if (!port && is.r > 55 && R() < 0.6) {
+    const pk = new THREE.Mesh(jitterGeo(new THREE.ConeGeometry(is.r * 0.32, hillH * 1.5, 7, 2), 0.3, is.r), mat(0x7a7468));
+    pk.position.set((R() - 0.5) * is.r * 0.3, hillH * 0.75 + 1.5, (R() - 0.5) * is.r * 0.3);
+    g.add(pk);
+  }
+  const foam = new THREE.Mesh(new THREE.TorusGeometry(is.r * 1.07, 1.3, 4, 32), new THREE.MeshBasicMaterial({ color:0xf2fbff, transparent:true, opacity:0.5, fog:true }));
+  foam.rotation.x = Math.PI / 2;
+  foam.position.y = 0.4;
+  g.add(foam);
+  const np = Math.floor(is.r / 16) + 1;
+  for (let i = 0; i < np; i++) {
+    const a = R() * TAU, d = is.r * (0.62 + R() * 0.28);
+    const palm = new THREE.Group();
+    palm.position.set(Math.sin(a) * d, 1.5, Math.cos(a) * d);
+    const tH = 8 + R() * 6;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.75, tH, 5), mat(0x7a5a3a));
+    trunk.position.y = tH / 2;
+    palm.add(trunk);
+    const leaves = new THREE.Mesh(new THREE.ConeGeometry(5, 2.4, 7), mat(0x2f8a3a));
+    leaves.position.y = tH + 0.6;
+    palm.add(leaves);
+    palm.rotation.z = (R() - 0.5) * 0.5;
+    palm.rotation.x = (R() - 0.5) * 0.5;
+    g.add(palm);
+  }
+  if (port) buildTown(g, port, R);
+  scene.add(g);
+}
+function buildTown(g, p, R) {
+  const fx = Math.sin(p.dockAng), fz = -Math.cos(p.dockAng);
+  const rx = Math.cos(p.dockAng), rz = Math.sin(p.dockAng);
+  // 桟橋
+  const pier = new THREE.Mesh(new THREE.BoxGeometry(5, 1.2, 34), mat(0x6b4a2c));
+  pier.position.set(fx * (p.r + 4), 1.2, fz * (p.r + 4));
+  pier.rotation.y = -p.dockAng;
+  g.add(pier);
+  const wallC = p.home ? [0x5b4630, 0x4a3a2a, 0x66503a] : [0xefe6d2, 0xe8d3a8, 0xd9c7a8];
+  const roofC = p.home ? 0x2b2420 : 0xb5462f;
+  for (let i = 0; i < 9; i++) {
+    const side = (i - 4) * 9 + (R() - 0.5) * 4;
+    const back = p.r * (0.55 + R() * 0.3);
+    const w = 7 + R() * 6, h = 5 + R() * 5, d = 7 + R() * 5;
+    const hx = fx * back + rx * side, hz = fz * back + rz * side;
+    const house = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(wallC[i % 3]));
+    house.position.set(hx, 1.5 + h / 2, hz);
+    house.rotation.y = -p.dockAng + (R() - 0.5) * 0.3;
+    g.add(house);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.78, h * 0.6, 4), mat(roofC));
+    roof.position.set(hx, 1.5 + h + h * 0.3, hz);
+    roof.rotation.y = house.rotation.y + Math.PI / 4;
+    g.add(roof);
+  }
+  // 塔（本拠地は灯台、他は鐘楼）と旗
+  const tx = fx * p.r * 0.75 + rx * 48, tz = fz * p.r * 0.75 + rz * 48;
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(3, 4.2, 26, 8), mat(p.home ? 0xe8e2d4 : 0xd8cdb5));
+  tower.position.set(tx, 14, tz);
+  g.add(tower);
+  const top = new THREE.Mesh(new THREE.ConeGeometry(4.4, 6, 8), mat(p.home ? 0x8a1d1d : 0xb5462f));
+  top.position.set(tx, 30, tz);
+  g.add(top);
+  if (p.home) {
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 6), new THREE.MeshBasicMaterial({ color:0xffe08a }));
+    lamp.position.set(tx, 25.5, tz);
+    g.add(lamp);
+    const fort = new THREE.Mesh(new THREE.CylinderGeometry(12, 13, 9, 10), mat(0x8a8478));
+    fort.position.set(fx * p.r * 0.75 - rx * 48, 5, fz * p.r * 0.75 - rz * 48);
+    g.add(fort);
+  }
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 14, 5), mat(0x3a2818));
+  pole.position.set(fx * (p.r * 0.92), 8, fz * (p.r * 0.92));
+  g.add(pole);
+  const fg = new THREE.PlaneGeometry(7, 4.6); fg.translate(3.5, 0, 0);
+  const fl = new THREE.Mesh(fg, FLAGS[p.home ? 'jolly' : 'n' + p.nat]);
+  fl.position.set(pole.position.x, 13.5, pole.position.z);
+  g.add(fl);
+  p.flagMesh = fl;
+}
+function genWorld() {
+  const R = mulberry32(20261117);
+  for (const p of PORTS) {
+    const is = { x:p.cx, z:p.cz, r:p.r, port:p };
+    islands.push(is);
+    buildIsland(is, R, p);
+  }
+  for (let i = 0; i < 400 && islands.length < 62; i++) {
+    const r = 22 + Math.pow(R(), 1.8) * 100;
+    const x = (R() * 2 - 1) * (WORLD - 80), z = (R() * 2 - 1) * (WORLD - 80);
+    let ok = true;
+    for (const o of islands) if (Math.hypot(o.x - x, o.z - z) < r + o.r + (o.port ? 170 : 55)) { ok = false; break; }
+    if (!ok) continue;
+    const is = { x, z, r };
+    islands.push(is);
+    buildIsland(is, R, null);
+  }
+}
+function landAt(x, z, margin) {
+  for (const is of islands) if (Math.hypot(is.x - x, is.z - z) < is.r + margin) return is;
+  return null;
+}
+const homeP = () => PORTS[0];
+function tierAt(x, z) {
+  const d = Math.hypot(x - homeP().dx, z - homeP().dz);
+  return d < 700 ? 0 : d < 1400 ? 1 : 2;
+}
+const TIERN = ['近海（比較的安全）', '中海域（獲物も敵も増える）', '外洋（危険・財宝船あり）'];
+
+/* ---------- 粒子 ---------- */
+const puffTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d');
+  const gr = x.createRadialGradient(32, 32, 2, 32, 32, 30);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+})();
+const parts = [];
+for (let i = 0; i < 320; i++) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map:puffTex, transparent:true, depthWrite:false, color:0xffffff }));
+  s.visible = false;
+  scene.add(s);
+  parts.push({ s, life:0, max:1, vx:0, vy:0, vz:0, g:0, s0:1, s1:1, op:1 });
+}
+let partIdx = 0;
+function emit(x, y, z, o) {
+  const p = parts[partIdx]; partIdx = (partIdx + 1) % parts.length;
+  p.s.position.set(x, y, z);
+  p.s.material.color.setHex(o.color);
+  p.life = p.max = o.life;
+  p.vx = o.vx || 0; p.vy = o.vy || 0; p.vz = o.vz || 0; p.g = o.g || 0;
+  p.s0 = o.s0; p.s1 = o.s1; p.op = o.op == null ? 1 : o.op;
+  p.s.visible = true;
+}
+const rnd = a => (Math.random() - 0.5) * a;
+function fxSmoke(x, y, z, n) { for (let i = 0; i < (n || 3); i++) emit(x + rnd(2), y + rnd(1), z + rnd(2), { color:0xd8d8d8, life:1.8, s0:2.5, s1:10, vx:rnd(3), vy:2 + Math.random() * 2, vz:rnd(3), op:0.8 }); }
+function fxSplash(x, z) { const y = waveH(x, z); for (let i = 0; i < 7; i++) emit(x + rnd(2), y, z + rnd(2), { color:0xf4fbff, life:0.9, s0:1.6, s1:3.2, vx:rnd(5), vy:8 + Math.random() * 8, vz:rnd(5), g:28, op:0.9 }); }
+function fxHit(x, y, z) {
+  emit(x, y, z, { color:0xffc060, life:0.25, s0:4, s1:9, op:1 });
+  for (let i = 0; i < 8; i++) emit(x, y, z, { color:pick([0x8a5a32, 0x5a3a20, 0xff9a40]), life:0.9, s0:0.9, s1:0.4, vx:rnd(14), vy:5 + Math.random() * 8, vz:rnd(14), g:25 });
+  fxSmoke(x, y, z, 2);
+}
+function updateParts(dt) {
+  for (const p of parts) {
+    if (p.life <= 0) continue;
+    p.life -= dt;
+    if (p.life <= 0) { p.s.visible = false; continue; }
+    p.vy -= p.g * dt;
+    p.s.position.x += p.vx * dt; p.s.position.y += p.vy * dt; p.s.position.z += p.vz * dt;
+    const t = 1 - p.life / p.max;
+    const sc = p.s0 + (p.s1 - p.s0) * t;
+    p.s.scale.set(sc, sc, sc);
+    p.s.material.opacity = p.op * (1 - t);
+  }
+}
+
+/* ---------- 射界の扇形 ---------- */
+const arcGroup = new THREE.Group();
+scene.add(arcGroup);
+const arcMats = [0, 1].map(() => new THREE.MeshBasicMaterial({ color:0x9ab0c0, transparent:true, opacity:0.14, depthWrite:false, depthTest:false, side:THREE.DoubleSide }));
+const arcMeshes = [0, 1].map(side => {
+  const m = new THREE.Mesh(new THREE.CircleGeometry(1, 24, side ? -0.55 : Math.PI - 0.55, 1.1), arcMats[side]);
+  m.rotation.x = -Math.PI / 2;
+  m.renderOrder = 2;
+  arcGroup.add(m);
+  return m;
+});
+
+/* ===================== 船の生成と能力 ===================== */
+function makeShip(fac, cls, tier, nat) {
+  const c = SC[cls];
+  let hm = 1, cm = 1, gm = 1;
+  if (fac === F.MERCH) { cm = 0.45; gm = 0.5; }
+  else if (fac === F.PIRATE) { cm = 0.85; gm = 0.8; }
+  else if (fac === F.NAVY) { cm = 0.85; hm = 1.05; }
+  else if (fac === F.BOSS) { cm = 1.15; gm = 1.35; hm = 1.7; }
+  const sc = 0.9 + Math.random() * 0.2 + tier * 0.05;
+  const s = { fac, cls, len:c.len, beam:c.len * 0.3, x:0, z:0, a:0, target:0, v:0, rudder:0, sail:2,
+    hullMax:Math.round(c.hull * hm * sc), sails:100, crew:Math.max(4, Math.round(c.crew * cm * sc)),
+    guns:Math.max(2, Math.round(c.guns * gm * sc)), spdMul:c.speed * (fac === F.MERCH ? 0.95 : 1), turnMul:c.turn,
+    reload:[0, 0], ammo:0, gold:0, cargo:[0, 0, 0, 0, 0], state:'wander', aggro:false, struck:false, intim:false,
+    released:false, sinking:false, sinkT:0, sinkDir:1, decT:0, surT:0, destX:0, destZ:0, destT:0, boardCd:0, smokeT:0 };
+  s.hull = s.hullMax;
+  s.nat = fac === F.MERCH || fac === F.NAVY ? (nat == null ? rr(0, 2) : nat) : -1;
+  s.crewMax = Math.max(c.crew, s.crew);
+  s.name = fac === F.BOSS ? '提督旗艦《レヴィアタン号》' : `${c.name}《${pick(NAMES)}号》`;
+  if (fac === F.MERCH) {
+    s.gold = (cls + 1) * rr(80, 220);
+    const total = Math.floor(c.hold * rr(50, 90) / 100);
+    for (let i = 0; i < total; i++) {
+      const g = rr(0, 99);
+      let k = g < 30 ? 0 : g < 52 ? 1 : g < 74 ? 2 : g < 92 ? 3 : 4;
+      if (cls === 4 && rr(0, 2) === 0) k = 4;
+      s.cargo[k]++;
+    }
+  } else if (fac === F.PIRATE) {
+    s.gold = (cls + 1) * rr(120, 300);
+    for (let i = 0; i < c.hold / 5; i++) s.cargo[rr(0, 4)]++;
+  } else if (fac === F.NAVY) {
+    s.gold = (cls + 1) * rr(60, 150);
+  } else if (fac === F.BOSS) {
+    s.gold = 9000; s.cargo[4] = 60;
+  }
+  return s;
+}
+const holdMax = () => SC[P.cls].hold;
+const cargoUsed = () => P.cargo.reduce((a, b) => a + b, 0);
+const holdUsed = () => cargoUsed() + G.food + jobCargo();
+const holdFree = () => Math.max(0, holdMax() - holdUsed());
+const foodPerDay = () => Math.ceil(P.crew / 10);
+function refit() {
+  const c = SC[P.cls];
+  P.len = c.len; P.beam = c.len * 0.3;
+  P.hullMax = Math.round(c.hull * (100 + 15 * G.up.hull) / 100);
+  let g = Math.round(c.guns * (100 + 15 * G.up.guns) / 100); g += g & 1;
+  P.guns = g;
+  P.crewMax = c.crew;
+  P.spdMul = c.speed * (1 + 0.06 * G.up.copper) * (G.off.nav ? 1.08 : 1);
+  P.turnMul = c.turn;
+  P.name = `${c.name}《${PLAYER_SHIP}》`;
+  P.hull = Math.min(P.hull, P.hullMax);
+  P.crew = Math.min(P.crew, P.crewMax);
+}
+function rebuildPlayerMesh() {
+  removeShipMesh(P);
+  buildShipMesh(P);
+  setFlag(P, playerFlag());
+}
+function rankName() {
+  if (G.bossDone) return '海賊王';
+  if (G.fame >= 400) return '大海賊';
+  if (G.fame >= 200) return '名うての船長';
+  if (G.fame >= 80) return '一端の海賊';
+  if (G.fame >= 25) return '新米船長';
+  return '駆け出し';
+}
+function windF(a) {
+  const t = [0.72, 1.0, 0.86, 0.45, 0.10];
+  const f = Math.abs(norm(a - G.wind)) / (Math.PI / 4);
+  const i = Math.floor(f);
+  if (i >= 4) return t[4];
+  const fr = f - i;
+  return t[i] * (1 - fr) + t[i + 1] * fr;
+}
+function windRel(a) {
+  const d = Math.abs(norm(a - G.wind)) * 180 / Math.PI;
+  if (d < 25) return ['追い風', 'good'];
+  if (d < 70) return ['斜め追い風（最速）', 'good'];
+  if (d < 110) return ['横風', ''];
+  if (d < 150) return ['斜め向かい風', 'warn'];
+  return ['向かい風（進めない）', 'bad'];
+}
+function powerRatio(e) {
+  const me = Math.max(1, P.guns) * Math.max(1, P.hull) + P.crew * 30;
+  const en = Math.max(1, e.guns) * Math.max(1, e.hull) + e.crew * 30;
+  return en / me;
+}
+function threat(e) {
+  const r = powerRatio(e);
+  if (r < 0.5) return ['格下', 'good'];
+  if (r < 1.2) return ['互角', 'warn'];
+  if (r < 2.2) return ['格上', 'bad'];
+  return ['危険', 'bad'];
+}
+function reloadTime(s) {
+  const base = s.fac === F.MERCH ? 3.4 : (s.fac === F.NAVY || s.fac === F.BOSS) ? 2.5 : 2.8;
+  let f = s.crew > 0 ? s.guns * 2 / s.crew : 3;
+  f = clamp(f, 1, 3.5);
+  let t = base * f * 1.45;
+  if (s === P && G.morale < 30) t *= 1.3;
+  if (s === P && G.off.gun) t *= 0.8;
+  return t;
+}
+
+/* ===================== メッセージ ===================== */
+function msg(text, cls) {
+  const box = $('#log');
+  const d = document.createElement('div');
+  d.textContent = text;
+  if (cls) d.className = cls;
+  box.appendChild(d);
+  while (box.children.length > 6) box.removeChild(box.firstChild);
+  setTimeout(() => { d.style.opacity = '0'; }, 7000);
+  setTimeout(() => { d.remove(); }, 8000);
+}
+
+/* ===================== 物理 ===================== */
+function shipPhysics(s, dt) {
+  const turnRate = 0.6 * s.turnMul * (0.35 + 0.65 * Math.min(1, s.v / 6));
+  if (s === P) s.a = norm(s.a + s.rudder * turnRate * dt);
+  else {
+    const d = norm(s.target - s.a), st = turnRate * dt;
+    s.a = Math.abs(d) <= st ? s.target : norm(s.a + Math.sign(d) * st);
+  }
+  const crewF = Math.min(1, 0.45 + 1.6 * s.crew / Math.max(1, s.crewMax));
+  const sail = s.struck ? 0 : s.sail;
+  const vt = 13 * s.spdMul * (s === P && P.gustT > 0 ? 1.45 : 1) * windF(s.a) * SAILF[sail] * (0.3 + 0.7 * s.sails / 100) * crewF;
+  s.v += (vt - s.v) * Math.min(1, dt * 0.7);
+  const nx = s.x + Math.sin(s.a) * s.v * dt, nz = s.z - Math.cos(s.a) * s.v * dt;
+  const is = landAt(nx, nz, s.len * 0.35);
+  s.bumped = false;
+  if (is) {
+    const away = bearing(is.x, is.z, s.x, s.z);
+    s.x += Math.sin(away) * 0.6; s.z -= Math.cos(away) * 0.6;
+    if (s === P && s.v > 3.5 && !s.groundCd) {
+      s.hull -= 3;
+      msg('浅瀬に乗り上げた！ 船体 -3。舵を切れ！', 'warn');
+      s.groundCd = 3;
+    }
+    s.v *= 0.3;
+    s.bumped = true;
+    return;
+  }
+  s.x = nx; s.z = nz;
+  if (Math.abs(s.x) > WORLD || Math.abs(s.z) > WORLD) {
+    s.x = clamp(s.x, -WORLD, WORLD); s.z = clamp(s.z, -WORLD, WORLD);
+    s.v *= 0.5;
+    if (s === P && !s.edgeCd) { msg('ここから先は海図にない未知の海域だ。引き返そう。', 'warn'); s.edgeCd = 5; }
+    s.bumped = true;
+  }
+}
+function updateShipVisual(s, dt) {
+  const m = s.mesh; if (!m) return;
+  const fx = Math.sin(s.a), fz = -Math.cos(s.a), rx = Math.cos(s.a), rz = Math.sin(s.a);
+  const L = s.len, B = s.beam;
+  const hB = waveH(s.x + fx * L * 0.45, s.z + fz * L * 0.45), hS = waveH(s.x - fx * L * 0.45, s.z - fz * L * 0.45);
+  const hR = waveH(s.x + rx * B, s.z + rz * B), hL = waveH(s.x - rx * B, s.z - rz * B);
+  m.position.set(s.x, (hB + hS + hR + hL) / 4, s.z);
+  m.rotation.y = -s.a;
+  const rel = norm(G.wind - s.a);
+  let pitch = Math.atan2(hB - hS, L * 0.9) * 0.8;
+  let roll = Math.atan2(hR - hL, B * 2) * 0.8 - Math.sin(rel) * 0.07 * SAILF[s.struck ? 0 : s.sail];
+  if (s.sinking) {
+    s.sinkT += dt;
+    m.position.y -= s.sinkT * s.sinkT * 0.9;
+    roll += s.sinkT * 0.22 * s.sinkDir;
+    pitch += s.sinkT * 0.1;
+  }
+  s.body.rotation.x = pitch;
+  s.body.rotation.z = roll;
+  const want = s.struck || s.sinking ? 0.12 : [0.12, 0.6, 1][s.sail];
+  s.sailScale += (want - s.sailScale) * Math.min(1, dt * 3);
+  for (const sl of s.sailMeshes) sl.scale.y = s.sailScale;
+  const trim = clamp(-rel * 0.42, -0.8, 0.8);
+  for (const rg of s.rigs) rg.rotation.y += (trim - rg.rotation.y) * Math.min(1, dt * 2);
+  const tint = 0.55 + 0.45 * s.sails / 100;
+  s.sailM.color.setHex(PAL[s.fac].sail).multiplyScalar(tint);
+  if (s.flag) s.flag.rotation.y = Math.PI / 2 - rel + Math.sin(T * 6 + s.x) * 0.15;
+  if (s.hull < s.hullMax * 0.4 && !s.sinking) {
+    s.smokeT -= dt;
+    if (s.smokeT <= 0) {
+      s.smokeT = 0.35;
+      emit(s.x + rnd(s.beam), m.position.y + 4, s.z + rnd(s.len * 0.5), { color:0x3a3a3a, life:2.4, s0:3, s1:11, vy:4, vx:rnd(2), vz:rnd(2), op:0.7 });
+    }
+  }
+}
+
+/* ===================== 砲撃 ===================== */
+const ballGeo = new THREE.SphereGeometry(0.55, 6, 4), grapeGeo = new THREE.SphereGeometry(0.3, 5, 3);
+const ballMat = new THREE.MeshBasicMaterial({ color:0x111111 });
+const dmgAcc = { me:[0, 0, 0], foe:[0, 0, 0], tMe:0, tFoe:0 };
+function allShips() { return P ? [P, ...npcs] : npcs; }
+function sideOf(s, t) {
+  const rel = norm(bearing(s.x, s.z, t.x, t.z) - s.a);
+  if (Math.abs(rel - Math.PI / 2) < 0.55) return 1;
+  if (Math.abs(rel + Math.PI / 2) < 0.55) return 0;
+  return -1;
+}
+function fire(s, side) {
+  if (s.reload[side] > 0) return false;
+  const gs = Math.max(1, Math.floor(s.guns / 2));
+  const sideAng = s.a + (side ? Math.PI / 2 : -Math.PI / 2);
+  const R = RANGE[s.ammo];
+  let aim = null, best = 1e9;
+  for (const t of allShips()) {
+    if (t === s || t.sinking || t.released) continue;
+    if (s !== P && t !== P) continue;
+    const d = dist(s, t);
+    if (d > R * 1.05) continue;
+    if (Math.abs(norm(bearing(s.x, s.z, t.x, t.z) - sideAng)) > 0.55) continue;
+    if (d < best) { best = d; aim = t; }
+  }
+  let dirA = sideAng, flight = R;
+  if (aim) {
+    const tt = best / BALL_SPEED;
+    const px = aim.x + Math.sin(aim.a) * aim.v * tt, pz = aim.z - Math.cos(aim.a) * aim.v * tt;
+    dirA = sideAng + clamp(norm(bearing(s.x, s.z, px, pz) - sideAng), -0.55, 0.55);
+    flight = Math.min(R, Math.hypot(px - s.x, pz - s.z));
+  }
+  const n = s.ammo === 2 ? Math.min(10, gs * 2) : Math.min(6, Math.max(2, gs));
+  const per = gs * 4 / n * (s.fac === F.BOSS ? 1.15 : 1);
+  const acc = s === P ? 1 : s.fac === F.MERCH ? 1.7 : s.fac === F.PIRATE ? 1.25 : 1.05;
+  const fx = Math.sin(s.a), fz = -Math.cos(s.a);
+  const y0 = s.mesh ? s.mesh.position.y + 2.5 : 2.5;
+  for (let i = 0; i < n; i++) {
+    const off = (n > 1 ? (i / (n - 1) - 0.5) : 0) * s.len * 0.55;
+    const a = dirA + rnd(0.075 * acc * (s.ammo === 2 ? 2.2 : 1));
+    const fl = flight * (1 + rnd(0.13 * acc));
+    const tf = fl / BALL_SPEED;
+    const bx = s.x + fx * off + Math.sin(sideAng) * s.beam * 0.5;
+    const bz = s.z + fz * off - Math.cos(sideAng) * s.beam * 0.5;
+    const mesh = new THREE.Mesh(s.ammo === 2 ? grapeGeo : ballGeo, ballMat);
+    mesh.visible = false;
+    scene.add(mesh);
+    balls.push({ owner:s, x:bx, y:y0, z:bz, vx:Math.sin(a) * BALL_SPEED + fx * s.v, vz:-Math.cos(a) * BALL_SPEED + fz * s.v,
+      vy:GRAV * tf / 2, ammo:s.ammo, dmg:per, delay:i * 0.06 + Math.random() * 0.06, mesh });
+  }
+  s.reload[side] = reloadTime(s);
+  sndBoom(s.x, s.z);
+  return true;
+}
+function applyHit(t, b) {
+  const d = b.dmg;
+  let h, sl, c;
+  if (b.ammo === 0) { h = d; sl = d * 0.25; c = d * 0.1; }
+  else if (b.ammo === 1) { h = d * 0.2; sl = d * 1.3; c = d * 0.04; }
+  else { h = d * 0.08; sl = d * 0.1; c = d * 0.4; }
+  if (t.fac === F.BOSS) h *= 0.8;
+  if (t === P) {
+    if (P.braceT > 0) { h *= 0.5; c *= 0.5; sl *= 0.7; }
+    if (G.off.doc) c *= 0.7;
+  }
+  const hi = pround(h), si = pround(sl), ci = pround(c);
+  t.hull -= hi; t.sails = Math.max(0, t.sails - si); t.crew = Math.max(0, t.crew - ci);
+  const acc = t === P ? dmgAcc.me : (b.owner === P ? dmgAcc.foe : null);
+  if (acc) { acc[0] += hi; acc[1] += si; acc[2] += ci; if (t === P) dmgAcc.tMe = 0.8; else dmgAcc.tFoe = 0.8; }
+  if (b.owner === P && t !== P) {
+    if (!t.aggro && t.fac === F.NAVY) msg('海軍に砲撃した！ もう後戻りはできない。', 'bad');
+    crimeOn(t);
+    t.aggro = true;
+    G.focus = t;
+  }
+  fxHit(b.x, b.y, b.z);
+  sndHit(b.x, b.z);
+}
+/* ---------- 国の評判と手配度 ---------- */
+const addRep = (n, v) => { G.rep[n] = clamp(Math.round(G.rep[n] + v), -100, 100); };
+function crimeOn(t) {
+  if (t.nat < 0 || t.repHit) return;
+  t.repHit = true;
+  const legal = G.marque >= 0 && atWar(G.marque, t.nat);
+  addRep(t.nat, t.fac === F.NAVY ? -12 : -7);
+  for (let o = 0; o < 3; o++) if (atWar(o, t.nat)) addRep(o, 3);
+  const before = Math.floor(G.heat);
+  G.heat = Math.min(5, G.heat + (legal ? 0.3 : t.fac === F.NAVY ? 1 : 0.6));
+  msg(`${NAT[t.nat].short}の評判が下がった（${G.rep[t.nat]}）${legal ? '　※私掠免許があるので罪は軽い' : ''}`, 'warn');
+  if (Math.floor(G.heat) > before) msg(`手配度が ★${Math.floor(G.heat)} に上がった！${G.heat >= 3 ? ' 海賊狩りに狙われるぞ。' : ''}`, 'bad');
+}
+function defeatEffects(e) {
+  if (e.nat >= 0) {
+    crimeOn(e);
+    addRep(e.nat, -4);
+    for (let o = 0; o < 3; o++) if (atWar(o, e.nat)) addRep(o, 5);
+    if (G.marque >= 0 && atWar(G.marque, e.nat)) {
+      const v = 150 + e.cls * 120 + (e.fac === F.NAVY ? 200 : 0);
+      G.bounty += v;
+      msg(`私掠の戦果！ ${NAT[G.marque].short}の総督府で報奨金 ${v}G を受け取れる。`, 'good');
+    }
+  }
+  if (e.fac === F.PIRATE) for (let o = 0; o < 3; o++) addRep(o, 2);
+  if (e.rival != null) completeBounty(e);
+  huntProgress(e);
+}
+function flushDmg(dt) {
+  if (dmgAcc.tMe > 0 && (dmgAcc.tMe -= dt) <= 0) {
+    const a = dmgAcc.me;
+    msg(`被弾！ 自船  船体-${a[0]}  帆-${a[1]}  船員-${a[2]}`, 'bad');
+    dmgAcc.me = [0, 0, 0];
+  }
+  if (dmgAcc.tFoe > 0 && (dmgAcc.tFoe -= dt) <= 0) {
+    const a = dmgAcc.foe;
+    msg(`命中！ 敵船  船体-${a[0]}  帆-${a[1]}  船員-${a[2]}`, 'good');
+    dmgAcc.foe = [0, 0, 0];
+  }
+}
+function updateBalls(dt) {
+  for (let i = balls.length - 1; i >= 0; i--) {
+    const b = balls[i];
+    if (b.delay > 0) {
+      b.delay -= dt;
+      if (b.delay <= 0) { b.mesh.visible = true; fxSmoke(b.x, b.y, b.z, 3); emit(b.x, b.y, b.z, { color:0xffd080, life:0.15, s0:3, s1:5 }); }
+      continue;
+    }
+    let dead = false;
+    const sub = 2;
+    for (let k = 0; k < sub && !dead; k++) {
+      const h = dt / sub;
+      b.vy -= GRAV * h;
+      b.x += b.vx * h; b.y += b.vy * h; b.z += b.vz * h;
+      for (const t of allShips()) {
+        if (t === b.owner || t.sinking || b.y > 15) continue;
+        const dx = b.x - t.x, dz = b.z - t.z;
+        const along = dx * Math.sin(t.a) - dz * Math.cos(t.a);
+        const across = dx * Math.cos(t.a) + dz * Math.sin(t.a);
+        if (Math.abs(along) < t.len / 2 && Math.abs(across) < t.beam / 2 + 0.8) {
+          applyHit(t, b);
+          dead = true;
+          break;
+        }
+      }
+      if (!dead && b.y < waveH(b.x, b.z) - 0.3) { fxSplash(b.x, b.z); sndSplash(b.x, b.z); dead = true; }
+    }
+    if (dead) { scene.remove(b.mesh); balls.splice(i, 1); }
+    else b.mesh.position.set(b.x, b.y, b.z);
+  }
+}
+
+/* ===================== NPC ===================== */
+function seaSpot(cx, cz, minD, maxD) {
+  for (let t = 0; t < 80; t++) {
+    const a = Math.random() * TAU, d = minD + Math.random() * (maxD - minD);
+    const x = cx + Math.sin(a) * d, z = cz - Math.cos(a) * d;
+    if (Math.abs(x) > WORLD - 40 || Math.abs(z) > WORLD - 40) continue;
+    if (landAt(x, z, 45)) continue;
+    let near = false;
+    for (const p of PORTS) if (Math.hypot(p.dx - x, p.dz - z) < 220) near = true;
+    if (near) continue;
+    return { x, z };
+  }
+  return null;
+}
+function spawnNpc(minD, maxD) {
+  const sp = seaSpot(P.x, P.z, minD, maxD);
+  if (!sp) return;
+  const tier = tierAt(sp.x, sp.z);
+  const roll = rr(1, 100);
+  const wm = [62, 46, 36][tier], wp = [24, 30, 30][tier];
+  const fac = roll <= wm ? F.MERCH : roll <= wm + wp ? F.PIRATE : F.NAVY;
+  const mc = [[0, 6, 1], [1, 2, 8], [2, 4, 8]], pc = [[0, 6, 1], [1, 2, 7], [2, 3, 7]], nc = [[0, 6, 1], [1, 7, 3], [3, 9, 5]];
+  const tbl = fac === F.MERCH ? mc : fac === F.PIRATE ? pc : nc;
+  let nat = rr(0, 2);
+  if (Math.random() < 0.6) { let bd = 1e9; for (const p of PORTS) { if (p.nat < 0) continue; const d = Math.hypot(p.cx - sp.x, p.cz - sp.z); if (d < bd) { bd = d; nat = p.nat; } } }
+  const s = makeShip(fac, tbl[tier][rr(0, 2)], tier, nat);
+  s.x = sp.x; s.z = sp.z;
+  s.a = s.target = Math.random() * TAU - Math.PI;
+  s.destX = s.x; s.destZ = s.z;
+  buildShipMesh(s);
+  npcs.push(s);
+}
+function spawnBoss() {
+  const sp = seaSpot(P.x, P.z, 600, 900);
+  if (!sp) return;
+  const s = makeShip(F.BOSS, 5, 2);
+  s.x = sp.x; s.z = sp.z;
+  s.a = s.target = bearing(s.x, s.z, P.x, P.z);
+  buildShipMesh(s);
+  npcs.push(s);
+  G.bossSpawned = true;
+  msg('！ 海軍提督が旗艦《レヴィアタン号》を率いて出撃した。あなたを追っている！', 'bad');
+}
+function spawnHunter() {
+  const sp = seaSpot(P.x, P.z, 480, 720);
+  if (!sp) return;
+  let nat = 0;
+  for (let i = 1; i < 3; i++) if (G.rep[i] < G.rep[nat]) nat = i;
+  const cls = G.heat >= 4 ? 3 : 2;
+  const s = makeShip(F.NAVY, cls, 2, nat);
+  if (G.heat >= 5) { s.hullMax = s.hull = Math.round(s.hullMax * 1.3); s.guns += 6; s.crew = s.crewMax = Math.round(s.crew * 1.2); }
+  s.hunter = true; s.aggro = true;
+  s.name = `海賊狩り ${SC[cls].name}《${pick(NAMES)}号》`;
+  s.x = sp.x; s.z = sp.z;
+  s.a = s.target = bearing(s.x, s.z, P.x, P.z);
+  buildShipMesh(s);
+  npcs.push(s);
+  msg(`手配度 ★${Math.floor(G.heat)}：${NAT[nat].short}の海賊狩りが現れた！（${DIR8[dir8(bearing(P.x, P.z, s.x, s.z))]}）`, 'bad');
+}
+function spawnRival(j) {
+  const r = G.rivals[j.rid];
+  let sp = null;
+  for (let k = 0; k < 20 && !sp; k++) sp = seaSpot(j.x, j.z, 0, 140 + k * 20);
+  if (!sp) return;
+  const s = makeShip(F.PIRATE, r.cls, 2);
+  const boost = 1 + r.fame / 900;
+  s.hullMax = s.hull = Math.round(s.hullMax * boost);
+  s.crew = s.crewMax = Math.round(s.crew * boost * 1.15);
+  s.guns = Math.round(s.guns * boost); s.guns += s.guns & 1;
+  s.gold = 600 + r.fame * 4;
+  s.rival = j.rid;
+  s.name = `${r.name}の《${pick(NAMES)}号》`;
+  s.x = sp.x; s.z = sp.z;
+  s.a = s.target = Math.random() * TAU - Math.PI;
+  s.destX = j.x; s.destZ = j.z;
+  buildShipMesh(s);
+  npcs.push(s);
+  j.spawned = true;
+  msg(`見張り「${r.name}の船が見えるぞ！」 賞金首だ！`, 'bad');
+}
+function steerClear(s, want) {
+  const tries = [0, 0.5, -0.5, 1, -1, 1.6, -1.6, 2.3, -2.3, Math.PI];
+  for (const o of tries) {
+    const a = norm(want + o);
+    let ok = true;
+    for (const d of [30, 70]) {
+      const x = s.x + Math.sin(a) * d, z = s.z - Math.cos(a) * d;
+      if (landAt(x, z, s.len * 0.5 + 8) || Math.abs(x) > WORLD - 20 || Math.abs(z) > WORLD - 20) { ok = false; break; }
+    }
+    if (ok) return a;
+  }
+  return want;
+}
+function aiDecide(s) {
+  const d = dist(s, P);
+  let st = 'wander';
+  if (s.released) st = 'wander';
+  else if (s.struck) st = 'struck';
+  else if (s.fac === F.BOSS) st = 'hunt';
+  else if ((s.rival != null || s.hunter) && d < 520) st = 'hunt';
+  else if (s.aggro) st = s.fac === F.MERCH ? 'flee' : (s.hull < s.hullMax / 4 && powerRatio(s) < 0.6 ? 'flee' : 'hunt');
+  else if (s.fac === F.NAVY && G.fame >= 60 && d < 450 && (G.flag === 0 || G.fame >= 250 || d < 70)) st = 'hunt';
+  else if (s.fac === F.NAVY && s.nat >= 0 && d < 450 && ((G.rep[s.nat] <= -25 && (G.flag === 0 || d < 110)) || (G.flag && atWar(G.flag - 1, s.nat) && d < 300))) st = 'hunt';
+  else if (s.fac === F.PIRATE && d < 340 && powerRatio(s) > 0.8) st = 'hunt';
+  else if (s.fac === F.MERCH && ((G.flag === 0 && G.fame >= 40 && d < 260) || (G.flag && atWar(G.flag - 1, s.nat) && d < 200))) st = 'flee';
+  if (st !== 'wander' && st !== 'struck' && d > 900 && s.fac !== F.BOSS && !s.hunter) { st = 'wander'; s.aggro = false; }
+  if (P.sinking || G.portCalm > 0) { if (st === 'hunt' && s.fac !== F.BOSS) st = 'wander'; }
+  s.state = st;
+  const b = bearing(s.x, s.z, P.x, P.z);
+  let want = s.a;
+  if (st === 'struck') { s.sail = 0; return; }
+  s.sail = 2;
+  if (st === 'flee') {
+    const away = norm(b + Math.PI);
+    let best = away;
+    for (const c of [norm(away + Math.PI / 4), norm(away - Math.PI / 4)]) if (windF(c) > windF(best) + 0.1) best = c;
+    want = best;
+    s.ammo = d < 100 ? 1 : 0;
+  } else if (st === 'hunt') {
+    const R = RANGE[s.ammo];
+    const rel = norm(b - s.a), sgn = rel > 0 ? 1 : -1;
+    const wantBoard = s.fac !== F.MERCH && s.crew > P.crew * 1.4 && s.hull > s.hullMax / 3;
+    if (wantBoard) { want = b; s.ammo = d < 80 ? 2 : 0; }
+    else if (d > R * 0.85) { want = norm(b - sgn * 0.5); s.ammo = 0; }
+    else {
+      const off = Math.PI / 2 + (d < R * 0.35 ? 0.4 : d > R * 0.7 ? -0.4 : 0);
+      want = norm(b - sgn * off);
+      s.ammo = (P.sails > 70 && d < 100 && s.fac === F.PIRATE && Math.random() < 0.25) ? 1 : 0;
+      if (d < 75 && s.crew > P.crew) s.ammo = 2;
+    }
+    if (windF(want) < 0.3) {
+      const c1 = norm(want + Math.PI / 4), c2 = norm(want - Math.PI / 4);
+      want = windF(c1) > windF(c2) ? c1 : c2;
+    }
+  } else {
+    s.destT -= 0.3;
+    if (Math.hypot(s.destX - s.x, s.destZ - s.z) < 40 || s.destT <= 0 || s.bumped) {
+      const sp = seaSpot(s.x, s.z, 150, 600);
+      if (sp) { s.destX = sp.x; s.destZ = sp.z; }
+      s.destT = 40;
+    }
+    if (s.released) { want = norm(b + Math.PI); }
+    else want = bearing(s.x, s.z, s.destX, s.destZ);
+    s.sail = s.released ? 2 : 1;
+  }
+  s.target = steerClear(s, want);
+}
+function npcUpdate(s, dt) {
+  if (s.sinking) {
+    if (s.sinkT > 6) { removeShipMesh(s); s.dead = true; }
+    return;
+  }
+  for (const k of [0, 1]) if (s.reload[k] > 0) s.reload[k] = Math.max(0, s.reload[k] - dt);
+  s.boardCd = Math.max(0, s.boardCd - dt);
+  s.decT -= dt;
+  if (s.decT <= 0) { s.decT = 0.3; aiDecide(s); }
+  shipPhysics(s, dt);
+  const d = dist(s, P);
+  if (P.sinking) return;
+  // 射撃
+  if (s.state === 'hunt' || (s.state === 'flee' && d < RANGE[1])) {
+    const side = sideOf(s, P);
+    if (side >= 0 && d < RANGE[s.ammo] * 0.95 && s.reload[side] === 0) fire(s, side);
+  }
+  // 降伏判定
+  if (!s.struck && !s.released && s.fac !== F.BOSS && (s.aggro || s.state === 'hunt' || s.state === 'flee') && d < 450) {
+    s.surT += dt;
+    if (s.surT >= 2) {
+      s.surT = 0;
+      const weak = s.hull < s.hullMax / 4 || s.crew < s.crewMax / 4 || (s.fac === F.MERCH && (s.sails < 30 || s.hull < s.hullMax / 2));
+      const ch = s.fac === F.MERCH ? 35 : s.rival != null ? 6 : s.fac === F.PIRATE ? 14 : s.hunter ? 4 : 7;
+      if (weak && rr(1, 100) <= ch) strike(s, `${s.name} が白旗を揚げた！ 降伏だ！ 近づいて B で拿捕しよう。`);
+    }
+  }
+  // 海賊旗による威圧
+  if (s.fac === F.MERCH && !s.intim && !s.struck && !s.released && G.flag === 0 && d < 130) {
+    s.intim = true;
+    const ch = clamp(Math.floor(G.fame / 5) + (P.guns - s.guns) * 2 + 10, 5, 75);
+    if (rr(1, 100) <= ch) strike(s, `髑髏の旗を見た ${s.name} は、戦わずに帆を降ろした！ B で拿捕しよう。`);
+  }
+  if (s.crew <= 0 && !s.struck) strike(s, `${s.name} の乗組員は全滅した。`);
+  // 敵の乗り込み
+  if (s.state === 'hunt' && s.fac !== F.MERCH && d < s.len * 0.5 + P.len * 0.5 + 6 && s.crew > P.crew * 1.4 && s.boardCd <= 0 && Math.random() < dt * 0.35) {
+    s.boardCd = 20;
+    startBoarding(s, true);
+  }
+}
+function strike(s, text) {
+  s.struck = true; s.state = 'struck'; s.sail = 0;
+  setFlag(s, 'white');
+  msg(text, 'good');
+}
+function shipCollisions() {
+  for (const s of npcs) {
+    if (s.sinking) continue;
+    const d = dist(s, P), min = (s.len + P.len) * 0.32;
+    if (d < min && d > 0.01) {
+      const a = bearing(P.x, P.z, s.x, s.z), push = (min - d) / 2;
+      P.x -= Math.sin(a) * push; P.z += Math.cos(a) * push;
+      s.x += Math.sin(a) * push; s.z -= Math.cos(a) * push;
+      if (P.v > 3 && !P.ramCd) { P.hull -= 2; s.hull -= 3; msg('船体同士が激突した！', 'warn'); P.ramCd = 2; }
+      P.v *= 0.6; s.v *= 0.6;
+    }
+  }
+}
+
+/* ===================== 撃沈・漂流物 ===================== */
+function fameFor(e) { return e.fac === F.MERCH ? 3 + e.cls * 3 : e.fac === F.PIRATE ? 6 + e.cls * 4 : e.fac === F.NAVY ? 10 + e.cls * 6 : 200; }
+const barrelGeo = new THREE.CylinderGeometry(1.2, 1.2, 2.2, 8);
+function sinkShip(s) {
+  if (s.sinking) return;
+  s.sinking = true; s.sinkT = 0; s.sinkDir = Math.random() < 0.5 ? -1 : 1;
+  for (let i = 0; i < 10; i++) fxHit(s.x + rnd(s.beam), 4 + Math.random() * 6, s.z + rnd(s.len));
+  if (s === P) return;
+  defeatEffects(s);
+  const fame = fameFor(s);
+  G.fame += fame;
+  G.morale = Math.min(100, G.morale + 6);
+  G.daysNoLoot = 0;
+  msg(`${s.name} は炎に包まれ、波間に沈んでいく... 悪名 +${fame}`, 'good');
+  // 漂流物
+  const gold = Math.floor(s.gold * 0.3);
+  const cargo = s.cargo.map(n => Math.floor(n / 5));
+  const nb = 3 + rr(0, 3);
+  for (let i = 0; i < nb; i++) {
+    const m = new THREE.Mesh(barrelGeo, mat(i % 2 ? 0x7a5230 : 0x8f6a3a));
+    const x = s.x + rnd(s.len * 1.2), z = s.z + rnd(s.len * 1.2);
+    m.rotation.z = Math.PI / 2;
+    scene.add(m);
+    const c = [0, 0, 0, 0, 0];
+    for (let g = 0; g < 5; g++) c[g] = Math.floor(cargo[g] / nb) + (i < cargo[g] % nb ? 1 : 0);
+    loot.push({ x, z, mesh:m, gold:Math.floor(gold / nb), cargo:c, life:120, ph:Math.random() * 6 });
+  }
+  if (s.fac === F.BOSS) { G.bossDone = true; setTimeout(endingModal, 2500); }
+}
+function updateLoot(dt) {
+  for (let i = loot.length - 1; i >= 0; i--) {
+    const l = loot[i];
+    l.life -= dt;
+    l.mesh.position.set(l.x, waveH(l.x, l.z) + (l.kind === 'raft' ? 0.1 : 0.3), l.z);
+    if (l.kind !== 'raft') l.mesh.rotation.y = T * 0.4 + l.ph;
+    if (l.kind === 'bottle' && (l.spark = (l.spark || 0) - dt) <= 0) { l.spark = 0.35; emit(l.x, l.mesh.position.y + 1.5, l.z, { color:0xfff2a0, life:0.6, s0:2.5, s1:0.5, vy:3, op:1 }); }
+    if (l.kind === 'raft' && l.wave) l.wave.rotation.z = Math.sin(T * 6) * 0.6;
+    let take = false;
+    if (!P.sinking && Math.hypot(l.x - P.x, l.z - P.z) < P.len * 0.5 + 6) {
+      take = true;
+      if (l.kind === 'bottle') bottleFind();
+      else if (l.kind === 'raft') raftFind();
+      else {
+        G.gold += l.gold;
+        let got = 0;
+        for (let g = 4; g >= 0; g--) { const n = Math.min(l.cargo[g], holdFree()); P.cargo[g] += n; got += n; }
+        msg(`漂流物を引き上げた！ 金貨 +${l.gold}G${got ? `、積荷 ${got}個` : ''}`, 'good');
+      }
+    }
+    if (take || l.life <= 0) { scene.remove(l.mesh); loot.splice(i, 1); }
+  }
+}
+
+/* ===================== 航海を楽しくする：早送り・突風・漂流物・海の生き物 ===================== */
+let warp = false;
+function warpOK() {
+  return !P.sinking && !G.lostT && balls.length === 0 && !hostileNear(650) &&
+    !npcs.some(s => !s.sinking && !s.struck && !s.dead && (s.aggro || s.hunter || s.rival != null) && dist(s, P) < 500);
+}
+function toggleWarp() {
+  if (warp) { warp = false; msg('早送りを解除した。'); return; }
+  if (!warpOK()) { msg('近くに敵がいて早送りできない！', 'bad'); return; }
+  warp = true;
+  msg('≫ 早送り（4倍）。敵が見えたら自動で解除される。T でも解除。', 'good');
+}
+function aheadSpot(minD, maxD, spread) {
+  for (let k = 0; k < 20; k++) {
+    const a = P.a + rnd(spread * 2), d = minD + Math.random() * (maxD - minD);
+    const x = P.x + Math.sin(a) * d, z = P.z - Math.cos(a) * d;
+    if (Math.abs(x) > WORLD - 40 || Math.abs(z) > WORLD - 40 || landAt(x, z, 25)) continue;
+    return { x, z };
+  }
+  return null;
+}
+// 突風（白い筋の帯）
+const gusts = [];
+const streakGeo = new THREE.PlaneGeometry(0.7, 16);
+const streakMat = new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.55, depthWrite:false, side:THREE.DoubleSide });
+let gustSpawnT = 6, findT = 15, dolphinT = 25, whaleT = 60, gustHint = false;
+function spawnGust() {
+  const sp = aheadSpot(140, 260, 0.7); if (!sp) return;
+  const g = new THREE.Group();
+  const streaks = [];
+  for (let i = 0; i < 12; i++) {
+    const m = new THREE.Mesh(streakGeo, streakMat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(rnd(50), 0, rnd(60));
+    g.add(m); streaks.push(m);
+  }
+  scene.add(g);
+  gusts.push({ x:sp.x, z:sp.z, life:32, g, streaks, r:32 });
+  if (!gustHint) { gustHint = true; msg('前方の海面に白い筋——突風の帯だ！ 帆を張って突っ込め！', 'warn'); }
+}
+function updateGusts(dt) {
+  for (let i = gusts.length - 1; i >= 0; i--) {
+    const u = gusts[i];
+    u.life -= dt;
+    u.x += Math.sin(G.wind) * 4 * dt; u.z -= Math.cos(G.wind) * 4 * dt;
+    u.g.position.set(u.x, waveH(u.x, u.z) + 1.2, u.z);
+    u.g.rotation.y = -G.wind;
+    for (const m of u.streaks) { m.position.z -= 30 * dt; if (m.position.z < -32) { m.position.z = 32; m.position.x = rnd(50); } }
+    streakMat.opacity = 0.45 + Math.sin(T * 3) * 0.1;
+    let gone = u.life <= 0;
+    if (!gone && !P.sinking && Math.hypot(u.x - P.x, u.z - P.z) < u.r) {
+      if (P.sail > 0) { P.gustT = 8; msg('突風をつかんだ！ 船足が一気に上がる！（8秒）', 'good'); sndSplash(P.x, P.z); gone = true; }
+    }
+    if (gone) { scene.remove(u.g); gusts.splice(i, 1); }
+  }
+}
+// 漂流物・瓶・漂流者
+function spawnFind() {
+  const sp = aheadSpot(160, 330, 0.9); if (!sp) return;
+  const roll = Math.random();
+  let kind = roll < 0.42 ? 'barrel' : roll < 0.72 ? 'bottle' : 'raft';
+  let m;
+  if (kind === 'bottle') {
+    m = new THREE.Group();
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 2.2, 8), new THREE.MeshBasicMaterial({ color:0x4fd18a }));
+    b.rotation.z = Math.PI / 2.5; m.add(b);
+    const c = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat(0x8a5a32)); c.position.set(1.1, 0.5, 0); m.add(c);
+  } else if (kind === 'raft') {
+    m = new THREE.Group();
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(6, 0.7, 5), mat(0x8f6a3a)); m.add(deck);
+    const man = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 2.4, 6), mat(0x6a4a8a)); man.position.y = 1.5; m.add(man);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.55, 6, 5), mat(0xe8c39e)); head.position.y = 3; m.add(head);
+    const arm = new THREE.Group(); arm.position.set(0.5, 2.5, 0); m.add(arm);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 4, 4), mat(0x3a2818)); pole.position.y = 2; arm.add(pole);
+    const cloth = new THREE.Mesh(new THREE.PlaneGeometry(2, 1.3), new THREE.MeshBasicMaterial({ color:0xffffff, side:THREE.DoubleSide })); cloth.position.set(1, 3.4, 0); arm.add(cloth);
+    m.userData.arm = arm;
+  } else {
+    m = new THREE.Mesh(barrelGeo, mat(0x8f6a3a)); m.rotation.z = Math.PI / 2;
+  }
+  scene.add(m);
+  const tier = tierAt(sp.x, sp.z);
+  const c = [0, 0, 0, 0, 0];
+  if (kind === 'barrel') c[rr(0, 4)] = rr(1, 3 + tier * 2);
+  loot.push({ x:sp.x, z:sp.z, mesh:m, gold:rr(20, 90) * (tier + 1), cargo:c, life:90, ph:Math.random() * 6, kind, wave:m.userData ? m.userData.arm : null, find:true });
+  if (kind === 'raft') msg(`見張り「${DIR8[dir8(bearing(P.x, P.z, sp.x, sp.z))]}に筏！ 誰かが白い布を振ってるぞ！」`, 'warn');
+  else if (kind === 'bottle') msg(`見張り「${DIR8[dir8(bearing(P.x, P.z, sp.x, sp.z))]}の海面で何か光ってる！ 瓶か？」`, 'warn');
+  else msg(`見張り「${DIR8[dir8(bearing(P.x, P.z, sp.x, sp.z))]}に漂流物！」`);
+}
+function makeTreasureJob() {
+  const cands = islands.map((is, i) => [is, i]).filter(([is]) => !is.port && is.r >= 28 && Math.hypot(is.x - homeP().dx, is.z - homeP().dz) > 500);
+  if (!cands.length) return null;
+  const [is, i] = pick(cands);
+  const a = Math.random() * TAU, off = Math.random() * 55;
+  return { type:'treasure', isl:i, cx:is.x + Math.sin(a) * off, cz:is.z - Math.cos(a) * off, r:is.r + 75, price:rr(3, 8) * 100 };
+}
+function bottleFind() {
+  if (!G.jobs.some(j => j.type === 'treasure') && G.jobs.length < 3 && Math.random() < 0.6) {
+    const j = makeTreasureJob();
+    if (j) { G.jobs.push(j); msg('瓶の中に古びた宝の地図が！ 海図に印をつけた。', 'good'); return; }
+  }
+  if (Math.random() < 0.5) { const g = rr(60, 300); G.gold += g; msg(`瓶の中に金貨が詰まっていた！ +${g}G`, 'good'); }
+  else {
+    const alive = G.rivals.filter(r => r.alive);
+    msg(alive.length ? `瓶の手紙：「${pick(alive).name}に船を沈められた。誰か仇を…」` : '瓶の手紙：「愛しい人へ。必ず帰る」……誰の手紙だろう。');
+    G.morale = Math.min(100, G.morale + 2);
+  }
+}
+function raftFind() {
+  const n = Math.min(rr(2, 6), P.crewMax - P.crew);
+  if (n > 0) { P.crew += n; G.morale = Math.min(100, G.morale + 3); msg(`漂流者を救い上げた！ ${n}人が恩返しに仲間に加わった（士気 +3）`, 'good'); }
+  else { G.morale = Math.min(100, G.morale + 5); G.food = Math.max(0, G.food - 1); msg('漂流者に食料と水を分け、近くの島へ送り届けた（士気 +5）', 'good'); }
+}
+// イルカとクジラ
+const sealife = [];
+const dolphinGeo = new THREE.SphereGeometry(1, 8, 6);
+const dolphinMat = new THREE.MeshPhongMaterial({ color:0x6f8494, flatShading:true });
+const finGeo = new THREE.ConeGeometry(0.35, 1.1, 4);
+function spawnDolphins() {
+  const side = Math.random() < 0.5 ? -1 : 1, n = rr(3, 5);
+  for (let i = 0; i < n; i++) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(dolphinGeo, dolphinMat); body.scale.set(0.55, 0.5, 2.0); g.add(body);
+    const fin = new THREE.Mesh(finGeo, dolphinMat); fin.position.set(0, 0.6, 0.2); g.add(fin);
+    scene.add(g);
+    sealife.push({ kind:'dolphin', g, side, off:P.beam + 6 + i * 2.5 + Math.random() * 3, along:rnd(20), ph:Math.random() * 2.2, life:18 });
+  }
+  G.morale = Math.min(100, G.morale + 1);
+  msg('イルカの群れが船と並んで泳いでいる！ 船員たちが歓声を上げた（士気 +1）', 'good');
+}
+function spawnWhale() {
+  const side = Math.random() < 0.5 ? -1 : 1;
+  const d = 90 + Math.random() * 70, a = P.a + side * (0.8 + Math.random() * 0.8);
+  const x = P.x + Math.sin(a) * d, z = P.z - Math.cos(a) * d;
+  if (landAt(x, z, 30)) return;
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(dolphinGeo, new THREE.MeshPhongMaterial({ color:0x2c3a46, flatShading:true }));
+  body.scale.set(3.2, 2.2, 13); g.add(body);
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(7, 0.4, 2.4), body.material); tail.position.z = 13; g.add(tail);
+  g.rotation.y = -(P.a + rnd(1));
+  scene.add(g);
+  sealife.push({ kind:'whale', g, x, z, t:0, life:11, spouts:0 });
+  msg(`見張り「${DIR8[dir8(bearing(P.x, P.z, x, z))]}にクジラだ！ 潮を吹いてるぞ！」`, 'good');
+}
+function updateSeaLife(dt) {
+  P.gustT = Math.max(0, (P.gustT || 0) - dt);
+  if (P.gustT > 0 && Math.random() < dt * 12) emit(P.x + rnd(P.beam * 2), (P.mesh ? P.mesh.position.y : 0) + 0.5, P.z + rnd(P.len), { color:0xf4fbff, life:0.7, s0:1.5, s1:3, vy:3, op:0.8 });
+  const calm = !hostileNear(500);
+  if ((gustSpawnT -= dt) <= 0) { gustSpawnT = 12 + Math.random() * 10; if (gusts.length < 3 && !G.storm) spawnGust(); }
+  if ((findT -= dt) <= 0) { findT = 22 + Math.random() * 20; if (loot.filter(l => l.find).length < 3) spawnFind(); }
+  if ((dolphinT -= dt) <= 0) { dolphinT = 45 + Math.random() * 40; if (calm && P.v > 5 && !sealife.some(s => s.kind === 'dolphin')) spawnDolphins(); }
+  if ((whaleT -= dt) <= 0) { whaleT = 80 + Math.random() * 70; if (calm && !G.storm) spawnWhale(); }
+  updateGusts(dt);
+  const fx = Math.sin(P.a), fz = -Math.cos(P.a), rx = Math.cos(P.a), rz = Math.sin(P.a);
+  for (let i = sealife.length - 1; i >= 0; i--) {
+    const s = sealife[i];
+    s.life -= dt;
+    if (s.kind === 'dolphin') {
+      const drift = s.life < 3 ? (3 - s.life) * 8 : 0;
+      const x = P.x + rx * s.side * (s.off + drift) + fx * s.along, z = P.z + rz * s.side * (s.off + drift) + fz * s.along;
+      const t = (T + s.ph) % 2.2, w = waveH(x, z);
+      let y = w - 1.6, pitch = 0;
+      if (t < 0.9) { const k = t / 0.9; y = w - 0.6 + Math.sin(Math.PI * k) * 3.6; pitch = (k - 0.5) * 1.6; if (t < dt * 1.5) fxSplash(x, z); }
+      s.g.position.set(x, y, z);
+      s.g.rotation.set(pitch, -P.a, 0, 'YXZ');
+    } else {
+      s.t += dt;
+      const k = clamp(s.t / s.life, 0, 1);
+      s.g.position.set(s.x, waveH(s.x, s.z) - 2.6 + Math.sin(Math.PI * k) * 2.4, s.z);
+      if ((s.t > 2.5 && s.spouts === 0) || (s.t > 6 && s.spouts === 1)) {
+        s.spouts++;
+        for (let n = 0; n < 18; n++) emit(s.x + rnd(1), waveH(s.x, s.z) + 2, s.z + rnd(1), { color:0xf4fbff, life:1.4, s0:1.5, s1:4, vx:rnd(3), vy:14 + Math.random() * 6, vz:rnd(3), g:16, op:0.9 });
+      }
+    }
+    if (s.life <= 0) { scene.remove(s.g); sealife.splice(i, 1); }
+  }
+}
+
+/* ===================== モーダル ===================== */
+const modal = { open:false, items:[], sel:0, onEsc:null };
+function showMenu(o) {
+  modal.open = true;
+  modal.items = o.items;
+  modal.sel = clamp(o.sel || 0, 0, o.items.length - 1);
+  modal.onEsc = o.onEsc || null;
+  $('#mtitle').textContent = o.title;
+  $('#mbody').textContent = o.body || '';
+  $('#mbody').hidden = !o.body;
+  $('#mfoot').textContent = o.foot || '上下キーで選択 ・ Enterで決定 ・ 数字キーで直接選択' + (o.onEsc ? ' ・ Escで戻る' : '');
+  const list = $('#mlist');
+  list.innerHTML = '';
+  o.items.forEach((it, i) => {
+    const b = document.createElement('button');
+    b.className = 'mi' + (it.off ? ' off' : '');
+    b.id = 'mi' + i;
+    b.innerHTML = `<span><span class="n">${i + 1}</span></span>`;
+    b.firstChild.appendChild(document.createTextNode(it.label));
+    b.addEventListener('click', () => pickItem(i));
+    b.addEventListener('mouseenter', () => { modal.sel = i; paintSel(); });
+    list.appendChild(b);
+  });
+  $('#modal').hidden = false;
+  paintSel();
+}
+function paintSel() {
+  [...$('#mlist').children].forEach((b, i) => b.classList.toggle('sel', i === modal.sel));
+  const it = modal.items[modal.sel];
+  $('#mdesc').textContent = it && it.desc ? it.desc : '';
+}
+function closeModal() { modal.open = false; $('#modal').hidden = true; }
+function pickItem(i) {
+  const it = modal.items[i];
+  if (!it) return;
+  closeModal();
+  if (it.act) it.act();
+}
+function modalKey(k) {
+  const n = modal.items.length;
+  if (k === 'ArrowUp' || k === 'KeyW') { modal.sel = (modal.sel + n - 1) % n; paintSel(); }
+  else if (k === 'ArrowDown' || k === 'KeyS') { modal.sel = (modal.sel + 1) % n; paintSel(); }
+  else if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') pickItem(modal.sel);
+  else if (/^Digit[1-9]$/.test(k)) { const i = +k.slice(5) - 1; if (i < n) pickItem(i); }
+  else if (k === 'Escape' && modal.onEsc) { const f = modal.onEsc; closeModal(); f(); }
+}
+function info(title, body, then) { showMenu({ title, body, items:[{ label:'OK', act:then || null }] }); }
+
+/* ===================== 乗り込み（船長同士の一騎打ち） ===================== */
+let board = null;
+const DIRN = ['上段斬り', '突き', '下段斬り'];
+const GUARDN = ['上段', '中段', '下段'];
+const DKEY = ['↑', '→', '↓'];
+function startBoarding(e, enemyInit) {
+  if (board) return;
+  const facMul = (e.fac === F.MERCH ? 0.7 : e.fac === F.PIRATE ? 1.0 : e.fac === F.NAVY ? 1.15 : 1.3) * (e.rival != null ? 1.15 : 1);
+  const ratio = (Math.max(1, P.crew) * (0.6 + G.morale / 250)) / (Math.max(1, e.crew) * facMul);
+  board = { e, enemyInit, pHP:100, eHP:100, startP:Math.max(1, P.crew), startE:Math.max(1, e.crew),
+    pDmg:13 * clamp(Math.pow(ratio, 0.7), 0.35, 2), eDmg:13 * clamp(Math.pow(ratio, -0.7), 0.5, 2.4) * (G.off.fen ? 0.7 : 1),
+    tele:e.fac === F.MERCH ? 0.95 : e.fac === F.BOSS ? 0.5 : e.rival != null ? 0.58 : e.fac === F.NAVY ? 0.65 : 0.75,
+    guard:rr(0, 2), guardT:1.2, atk:null, atkT:1.8, cd:0, flashP:0, flashE:0, swing:null, eswing:0,
+    line:enemyInit ? '敵が鉤縄を投げて乗り込んできた！ 敵の船長が剣を抜く！' : '「野郎ども、乗り込めぇ！」 敵の船長との一騎打ちだ！',
+    over:false, last:performance.now() };
+  if (G.flag) { G.flag = 0; setFlag(P, 'jolly'); }
+  crimeOn(e);
+  e.aggro = true;
+  modal.open = true;
+  $('#modal').hidden = false;
+  $('#mtitle').textContent = '一騎打ち — ' + e.name;
+  $('#mbody').hidden = false;
+  $('#mbody').innerHTML = '<canvas id="duelc" width="1120" height="500"></canvas><div id="duelline" class="duelline"></div>';
+  const list = $('#mlist');
+  list.innerHTML = '';
+  [['↑ 上段斬り', 'ArrowUp'], ['→ 突き', 'ArrowRight'], ['↓ 下段斬り', 'ArrowDown'], ['R 縄を切って離脱', 'KeyR']].forEach(([label, k]) => {
+    const btn = document.createElement('button');
+    btn.className = 'mi duelbtn';
+    btn.textContent = label;
+    btn.addEventListener('pointerdown', ev => { ev.preventDefault(); boardKey(k); });
+    list.appendChild(btn);
+  });
+  list.className = 'duelbtns';
+  $('#mdesc').textContent = `味方 ${P.crew}人 対 敵 ${e.crew}人。船員が多いほど、士気が高いほど、あなたの剣は重くなる。`;
+  $('#mfoot').textContent = '敵が構えていない所を斬れ ・ 敵の「！」が出たら同じ方向キーで受け流す（反撃で大ダメージ） ・ R 離脱';
+  drawDuel(board);
+  board.timer = setInterval(boardTick, 33);
+}
+function duelSay(b, t) { b.line = t; }
+function boardTick() {
+  const b = board; if (!b || b.over) return;
+  const now = performance.now();
+  const dt = Math.min(0.1, (now - b.last) / 1000);
+  b.last = now;
+  stepDuel(b, dt);
+  if (board) drawDuel(b);
+}
+function stepDuel(b, dt) {
+  if (b.over) return;
+  b.cd = Math.max(0, b.cd - dt);
+  b.flashP -= dt; b.flashE -= dt; b.eswing -= dt;
+  if (b.swing && (b.swing.t -= dt) <= 0) b.swing = null;
+  if (b.atk) {
+    b.atk.t -= dt;
+    if (b.atk.t <= 0) {
+      const d = b.eDmg * (0.85 + Math.random() * 0.3);
+      b.pHP -= d; b.flashP = 0.3; b.eswing = 0.25;
+      duelSay(b, `敵の${DIRN[b.atk.dir]}を浴びた！（-${Math.round(d)}）`);
+      sndHit(P.x, P.z);
+      b.atk = null;
+      b.atkT = (0.9 + Math.random() * 1.3) * (b.tele / 0.75);
+    }
+  } else {
+    b.guardT -= dt;
+    if (b.guardT <= 0) { b.guard = b.react != null && Math.random() < 0.65 ? b.react : (b.guard + rr(1, 2)) % 3; b.react = null; b.guardT = (0.6 + Math.random() * 0.9) * (b.tele / 0.75 + 0.3); }
+    b.atkT -= dt;
+    if (b.atkT <= 0) b.atk = { dir:rr(0, 2), t:b.tele, max:b.tele };
+  }
+  if (b.eHP <= 0) endBoarding(1, '敵の船長が剣を落とした！ 「降参だ…！」 一騎打ちに勝利！');
+  else if (b.pHP <= 0) endBoarding(-1, 'あなたは甲板に膝をついた…！ 味方が総崩れになる！');
+}
+function boardKey(k) {
+  const b = board; if (!b || b.over) return;
+  if (k === 'KeyR' || k === 'Digit4') {
+    if (Math.random() < 0.55) {
+      const l = Math.max(1, Math.floor(P.crew / 10));
+      P.crew -= l;
+      endBoarding(0, `縄を切って離脱した！（船員 -${l}人）`);
+    } else { duelSay(b, '離脱に失敗！ 敵が逃がさない！'); b.atkT = Math.min(b.atkT, 0.2); }
+    return;
+  }
+  let dir = -1;
+  if (k === 'ArrowUp' || k === 'KeyW' || k === 'Digit1') dir = 0;
+  else if (k === 'ArrowRight' || k === 'ArrowLeft' || k === 'KeyD' || k === 'KeyA' || k === 'Digit2' || k === 'Space') dir = 1;
+  else if (k === 'ArrowDown' || k === 'KeyS' || k === 'Digit3') dir = 2;
+  if (dir < 0) return;
+  b.swing = { dir, t:0.22 };
+  if (b.atk) {
+    if (dir === b.atk.dir) {
+      const d = b.pDmg * 1.6;
+      b.eHP -= d; b.flashE = 0.3;
+      duelSay(b, `${DIRN[b.atk.dir]}を受け流して斬り返した！（-${Math.round(d)}）`);
+      sndHit(P.x, P.z);
+      b.atk = null;
+      b.atkT = (1.0 + Math.random()) * (b.tele / 0.75);
+      b.guardT = 0.25;
+    } else {
+      duelSay(b, '読み違えた！');
+      b.atk.t = 0;
+    }
+    return;
+  }
+  if (b.cd > 0) return;
+  b.cd = 0.55;
+  if (dir !== b.guard) {
+    b.react = dir;
+    const d = b.pDmg * (0.85 + Math.random() * 0.3);
+    b.eHP -= d; b.flashE = 0.22;
+    duelSay(b, `${DIRN[dir]}が決まった！（-${Math.round(d)}）`);
+    b.guardT = Math.min(b.guardT, 0.3);
+    b.atkT = Math.min(b.atkT, b.atkT * 0.8);
+  } else {
+    duelSay(b, `${DIRN[dir]}を防がれた！ 反撃が来るぞ！`);
+    b.atkT = Math.min(b.atkT, 0.2);
+  }
+}
+function drawFighter(x, cx, gy, face, coat, hat, ang, hurt, label) {
+  x.save();
+  x.lineCap = 'round'; x.lineJoin = 'round';
+  // 脚
+  x.strokeStyle = '#2a1e16'; x.lineWidth = 14;
+  x.beginPath(); x.moveTo(cx, gy - 95); x.lineTo(cx - 26 * face, gy); x.moveTo(cx, gy - 95); x.lineTo(cx + 30 * face, gy - 4); x.stroke();
+  // 胴
+  x.strokeStyle = coat; x.lineWidth = 34;
+  x.beginPath(); x.moveTo(cx, gy - 100); x.lineTo(cx + 4 * face, gy - 178); x.stroke();
+  // 頭
+  x.fillStyle = '#e8c39e';
+  x.beginPath(); x.arc(cx + 6 * face, gy - 210, 20, 0, TAU); x.fill();
+  x.fillStyle = hat;
+  x.beginPath(); x.moveTo(cx - 30, gy - 222); x.quadraticCurveTo(cx + 6 * face, gy - 262, cx + 42, gy - 222); x.closePath(); x.fill();
+  x.fillStyle = '#111'; x.beginPath(); x.arc(cx + 14 * face, gy - 212, 3, 0, TAU); x.fill();
+  // 腕と剣
+  const sx = cx + 10 * face, sy = gy - 170;
+  const hx = sx + Math.cos(ang) * 56 * face, hy = sy + Math.sin(ang) * 56;
+  x.strokeStyle = coat; x.lineWidth = 12;
+  x.beginPath(); x.moveTo(sx, sy); x.lineTo(hx, hy); x.stroke();
+  x.strokeStyle = '#dfe6ee'; x.lineWidth = 6;
+  x.beginPath(); x.moveTo(hx, hy); x.lineTo(hx + Math.cos(ang) * 100 * face, hy + Math.sin(ang) * 100); x.stroke();
+  x.strokeStyle = '#d4a64a'; x.lineWidth = 8;
+  x.beginPath(); x.moveTo(hx - Math.sin(ang) * 14 * face, hy + Math.cos(ang) * 14); x.lineTo(hx + Math.sin(ang) * 14 * face, hy - Math.cos(ang) * 14); x.stroke();
+  if (hurt) { x.fillStyle = 'rgba(255,60,40,.35)'; x.beginPath(); x.arc(cx, gy - 150, 110, 0, TAU); x.fill(); }
+  if (label) { x.fillStyle = '#efe3c8'; x.font = 'bold 26px sans-serif'; x.textAlign = 'center'; x.fillText(label, cx, gy + 40); }
+  x.restore();
+}
+function drawDuel(b) {
+  const c = $('#duelc'); if (!c) return;
+  const x = c.getContext('2d'), W = c.width, H = c.height, e = b.e;
+  const sky = x.createLinearGradient(0, 0, 0, H * 0.5);
+  sky.addColorStop(0, '#3a5f80'); sky.addColorStop(1, '#a9c6d8');
+  x.fillStyle = sky; x.fillRect(0, 0, W, H * 0.5);
+  x.fillStyle = '#1d5a85'; x.fillRect(0, H * 0.5, W, H * 0.12);
+  x.fillStyle = '#6e4a2c'; x.fillRect(0, H * 0.62, W, H * 0.38);
+  x.strokeStyle = 'rgba(0,0,0,.25)'; x.lineWidth = 3;
+  for (let i = -200; i < W + 200; i += 70) { x.beginPath(); x.moveTo(i, H * 0.62); x.lineTo(i + (i - W / 2) * 0.35, H); x.stroke(); }
+  x.fillStyle = '#4a2e1c'; x.fillRect(0, H * 0.58, W, 16);
+  // 帆柱とロープ
+  x.fillStyle = '#3a2818'; x.fillRect(W / 2 - 12, 0, 24, H * 0.62);
+  x.strokeStyle = 'rgba(40,25,10,.7)'; x.lineWidth = 3;
+  x.beginPath(); x.moveTo(W / 2, 20); x.lineTo(40, H * 0.58); x.moveTo(W / 2, 20); x.lineTo(W - 40, H * 0.58); x.stroke();
+  const gy = H * 0.9;
+  const GA = [-0.95, -0.05, 0.75];
+  let pA = -0.3;
+  if (b.swing) pA = GA[b.swing.dir] + (b.swing.t > 0.11 ? -0.6 : 0);
+  let eA = GA[b.guard], eLabel = `構え：${GUARDN[b.guard]}`;
+  if (b.atk) { eA = [-2.3, 3.0, 2.3][b.atk.dir]; eLabel = ''; }
+  else if (b.eswing > 0) eA = 0.1;
+  drawFighter(x, W * 0.33, gy, 1, '#f1ede2', '#7a1f1f', pA, b.flashP > 0, `キャプテン ${G.name}`);
+  const ecol = e.fac === F.NAVY ? '#2b4f9a' : e.fac === F.BOSS ? '#10204a' : e.fac === F.MERCH ? '#8a6a3a' : '#3a3a3a';
+  drawFighter(x, W * 0.67, gy, -1, ecol, '#111', eA, b.flashE > 0, eLabel);
+  // 体力
+  const bar = (bx, val, col, name, right) => {
+    x.fillStyle = 'rgba(0,0,0,.55)'; x.fillRect(bx, 18, 440, 46);
+    x.fillStyle = 'rgba(255,255,255,.15)'; x.fillRect(bx + 10, 44, 420, 12);
+    x.fillStyle = col; x.fillRect(bx + 10, 44, 420 * clamp(val / 100, 0, 1), 12);
+    x.fillStyle = '#efe3c8'; x.font = 'bold 20px sans-serif'; x.textAlign = right ? 'right' : 'left';
+    x.fillText(name, right ? bx + 430 : bx + 10, 38);
+  };
+  bar(20, b.pHP, '#7fd0ff', `あなた（船員 ${P.crew}）`, false);
+  bar(W - 460, b.eHP, '#ff9a5a', `敵の船長（船員 ${e.crew}）`, true);
+  // 予告
+  if (b.atk) {
+    const k = b.atk.t / b.atk.max;
+    x.fillStyle = 'rgba(160,20,20,.85)'; x.fillRect(W * 0.67 - 170, H * 0.18, 340, 74);
+    x.fillStyle = '#fff'; x.font = 'bold 30px sans-serif'; x.textAlign = 'center';
+    x.fillText(`！ ${DIRN[b.atk.dir]}が来る  ${DKEY[b.atk.dir]}で受け流せ`, W * 0.67, H * 0.18 + 38);
+    x.fillStyle = '#ffd27a'; x.fillRect(W * 0.67 - 160, H * 0.18 + 54, 320 * clamp(k, 0, 1), 10);
+  }
+  const ln = $('#duelline'); if (ln) ln.textContent = b.line;
+}
+function endBoarding(r, text) {
+  const b = board;
+  b.over = true;
+  clearInterval(b.timer);
+  const e = b.e;
+  let extra = '';
+  if (r > 0) {
+    const lossP = Math.round(b.startP * (1 - clamp(b.pHP, 0, 100) / 100) * 0.22 * (G.off.doc ? 0.7 : 1));
+    P.crew = Math.max(1, P.crew - lossP);
+    e.crew = Math.floor(e.crew * 0.4);
+    extra = `（乱戦で味方 -${lossP}人）`;
+  } else if (r < 0) {
+    P.crew = Math.max(1, P.crew - Math.round(P.crew * 0.35));
+  }
+  duelSay(b, text + extra);
+  drawDuel(b);
+  $('#mlist').innerHTML = '';
+  setTimeout(() => {
+    board = null;
+    $('#mlist').className = '';
+    closeModal();
+    msg(text + extra, r > 0 ? 'good' : r < 0 ? 'bad' : 'warn');
+    if (r > 0) { G.fame += 3; captureShip(e); }
+    else if (r < 0) playerLost('boarded');
+    else {
+      const a = bearing(P.x, P.z, e.x, e.z);
+      e.x += Math.sin(a) * 12; e.z -= Math.cos(a) * 12;
+      e.boardCd = 15;
+    }
+  }, 1300);
+}
+
+/* ===================== 拿捕 ===================== */
+function takeCargo(e) {
+  let total = 0;
+  for (let g = 4; g >= 0; g--) { const n = Math.min(e.cargo[g], holdFree()); P.cargo[g] += n; e.cargo[g] -= n; total += n; }
+  return total;
+}
+function captureShip(e) {
+  defeatEffects(e);
+  G.gold += e.gold;
+  const fame = fameFor(e);
+  G.fame += fame;
+  G.morale = Math.min(100, G.morale + 12);
+  G.daysNoLoot = 0;
+  const rate = e.fac === F.MERCH ? 30 : e.fac === F.PIRATE ? 50 : e.fac === F.NAVY ? 15 : 0;
+  const rec = Math.max(0, Math.min(P.crewMax - P.crew, Math.floor(e.crew * rate / 100)));
+  P.crew += rec;
+  const ct = e.cargo.reduce((a, b) => a + b, 0);
+  let body = `${e.name} を拿捕した！\n金貨 ${e.gold}G を奪い、悪名 +${fame}。`;
+  if (rec > 0) body += `\n敵の船員 ${rec}人 が仲間に加わった。`;
+  if (ct > 0) body += `\n積荷: ${e.cargo.map((n, g) => n ? GN[g] + n : '').filter(Boolean).join(' ')}（船倉の空き ${holdFree()}）`;
+  body += `\n拿捕船の状態: ${SC[e.cls].name} 船体 ${Math.max(0, Math.round(e.hull / e.hullMax * 100))}%`;
+  const prizeCrew = Math.max(4, Math.floor(SC[e.cls].crew / 6));
+  const items = [{ label:'積荷を奪って船を解放する', desc:'解放された船は去っていく。', act:() => {
+    const got = takeCargo(e);
+    if (got) msg(`積荷 ${got}個 を船倉に移した。`, 'warn');
+    if (e.cargo.some(n => n > 0)) msg('積みきれなかった積荷は置いていった。');
+    e.released = true; e.struck = false; e.aggro = false; e.state = 'wander'; e.sail = 2;
+    setFlag(e, shipFlag(e));
+    afterCapture(e, fame);
+  } }];
+  if (G.prizes.length < 3 && P.crew > prizeCrew + 4) items.push({ label:`曳航して港で売る（回航要員 ${prizeCrew}人 を割く）`, desc:'港の市場で拿捕船をまとめて売却できる。最大3隻まで。', act:() => {
+    takeCargo(e);
+    const left = e.cargo.reduce((a, n, g) => a + n * GP[g], 0);
+    const val = Math.floor(SC[e.cls].price * 0.4 * Math.max(10, e.hull / e.hullMax * 100) / 100) + 300 * (e.cls + 1) + Math.floor(left / 2);
+    G.prizes.push({ cls:e.cls, val, crew:prizeCrew });
+    P.crew -= prizeCrew;
+    msg(`拿捕船を曳航する。港で売れば ${val}G ほどになりそうだ。`, 'warn');
+    removeShipMesh(e); e.dead = true;
+    afterCapture(e, fame);
+  } });
+  if (G.fleet.length < 3 && e.fac !== F.BOSS && P.crew > prizeCrew + 4) items.push({ label:`髑髏湾のドックへ回航する（自分の船にする）`, desc:`${shipStat(SC[e.cls])}。回航要員 ${prizeCrew}人はドックで船番をする。`, act:() => {
+    takeCargo(e);
+    G.fleet.push({ cls:e.cls, up:{ hull:0, guns:0, copper:0 }, hullPct:Math.max(0.2, e.hull / e.hullMax), sails:Math.max(30, e.sails) });
+    P.crew -= prizeCrew;
+    msg(`${SC[e.cls].name}を髑髏湾のドックへ回航させた。本拠地の造船所で乗り換えられる。`, 'good');
+    removeShipMesh(e); e.dead = true;
+    afterCapture(e, fame);
+  } });
+  if (e.cls !== P.cls && e.fac !== F.BOSS) items.push({ label:`この${SC[e.cls].name}に乗り換える（強化はリセット）`, desc:`船体${SC[e.cls].hull} 船員${SC[e.cls].crew} 砲${SC[e.cls].guns} 船倉${SC[e.cls].hold}。元の船は曳航できれば拿捕船になる。`, act:() => {
+    const oldCls = P.cls, oldPct = P.hull / Math.max(1, P.hullMax);
+    if (G.prizes.length < 3) {
+      const c = Math.max(4, Math.floor(SC[oldCls].crew / 6));
+      G.prizes.push({ cls:oldCls, val:Math.floor(SC[oldCls].price * 0.4 * oldPct) + 300 * (oldCls + 1), crew:c });
+      P.crew = Math.max(1, P.crew - c);
+      msg('元の船は回航要員に任せて曳航する。');
+    } else msg('元の船は置いていくしかなかった...');
+    const pct = Math.max(0.05, e.hull / e.hullMax);
+    P.cls = e.cls;
+    G.up = { hull:0, guns:0, copper:0 };
+    refit();
+    P.hull = Math.round(P.hullMax * pct);
+    P.sails = e.sails;
+    for (let g = 0; g < 5 && holdUsed() > holdMax(); g++) P.cargo[g] -= Math.min(P.cargo[g], holdUsed() - holdMax());
+    if (holdUsed() > holdMax()) G.food = Math.max(0, holdMax() - cargoUsed());
+    takeCargo(e);
+    P.x = e.x; P.z = e.z; P.a = e.a;
+    rebuildPlayerMesh();
+    removeShipMesh(e); e.dead = true;
+    msg(`新しい旗艦 ${SC[P.cls].name} に乗り換えた！`, 'good');
+    afterCapture(e, fame);
+  } });
+  showMenu({ title:'拿捕', body, items });
+}
+function afterCapture(e, fame) {
+  msg(`戦果: 金貨 +${e.gold}G  悪名 +${fame}  士気 +12`, 'good');
+  if (e.fac === F.BOSS) { G.bossDone = true; removeShipMesh(e); e.dead = true; endingModal(); }
+}
+function tryBoard() {
+  let best = null, bd = 1e9;
+  for (const s of npcs) {
+    if (s.sinking || s.released || s.dead) continue;
+    const d = dist(s, P);
+    const reach = (s.len + P.len) * 0.5 + (s.struck ? 16 : 8);
+    if (d < reach && d < bd) { bd = d; best = s; }
+  }
+  if (!best) { msg('乗り込める船がいない。もっと近づこう。'); return; }
+  if (best.struck) captureShip(best);
+  else startBoarding(best, false);
+}
+
+/* ===================== 敗北・エンディング ===================== */
+function playerLost(why) {
+  if (P.sinking) return;
+  if (why === 'sunk') { sinkShip(P); msg('我が船が沈んでいく...！', 'bad'); }
+  else { P.sinking = true; P.sinkT = 4; }
+  G.lostT = why === 'sunk' ? 3 : 0.01;
+}
+function defeatModal() {
+  const lg = Math.floor(G.gold * 0.4);
+  G.gold -= lg;
+  P.cargo = [0, 0, 0, 0, 0];
+  G.prizes = [];
+  failJobs('lost');
+  G.fame = Math.max(0, G.fame - 15);
+  G.morale = 40;
+  P.sinking = false; P.sinkT = 0;
+  P.hull = Math.max(1, Math.round(P.hullMax * 0.35));
+  P.sails = 50;
+  P.crew = Math.max(P.crew, 6, Math.floor(P.crewMax / 4));
+  for (const s of npcs) { s.aggro = false; if (s.fac === F.BOSS) continue; }
+  info('敗北', `我が船は敗れた...。\n積荷と拿捕船をすべて奪われ、金貨 ${lg}G を失った。\n生き残った仲間とともに、なんとか髑髏湾へ逃げ帰った。（悪名 -15）`, () => {
+    rebuildPlayerMesh();
+    enterPort(0);
+  });
+}
+function endingModal() {
+  info('海賊王', `提督の旗艦《レヴィアタン号》を打ち破った！\n\n七つの海に、キャプテン ${G.name} の名を知らぬ者はいない。\nあなたは真の「海賊王」となった。（${G.day}日目）\n\nこのまま航海を続けることもできます。`);
+}
+
+/* ===================== 日々の出来事 ===================== */
+function mutiny() {
+  const pay = P.crew * 6;
+  showMenu({ title:'反乱の兆し！', body:'不満を募らせた船員たちが、甲板に集まって船長を睨んでいる。\n「分け前はどうした！ これ以上は付き合えねえ！」', items:[
+    { label:`金貨を配ってなだめる（${pay}G）`, act:() => {
+      if (G.gold >= pay) { G.gold -= pay; G.morale = Math.min(100, G.morale + 30); msg('金貨を配り、船員たちは渋々持ち場に戻った。（士気 +30）', 'good'); }
+      else { msg('金が足りない！ 力で押さえ込むしかない！', 'bad'); suppress(); }
+    } },
+    { label:'力ずくで押さえ込む（船員を失う）', act:suppress },
+  ] });
+  function suppress() {
+    const l = Math.max(2, Math.floor(P.crew * rr(10, 25) / 100));
+    P.crew = Math.max(1, P.crew - l);
+    G.morale = Math.min(100, G.morale + 12);
+    msg(`首謀者たちをボートで追放した。船員 -${l}人（士気 +12）`, 'bad');
+  }
+}
+function dayPass() {
+  G.day++;
+  const eat = foodPerDay();
+  if (G.food >= eat) {
+    G.food -= eat;
+    const left = eat > 0 ? Math.floor(G.food / eat) : 99;
+    if (left <= 3) msg(`食料が残りわずかだ（あと${left}日分）。港へ向かおう。`, 'warn');
+  } else {
+    G.food = 0;
+    G.morale -= 8;
+    const des = Math.max(1, Math.floor(P.crew / 12));
+    P.crew = Math.max(1, P.crew - des);
+    msg(`食料が尽きた！ 飢えた船員 ${des}人 が逃げ出した。（士気 -8）`, 'bad');
+  }
+  G.daysNoLoot++;
+  if (G.daysNoLoot > 6 && G.day % 2 === 0) G.morale--;
+  if (G.heat > 0) { const b = Math.floor(G.heat); G.heat = Math.max(0, G.heat - 0.5); if (Math.floor(G.heat) < b) msg(`ほとぼりが冷めてきた。手配度 ★${Math.floor(G.heat)}`); }
+  for (const r of G.rivals) if (r.alive) r.fame += rr(0, 3);
+  if (G.off.carp && !P.sinking) { P.hull = Math.min(P.hullMax, P.hull + Math.ceil(P.hullMax * 0.05)); P.sails = Math.min(100, P.sails + 8); msg('船大工が夜通し船を修理した。'); }
+  failJobs('due');
+  if (rr(1, 100) <= 7) {
+    const k = rr(0, 2), pr = WAR_PAIRS[k];
+    G.wars[k] = !G.wars[k];
+    msg(G.wars[k] ? `急報！ ${NAT[pr[0]].short}と${NAT[pr[1]].short}が開戦した！` : `${NAT[pr[0]].short}と${NAT[pr[1]].short}が講和を結んだ。`, 'warn');
+  }
+  if (G.morale >= 55 && P.sail === 2 && !hostileNear(500) && rr(0, 2) === 0) { shanty(); G.morale = Math.min(100, G.morale + 2); msg('♪ 船員たちが舟歌を歌い始めた（士気 +2）'); }
+  if (rr(0, 2) === 0) {
+    G.wind = norm(G.wind + (rr(0, 1) ? 1 : -1) * Math.PI / 4);
+    msg(`風向きが変わった。${DIR8[dir8(G.wind + Math.PI)]}の風。`);
+  }
+  G.storm = 0;
+  if (rr(1, 100) <= 5) {
+    G.storm = 1;
+    const h = Math.round(P.hullMax * rr(4, 9) / 100), s = rr(10, 25);
+    P.hull = Math.max(1, P.hull - h);
+    P.sails = Math.max(0, P.sails - s);
+    G.wind = norm(G.wind + Math.PI / 2 * (rr(0, 1) ? 1 : -1));
+    msg(`嵐だ！ 船体 -${h}、帆 -${s}%。風向きが大きく変わった。`, 'bad');
+  }
+  G.morale = clamp(G.morale, 0, 100);
+  if (G.morale < 25 && rr(1, 100) <= 20) mutiny();
+  if (G.fame >= 400 && !G.bossDone && !G.bossSpawned) spawnBoss();
+}
+
+/* ===================== 港 ===================== */
+let portIdx = -1;
+function enterPort(i) {
+  const p = PORTS[i];
+  portIdx = i;
+  G.portIdx = i;
+  warp = false;
+  P.v = 0;
+  P.x = p.dx; P.z = p.dz; P.a = norm(p.dockAng + Math.PI);
+  for (const b of balls) scene.remove(b.mesh);
+  balls.length = 0;
+  for (let g = 0; g < 5; g++) {
+    let m = 0.8 + Math.random() * 0.4;
+    if (p.demand === g) m *= 1.5;
+    if (p.home) m *= 1 + 0.06 * G.dev.market;
+    else m *= 1 + 0.05 * G.titles[p.nat];
+    p.price[g] = GP[g] * m;
+  }
+  msg(`${p.name} に入港した。`);
+  deliverCargo(i);
+  reportScout(i);
+  p.offers = genOffers(p);
+  if (!p.home) p.govOffers = genGovOffers(p);
+  p.offOffer = OFFICERS.filter(o => !G.off[o.k]).sort(() => Math.random() - 0.5).slice(0, 2);
+  const go = () => portMenu(0);
+  if (p.home) {
+    let note = '';
+    if (G.dev.market > 0) { const tax = G.dev.market * 120; G.gold += tax; note = `市場からの税収 ${tax}G を受け取った。`; }
+    if (note) msg(note, 'warn');
+    const saved = saveGame();
+    msg(saved ? '航海日誌に記録した（自動セーブ）。' : 'このブラウザではセーブできなかった。');
+    if (G.fame >= 150 && rr(1, 100) <= 12) { portRaid(go); return; }
+  }
+  go();
+}
+function portRaid(then) {
+  const defend = 20 + G.dev.fort * 18;
+  if (rr(1, 100) <= defend) {
+    const reward = 300 + G.dev.fort * 250;
+    G.gold += reward; G.fame += 15;
+    info('港が襲撃された！', `海軍の討伐艦隊が髑髏湾を襲撃してきた！\n要塞 Lv${G.dev.fort} の大砲が火を噴き、艦隊を撃退した！\n鹵獲品 ${reward}G、悪名 +15`, then);
+  } else {
+    const loss = Math.floor(G.gold / 5);
+    G.gold -= loss;
+    info('港が襲撃された！', `海軍の討伐艦隊が髑髏湾を襲撃してきた！\n防ぎきれず、港の金庫が略奪された... 金貨 -${loss}G\n（要塞を開発すれば撃退できる。要塞 Lv${G.dev.fort} 撃退率 ${defend}%）`, then);
+  }
+}
+function portHeader() {
+  const p = PORTS[portIdx];
+  return `【${p.name}】${p.home ? '本拠地' : NAT[p.nat].short + '領'}　金貨 ${G.gold}G ・ 船体 ${P.hull}/${P.hullMax} ・ 帆 ${P.sails}% ・ 船員 ${P.crew}/${P.crewMax}\n食料 ${G.food}樽（${Math.floor(G.food / Math.max(1, foodPerDay()))}日分） ・ 船倉 ${holdUsed()}/${holdMax()} ・ 士気 ${G.morale}${G.prizes.length ? ` ・ 曳航中の拿捕船 ${G.prizes.length}隻` : ''}`;
+}
+function portMenu(sel) {
+  const p = PORTS[portIdx];
+  const items = [
+    { label:'出航する', desc:'食料と船員を確認してから出よう。', act:() => {
+      if (G.food < foodPerDay() * 3) {
+        showMenu({ title:'食料が少ない', body:'食料が3日分もない。このまま出航すると船員が飢えて逃げ出すぞ。', items:[
+          { label:'市場で食料を買う', act:() => marketMenu(0) },
+          { label:'このまま出航する', act:leavePort },
+        ] });
+      } else leavePort();
+    } },
+    { label:'市場（積荷の売却・食料の購入）', desc:`この港で高く売れるのは ${p.demand >= 0 ? GN[p.demand] : '（市場Lvで全体が上がる）'}。`, act:() => marketMenu(0) },
+    { label:p.home ? '造船所（修理・強化・購入・ドック）' : '造船所（修理・船の購入）', desc:'船の修理と購入。本拠地では強化とドックも。', act:() => shipyardMenu(0) },
+    { label:'酒場（船員・依頼・士官・番付）', desc:'船員の補充、依頼掲示板、士官の雇用、海賊番付。', act:() => tavernMenu(0) },
+  ];
+  if (p.home) items.push({ label:'港の開発', desc:'造船所・酒場・市場・要塞を発展させる。', act:() => developMenu(0) });
+  else items.push({ label:`総督府（${NAT[p.nat].short}　評判 ${G.rep[p.nat]}）`, desc:'私掠免許・報奨金・爵位・恩赦。', act:() => governorMenu(0) });
+  items.push({ label:'海図を見る', desc:'世界の地図と港の位置。', act:() => { openMap(() => portMenu(sel)); } });
+  items.push({ label:'遊び方', desc:'操作方法とコツ。', act:() => { openHelp(() => portMenu(sel)); } });
+  if (p.home) items.push({ label:'セーブする', desc:'このブラウザに記録する。', act:() => { msg(saveGame() ? 'セーブした。' : 'セーブできなかった。'); portMenu(sel); } });
+  showMenu({ title:p.name + (p.home ? '（本拠地）' : ''), body:portHeader(), items, sel });
+}
+function leavePort() {
+  const p = PORTS[portIdx];
+  P.x = p.dx + Math.sin(p.dockAng) * 70;
+  P.z = p.dz - Math.cos(p.dockAng) * 70;
+  P.a = bestOutbound(p); P.v = 3; P.sail = 1;
+  G.portCalm = 8;
+  for (const s of npcs) if (dist(s, P) < 260 && s.fac !== F.BOSS) { s.aggro = false; }
+  msg(`${p.name} を出航した。`);
+  portIdx = -1;
+}
+const foodPrice = () => PORTS[portIdx].home ? Math.max(4, 8 - G.dev.market) : 9;
+const sellPrice = g => Math.round(PORTS[portIdx].price[g]);
+function marketMenu(sel) {
+  const p = PORTS[portIdx];
+  const items = [];
+  let total = 0;
+  for (let g = 0; g < 5; g++) {
+    if (!P.cargo[g]) continue;
+    const pr = sellPrice(g);
+    total += pr * P.cargo[g];
+    items.push({ label:`${GN[g]} を売る　${P.cargo[g]}個 × ${pr}G ＝ ${pr * P.cargo[g]}G${p.demand === g ? '（高値！）' : ''}`, desc:`相場の目安 ${GP[g]}G。港によって値段が違う。`, act:() => {
+      const v = sellPrice(g) * P.cargo[g];
+      G.gold += v; msg(`${GN[g]} ${P.cargo[g]}個 を ${v}G で売った。`, 'warn'); P.cargo[g] = 0; marketMenu(0);
+    } });
+  }
+  if (total > 0) items.push({ label:`積荷をすべて売る（合計 ${total}G）`, desc:'船倉の積荷を一括で売却する。', act:() => {
+    G.gold += total; P.cargo = [0, 0, 0, 0, 0]; msg(`積荷をすべて売り、${total}G を得た。`, 'warn'); marketMenu(0);
+  } });
+  if (G.prizes.length) {
+    const v = Math.floor(G.prizes.reduce((a, z) => a + z.val, 0) * (100 + G.dev.market * 6 * (p.home ? 1 : 0)) / 100);
+    items.push({ label:`拿捕船 ${G.prizes.length}隻 を売却する（${v}G）`, desc:'回航要員は船を引き渡して戻ってくる。', act:() => {
+      for (const z of G.prizes) P.crew = Math.min(P.crewMax, P.crew + z.crew);
+      G.gold += v; G.prizes = []; msg(`拿捕船を売却し、${v}G を得た。回航要員が戻ってきた。`, 'warn'); marketMenu(0);
+    } });
+  }
+  const fp = foodPrice();
+  const buy = want => {
+    want = Math.min(want, holdFree(), Math.floor(G.gold / fp));
+    if (want <= 0) { msg(holdFree() === 0 ? '船倉に空きがない！' : '金が足りない、または十分にある。', 'bad'); return; }
+    G.food += want; G.gold -= want * fp; msg(`食料を ${want}樽 買った。（-${want * fp}G）`);
+  };
+  items.push({ label:`食料を10樽買う（${fp * 10}G）`, desc:`食料は1日に船員10人あたり1樽。船倉の空き ${holdFree()}。`, act:() => { buy(10); marketMenu(items.length - 3); } });
+  const want25 = Math.min(holdFree(), Math.max(0, foodPerDay() * 25 - G.food));
+  items.push({ label:`食料を25日分まで補充（${want25}樽 ${want25 * fp}G）`, desc:'今の船員数で25日航海できる量まで買う。', act:() => { buy(Math.max(0, foodPerDay() * 25 - G.food)); marketMenu(items.length - 2); } });
+  items.push({ label:'戻る', act:() => portMenu(1) });
+  showMenu({ title:'市場', body:portHeader(), items, sel, onEsc:() => portMenu(1) });
+}
+const discount = c => Math.floor(c * (100 - G.dev.shipyard * 6) / 100);
+const upCost = lv => discount((SC[P.cls].price / 6 + 500) * (lv + 1));
+function repairCost() {
+  const mul = PORTS[portIdx].home ? 1 - 0.08 * G.dev.shipyard : 1.4;
+  return { ph:Math.max(1, Math.round(4 * mul)), ps:Math.max(1, Math.round(3 * mul)) };
+}
+const shipStat = c => `船体${c.hull} 船員${c.crew} 砲${c.guns} 船倉${c.hold} 速さ${c.speed.toFixed(2)} 旋回${c.turn.toFixed(2)}`;
+const tradeInVal = () => Math.floor(SC[P.cls].price * 0.4 * (0.5 + 0.5 * P.hull / Math.max(1, P.hullMax)));
+// この港で買える船と、買う条件
+function saleList(p) {
+  const ids = p.home ? SC.map((c, i) => i) : p.ships;
+  return ids.map(i => {
+    const c = SC[i];
+    let ok = true, req = '', price;
+    if (p.home) { price = discount(c.price); if (c.tier > G.dev.shipyard) { ok = false; req = `造船所 Lv${c.tier}`; } }
+    else {
+      price = Math.floor(c.price * (1 - 0.04 * G.titles[p.nat]));
+      if (c.tier <= 1) { if (G.rep[p.nat] < 0) { ok = false; req = `${NAT[p.nat].short}の評判0以上`; } }
+      else if (G.titles[p.nat] < c.tier - 1) { ok = false; req = `${NAT[p.nat].short}の爵位「${TITLES[c.tier - 1]}」以上`; }
+    }
+    return { i, c, ok, req, price };
+  }).sort((a, b) => a.c.price - b.c.price);
+}
+function shipyardMenu(sel) {
+  const p = PORTS[portIdx];
+  const { ph, ps } = repairCost();
+  const cost = (P.hullMax - P.hull) * ph + (100 - P.sails) * ps;
+  const items = [{ label:`修理する（船体と帆 ${cost}G）`, desc:p.home ? '金が足りなければ、払える分だけ修理する。' : '本拠地以外の港は修理代が割高。', act:() => {
+    const nh = P.hullMax - P.hull, ns = 100 - P.sails;
+    if (nh + ns === 0) msg('船は万全の状態だ。');
+    else {
+      const h = Math.min(nh, Math.floor(G.gold / ph)); G.gold -= h * ph; P.hull += h;
+      const s = Math.min(ns, Math.floor(G.gold / ps)); G.gold -= s * ps; P.sails += s;
+      msg(h + s ? `修理した。船体 +${h}、帆 +${s}%（-${h * ph + s * ps}G）${h < nh || s < ns ? '　※金が足りず一部のみ' : ''}` : '修理する金がない！', h + s ? 'good' : 'bad');
+    }
+    shipyardMenu(0);
+  } }];
+  items.push({ label:`船を買う（この港の品ぞろえ ${saleList(p).length}隻）`, desc:p.home ? '造船所のレベルで買える船が増える。' : `${NAT[p.nat].short}の港。大きな船は爵位がないと売ってもらえない。`, act:() => buyShipMenu(0) });
+  if (p.home) {
+    items.push({ label:`ドック（停泊中 ${G.fleet.length}/3隻）`, desc:'持っている船に乗り換えたり、売ったりできる。', act:() => dockMenu(0) });
+    const ups = [['hull', '船体補強', '最大船体 +15%'], ['guns', '砲門増設', '砲門数 +15%'], ['copper', '銅張り船底', '速さ +6%（フナクイムシから船底を守る）']];
+    ups.forEach(([key, nm, ds], i) => {
+      const lv = G.up[key], cap = Math.min(3, G.dev.shipyard + 1);
+      const label = lv >= 3 ? `${nm} Lv${lv}（最大）` : lv >= cap ? `${nm} Lv${lv}（造船所 Lv${lv} で次へ）` : `${nm} Lv${lv} → Lv${lv + 1}　${upCost(lv)}G`;
+      items.push({ label, off:lv >= cap, desc:`${ds}。強化はこの船に残る（ドックに入れても消えない）。`, act:() => {
+        if (lv >= cap) msg('これ以上は強化できない。港の造船所を開発しよう。', 'bad');
+        else if (G.gold < upCost(lv)) msg(`金が足りない！（あと ${upCost(lv) - G.gold}G）`, 'bad');
+        else {
+          G.gold -= upCost(lv);
+          const old = P.hullMax;
+          G.up[key]++;
+          refit();
+          if (key === 'hull') P.hull += P.hullMax - old;
+          msg('船を強化した！', 'good');
+        }
+        shipyardMenu(i + 3);
+      } });
+    });
+  }
+  items.push({ label:'戻る', act:() => portMenu(2) });
+  showMenu({ title:'造船所', body:portHeader(), items, sel, onEsc:() => portMenu(2) });
+}
+function buyShipMenu(sel) {
+  const p = PORTS[portIdx];
+  const list = saleList(p);
+  const items = list.map((s, k) => ({
+    label:s.i === P.cls ? `${s.c.name}（今の船と同型）　${s.price}G` : `${s.c.name}　${s.price}G${s.ok ? '' : `　🔒${s.req}`}${G.goal === s.i ? '　◎目標' : ''}`,
+    off:!s.ok, desc:shipStat(s.c), act:() => shipDetailMenu(s, k) }));
+  items.push({ label:'戻る', act:() => shipyardMenu(1) });
+  showMenu({ title:'船を買う', body:`${portHeader()}\n今の船の下取り額 ${tradeInVal()}G`, items, sel, onEsc:() => shipyardMenu(1) });
+}
+function shipDetailMenu(s, back) {
+  const c = s.c, cur = SC[P.cls];
+  const cmp = (a, b) => a > b ? `▲${a}` : a < b ? `▼${a}` : `${a}`;
+  const body = `${c.name}　${s.price}G${s.ok ? '' : `\n🔒 購入条件：${s.req}`}\n` +
+    `船体 ${cmp(c.hull, cur.hull)} ・ 船員 ${cmp(c.crew, cur.crew)} ・ 砲 ${cmp(c.guns, cur.guns)} ・ 船倉 ${cmp(c.hold, cur.hold)}\n` +
+    `速さ ${c.speed.toFixed(2)}（今 ${cur.speed.toFixed(2)}） ・ 旋回 ${c.turn.toFixed(2)}（今 ${cur.turn.toFixed(2)}）\n` +
+    `所持金 ${G.gold}G ・ 下取り額 ${tradeInVal()}G`;
+  const ti = tradeInVal();
+  const canBuy = (pay) => {
+    if (!s.ok) { msg(`まだ買えない。条件：${s.req}`, 'bad'); return false; }
+    if (G.gold < pay) { msg(`金が足りない！（あと ${pay - G.gold}G）`, 'bad'); return false; }
+    if (holdUsed() > c.hold) { msg('新しい船の船倉に積荷が収まらない。先に売ろう。', 'bad'); return false; }
+    return true;
+  };
+  const items = [
+    { label:`買って乗り換える（下取り後 ${Math.max(0, s.price - ti)}G）`, off:!s.ok, desc:'今の船は下取りに出す。強化もなくなる。', act:() => {
+      const pay = Math.max(0, s.price - ti);
+      if (!canBuy(pay)) { shipDetailMenu(s, back); return; }
+      G.gold -= pay; launchNewShip(s.i);
+    } },
+  ];
+  if (G.fleet.length < 3) items.push({ label:`買って、今の船は髑髏湾のドックへ送る（${s.price}G）`, off:!s.ok, desc:'今の船（強化つき）はドックで待機。本拠地でいつでも乗り換えられる。', act:() => {
+    if (!canBuy(s.price)) { shipDetailMenu(s, back); return; }
+    G.gold -= s.price; dockCurrent(); launchNewShip(s.i);
+  } });
+  items.push({ label:G.goal === s.i ? '◎ 目標に設定中（解除する）' : 'この船を目標にする', desc:'画面左下に、目標までの金貨のたまり具合が表示される。', act:() => {
+    G.goal = G.goal === s.i ? -1 : s.i; G.goalPrice = s.price; G.goalNote = false;
+    msg(G.goal >= 0 ? `目標：${c.name}（${s.price}G）を手に入れる！` : '目標を解除した。', 'warn');
+    shipDetailMenu(s, back);
+  } });
+  items.push({ label:'戻る', act:() => buyShipMenu(back) });
+  showMenu({ title:'船の詳細', body, items, onEsc:() => buyShipMenu(back) });
+}
+function launchNewShip(i) {
+  P.cls = i;
+  G.up = { hull:0, guns:0, copper:0 };
+  refit();
+  P.hull = P.hullMax; P.sails = 100;
+  rebuildPlayerMesh();
+  if (G.goal === i) G.goal = -1;
+  G.fame += 5;
+  info('進水式', `新しい旗艦 ${SC[i].name}《${PLAYER_SHIP}》が進水した！\n${shipStat(SC[i])}\n\n船員たちが歓声を上げている。（士気 +15、悪名 +5）`, () => shipyardMenu(1));
+  G.morale = Math.min(100, G.morale + 15);
+  if (P.crew < P.crewMax * 0.5) msg(`船員が足りない（${P.crew}/${P.crewMax}）。酒場で雇おう。`, 'warn');
+}
+function dockCurrent() {
+  G.fleet.push({ cls:P.cls, up:Object.assign({}, G.up), hullPct:P.hull / Math.max(1, P.hullMax), sails:P.sails });
+  msg(`${SC[P.cls].name}を髑髏湾のドックへ回航させた。`);
+}
+function dockMenu(sel) {
+  const items = G.fleet.map((f, k) => {
+    const c = SC[f.cls], val = Math.floor(c.price * 0.4);
+    return { label:`${c.name}（船体 ${Math.round(f.hullPct * 100)}%・強化 ${f.up.hull + f.up.guns + f.up.copper}）`, desc:shipStat(c), act:() => {
+      showMenu({ title:c.name, body:`${shipStat(c)}\n強化：船体Lv${f.up.hull} 砲Lv${f.up.guns} 銅張りLv${f.up.copper}`, items:[
+        { label:'この船に乗り換える', desc:'今の船はドックに入る。', act:() => {
+          if (holdUsed() > c.hold) { msg('積荷が多すぎて乗り換えられない。先に売ろう。', 'bad'); dockMenu(k); return; }
+          G.fleet.splice(k, 1);
+          dockCurrent();
+          P.cls = f.cls; G.up = f.up; refit();
+          P.hull = Math.max(1, Math.round(P.hullMax * f.hullPct)); P.sails = f.sails;
+          if (P.crew > P.crewMax) { msg(`乗り切れない船員 ${P.crew - P.crewMax}人は港で待機させた。`); P.crew = P.crewMax; }
+          rebuildPlayerMesh();
+          msg(`${c.name}に乗り換えた！`, 'good');
+          dockMenu(0);
+        } },
+        { label:`売却する（${val}G）`, act:() => { G.fleet.splice(k, 1); G.gold += val; msg(`${c.name}を ${val}G で売った。`, 'warn'); dockMenu(0); } },
+        { label:'戻る', act:() => dockMenu(k) },
+      ], onEsc:() => dockMenu(k) });
+    } };
+  });
+  if (!items.length) items.push({ label:'（ドックは空っぽだ）', off:true, act:() => dockMenu(0) });
+  items.push({ label:'戻る', act:() => shipyardMenu(2) });
+  showMenu({ title:'髑髏湾のドック', body:`乗船中：${SC[P.cls].name}\n船を買うときや拿捕したときに、ここへ船を送れる（最大3隻）。`, items, sel, onEsc:() => shipyardMenu(2) });
+}
+// 目標の船
+function goalInfo() {
+  let i = G.goal, price = G.goalPrice;
+  if (i == null || i < 0 || i === P.cls) {
+    const cand = SC.map((c, k) => [c, k]).filter(([c, k]) => c.price > SC[P.cls].price && c.hull > SC[P.cls].hull).sort((a, b) => a[0].price - b[0].price)[0];
+    if (!cand) return null;
+    i = cand[1]; price = cand[0].price;
+  }
+  return { i, price:price || SC[i].price, auto:!(G.goal >= 0 && G.goal !== P.cls) };
+}
+const RUMORS = [
+  '「斜め後ろから風を受けるのが一番速い。真正面の風じゃ帆船は進まねえよ」',
+  '「商船は偽装旗で近づけば逃げねえ。髑髏の旗を見ただけで降伏する奴も多い」',
+  '「鎖弾で帆を裂いちまえば、どんな俊足の船も止まる」',
+  '「乗り込むなら、ぶどう弾で甲板を掃除してからにしな」',
+  '「東の外洋には銀を積んだガレオンが通る。護衛の海軍も強えがな」',
+  '「船員が少ねえと大砲の装填が遅くなる。片舷の砲一門に二人は欲しい」',
+  '「悪名が400を超えた海賊には、提督が自ら旗艦で出てくるって噂だ」',
+  '「腹を空かせた船乗りは逃げる。分け前のない船乗りは反乱する。覚えときな」',
+  '「サン・ミゲルでは香辛料、ポート・ベルナでは銀、ブランカ島ではラム酒、エル・ソルではタバコ、ミドルハーフェンでは砂糖が高く売れる」',
+  '「戦争中の国から私掠免許をもらえば、敵国の船を襲っても大手を振って歩けるぜ」',
+  '「手配度が★3を超えると海賊狩りが来る。総督に恩赦を買うか、裏で手配書を燃やしてもらうんだな」',
+  '「一騎打ちは相手の構えを見ろ。構えてねえ所を斬る。相手が振りかぶったら同じ向きで受け流せ」',
+  '「宝の地図の印は大ざっぱだ。印の中の島を片っ端から掘ってみな」',
+  '「戦闘で舵を切る前に Q で踏ん張れ。被害がぐっと減る」',
+  '「沈めた船の樽は拾っとけ。金貨が詰まってることもある」',
+];
+function tavernMenu(sel) {
+  const p = PORTS[portIdx];
+  const price = p.home ? Math.max(6, 14 - 2 * G.dev.tavern) : 16;
+  const room = P.crewMax - P.crew;
+  const feast = Math.max(50, P.crew * (p.home ? Math.max(1, 4 - Math.floor(G.dev.tavern / 2)) : 5));
+  const hire = want => {
+    want = Math.min(want, room, Math.floor(G.gold / price));
+    if (room === 0) msg('もう船は満員だ。');
+    else if (want <= 0) msg('金が足りない！', 'bad');
+    else { P.crew += want; G.gold -= want * price; msg(`荒くれ者 ${want}人 を雇った。（-${want * price}G）`, 'good'); }
+  };
+  const items = [
+    { label:`船員を満員まで雇う（${room}人 ${room * price}G）`, desc:`1人 ${price}G。荒くれ者たちが仲間になる。`, act:() => { hire(room); tavernMenu(0); } },
+    { label:`依頼掲示板（${(p.offers || []).length}件）　受注中 ${G.jobs.length}/4`, desc:'賞金首・運送・宝の地図。', act:() => jobsMenu(0) },
+    { label:`士官を雇う`, desc:'腕の立つ専門家が船を強くする。', act:() => officerMenu(0) },
+    { label:`宴会を開く（士気を全回復 ${feast}G）`, desc:'ラム酒と肉をふるまって、船員の機嫌を取る。', act:() => {
+      if (G.gold < feast) msg('宴会を開く金がない！', 'bad');
+      else { G.gold -= feast; G.morale = 100; msg('夜通しの大宴会！ 船員たちの士気が最高になった。', 'good'); }
+      tavernMenu(3);
+    } },
+    { label:`海賊番付を見る（あなたは${playerRank()}位）`, desc:'名だたる海賊たちの悪名の順位。', act:rankingMenu },
+  ];
+  if (G.heat >= 1) {
+    const cost = Math.floor(G.heat) * 450;
+    items.push({ label:`手配書を買い取る（手配度 -2 ・ ${cost}G）`, desc:'裏の筋に金を払って手配書を燃やしてもらう。', act:() => {
+      if (G.gold < cost) msg('金が足りない！', 'bad');
+      else { G.gold -= cost; G.heat = Math.max(0, G.heat - 2); msg(`手配書が燃やされた。手配度 ★${Math.floor(G.heat)}`, 'good'); }
+      tavernMenu(0);
+    } });
+  }
+  items.push({ label:'噂話を聞く', desc:'酒場には役立つ情報が転がっている。', act:() => { msg('酔っ払い' + pick(RUMORS)); tavernMenu(items.length - 2); } });
+  items.push({ label:'戻る', act:() => portMenu(3) });
+  showMenu({ title:'酒場', body:portHeader(), items, sel, onEsc:() => portMenu(3) });
+}
+function jobsMenu(sel) {
+  const p = PORTS[portIdx];
+  const offers = p.offers || [];
+  const items = offers.map((j, i) => ({ label:offerLabel(j), desc:offerDesc(j), act:() => {
+    if (acceptOffer(j)) offers.splice(i, 1);
+    jobsMenu(0);
+  } }));
+  if (!offers.length) items.push({ label:'（今は新しい依頼はない）', off:true, act:() => jobsMenu(0) });
+  items.push({ label:'戻る', act:() => tavernMenu(1) });
+  const body = `受注中の任務・依頼 ${G.jobs.length}/4\n` + (G.jobs.length ? G.jobs.map(j => '・' + jobText(j)).join('\n') : '・なし');
+  showMenu({ title:'依頼掲示板', body, items, sel, onEsc:() => tavernMenu(1) });
+}
+function officerMenu(sel) {
+  const p = PORTS[portIdx];
+  const offs = (p.offOffer || []).filter(o => !G.off[o.k]);
+  const items = offs.map((o, i) => ({ label:`${o.name}を雇う　${o.cost}G`, desc:o.desc, act:() => {
+    if (G.gold < o.cost) msg('金が足りない！', 'bad');
+    else { G.gold -= o.cost; G.off[o.k] = true; refit(); msg(`${o.name}が仲間に加わった！（${o.desc}）`, 'good'); }
+    officerMenu(0);
+  } }));
+  if (!offs.length) items.push({ label:'（この港には雇える士官がいない）', off:true, act:() => officerMenu(0) });
+  items.push({ label:'戻る', act:() => tavernMenu(2) });
+  const have = OFFICERS.filter(o => G.off[o.k]).map(o => o.name);
+  showMenu({ title:'士官を雇う', body:`乗船中の士官：${have.length ? have.join('、') : 'なし'}\n港ごとに顔ぶれが違う。`, items, sel, onEsc:() => tavernMenu(2) });
+}
+function developMenu(sel) {
+  const defs = [['shipyard', '造船所', '大きな船が買えるようになり、修理・強化が割引に。強化の上限も上がる。'],
+    ['tavern', '酒場', '船員の雇用費と宴会費が安くなる。'],
+    ['market', '市場', '本拠地での売値・拿捕船の値が上がり、食料が安くなる。帰港ごとに税収。'],
+    ['fort', '要塞', '悪名が高まると海軍が港を襲撃してくる。要塞があれば撃退できる。']];
+  const items = defs.map(([k, nm, ds], i) => {
+    const lv = G.dev[k], cost = 900 * (lv + 1) * (lv + 1);
+    return { label:lv >= 4 ? `${nm} Lv${lv}（最大）` : `${nm} Lv${lv} → Lv${lv + 1}　${cost}G`, off:lv >= 4, desc:ds, act:() => {
+      if (lv >= 4) msg('これ以上は開発できない。');
+      else if (G.gold < cost) msg(`金が足りない！（あと ${cost - G.gold}G）`, 'bad');
+      else { G.gold -= cost; G.dev[k]++; msg(`${nm} が Lv${G.dev[k]} になった！ 港がにぎわってきた。`, 'good'); }
+      developMenu(i);
+    } };
+  });
+  items.push({ label:'戻る', act:() => portMenu(4) });
+  showMenu({ title:'港の開発', body:portHeader(), items, sel, onEsc:() => portMenu(4) });
+}
+
+/* ===================== 依頼（賞金首・運送・宝の地図） ===================== */
+const jobCargo = () => G.jobs.reduce((a, j) => a + (j.type === 'cargo' ? j.n : 0), 0);
+function jobPos(j) {
+  if (j.type === 'hunt') return null;
+  if (j.type === 'scout') return j.reached ? { x:PORTS[j.from].dx, z:PORTS[j.from].dz } : { x:j.x, z:j.z };
+  if (j.type === 'bounty') return { x:j.x, z:j.z };
+  if (j.type === 'cargo') return { x:PORTS[j.dest].dx, z:PORTS[j.dest].dz };
+  return { x:j.cx, z:j.cz };
+}
+function jobText(j) {
+  if (j.type === 'hunt') return `任務：${j.tnat >= 0 ? NAT[j.tnat].short + 'の船' : '海賊船'} ${j.got}/${j.need}隻（${j.reward}G）`;
+  if (j.type === 'scout') return j.reached ? `任務：${PORTS[j.from].name}へ偵察の報告` : `任務：印の海域を偵察（${j.reward}G）`;
+  if (j.type === 'bounty') return `賞金首 ${G.rivals[j.rid].name}（${j.reward}G）`;
+  if (j.type === 'cargo') return `${PORTS[j.dest].name}へ物資${j.n}箱（${j.due}日目まで）`;
+  return '宝の地図（印の島で E で掘る）';
+}
+function genOffers(p) {
+  const o = [];
+  const alive = G.rivals.map((r, i) => [r, i]).filter(([r, i]) => r.alive && !G.jobs.some(j => j.type === 'bounty' && j.rid === i));
+  if (alive.length) {
+    alive.sort((a, b) => a[0].fame - b[0].fame);
+    const [r, i] = alive[Math.min(alive.length - 1, rr(0, 2))];
+    const hp = homeP();
+    const sp = seaSpot(hp.dx, hp.dz, 500 + r.fame, 700 + r.fame * 1.6);
+    if (sp) o.push({ type:'bounty', rid:i, x:sp.x, z:sp.z, reward:300 + r.fame * 7, fame:Math.round(r.fame / 4) + 10, spawned:false });
+  }
+  const dests = PORTS.map((q, i) => i).filter(i => i !== portIdx && !PORTS[i].home);
+  if (dests.length) {
+    const d = pick(dests);
+    const dd = Math.hypot(PORTS[d].dx - p.dx, PORTS[d].dz - p.dz);
+    const n = clamp(rr(8, 20), 5, Math.max(5, Math.floor(holdMax() * 0.45)));
+    o.push({ type:'cargo', dest:d, n, due:G.day + 2 + Math.ceil(dd / 1000), reward:n * 22 + Math.round(dd * 0.7), nat:p.nat });
+  }
+  if (Math.random() < 0.75 && !G.jobs.some(j => j.type === 'treasure')) { const j = makeTreasureJob(); if (j) o.push(j); }
+  return o;
+}
+function offerLabel(j) {
+  if (j.type === 'bounty') { const r = G.rivals[j.rid]; return `【賞金首】${r.name}（悪名${r.fame}）を倒せ　賞金 ${j.reward}G`; }
+  if (j.type === 'cargo') return `【運送】${PORTS[j.dest].name}へ物資${j.n}箱　${j.due}日目まで　報酬 ${j.reward}G`;
+  return `【宝の地図】酔いどれ水夫が売る古地図　${j.price}G`;
+}
+function offerDesc(j) {
+  if (j.type === 'bounty') return `${SC[G.rivals[j.rid].cls].name}を駆る札付きの海賊。海図に印がつく。倒せば悪名も大きく上がる。`;
+  if (j.type === 'cargo') return `船倉を${j.n}使う。遅れたり奪われたりすると、依頼主の評判が下がる。`;
+  return '海図のどこかの島に宝が埋まっている。印の島で船を止め、E で上陸して掘る。';
+}
+function acceptOffer(j) {
+  if (G.jobs.length >= 4) { msg('任務と依頼は合わせて4つまで。', 'bad'); return false; }
+  if (j.type === 'cargo' && holdFree() < j.n) { msg(`船倉の空きが足りない（あと${j.n - holdFree()}）。`, 'bad'); return false; }
+  if (j.type === 'treasure') {
+    if (G.gold < j.price) { msg('金が足りない！', 'bad'); return false; }
+    G.gold -= j.price;
+  }
+  G.jobs.push(j);
+  msg(j.type === 'treasure' ? '古地図を手に入れた！ 海図に印をつけた。' : `依頼を引き受けた：${jobText(j)}`, 'good');
+  return true;
+}
+function completeBounty(s) {
+  const r = G.rivals[s.rival];
+  if (!r || !r.alive) return;
+  r.alive = false;
+  const j = G.jobs.find(q => q.type === 'bounty' && q.rid === s.rival);
+  const reward = j ? j.reward : 300 + r.fame * 5, fame = j ? j.fame : Math.round(r.fame / 5);
+  G.gold += reward; G.fame += fame;
+  G.jobs = G.jobs.filter(q => q !== j);
+  setTimeout(() => msg(`賞金首 ${r.name} を討ち取った！ 賞金 ${reward}G、悪名 +${fame}`, 'good'), 600);
+}
+function checkJobSpawns() {
+  for (const j of G.jobs) {
+    if (j.type !== 'bounty' || j.spawned || !G.rivals[j.rid].alive) continue;
+    if (Math.hypot(j.x - P.x, j.z - P.z) < 650) spawnRival(j);
+  }
+}
+function deliverCargo(i) {
+  const done = G.jobs.filter(j => j.type === 'cargo' && j.dest === i);
+  for (const j of done) {
+    G.gold += j.reward;
+    if (j.nat >= 0) addRep(j.nat, 6);
+    msg(`物資${j.n}箱を届けた！ 報酬 ${j.reward}G${j.nat >= 0 ? `、${NAT[j.nat].short}の評判 +6` : ''}`, 'good');
+  }
+  G.jobs = G.jobs.filter(j => !done.includes(j));
+}
+function failJobs(reason) {
+  const lost = G.jobs.filter(j => j.type === 'cargo' && (reason === 'lost' || G.day > j.due));
+  for (const j of lost) {
+    if (j.nat >= 0) addRep(j.nat, -10);
+    msg(`運送の依頼に失敗した（${reason === 'lost' ? '積荷を奪われた' : '期限切れ'}）。${j.nat >= 0 ? NAT[j.nat].short + 'の評判 -10' : ''}`, 'bad');
+  }
+  G.jobs = G.jobs.filter(j => !lost.includes(j));
+}
+function digIsland() {
+  for (let i = 0; i < islands.length; i++) {
+    const is = islands[i];
+    if (is.port) continue;
+    if (Math.hypot(is.x - P.x, is.z - P.z) < is.r + P.len * 0.5 + 32) return i;
+  }
+  return -1;
+}
+function tryDig() {
+  const i = digIsland();
+  const tj = G.jobs.find(j => j.type === 'treasure');
+  if (i < 0 || !tj) return false;
+  if (P.v > 3) { msg('船を止めないと上陸できない（↓で帆を畳む）。', 'warn'); return true; }
+  G.dayT = Math.min(DAY_LEN - 1, G.dayT + 15);
+  if (i !== tj.isl) { msg('上陸して掘ってみたが、何も出なかった…。地図の印をよく見よう。', 'warn'); return true; }
+  const tier = tierAt(P.x, P.z);
+  const gold = rr(800, 1500) * (tier + 1);
+  const silver = Math.min(holdFree(), rr(4, 12));
+  G.gold += gold; P.cargo[4] += silver; G.fame += 8;
+  G.jobs = G.jobs.filter(j => j !== tj);
+  sndBoom(P.x, P.z);
+  info('宝を掘り当てた！', `砂浜を掘り進めると、スコップが硬い何かに当たった——\n鉄で縁取られた宝箱だ！\n\n金貨 ${gold}G${silver ? `、銀 ${silver}個` : ''} を手に入れた。（悪名 +8）`, () => {
+    if (Math.random() < 0.3) {
+      const sp = seaSpot(P.x, P.z, 260, 420);
+      if (sp) {
+        const s = makeShip(F.PIRATE, clamp(tier + 1, 1, 3), tier);
+        s.x = sp.x; s.z = sp.z; s.aggro = true; s.a = s.target = bearing(s.x, s.z, P.x, P.z);
+        buildShipMesh(s); npcs.push(s);
+        msg('見張り「宝を狙う海賊船だ！ 待ち伏せされてたぞ！」', 'bad');
+      }
+    }
+  });
+  return true;
+}
+
+/* ===================== 国の任務（総督府） ===================== */
+function genGovOffers(p) {
+  const n = p.nat, o = [];
+  const tierMul = 1 + SC[P.cls].tier * 0.45;
+  const foes = [0, 1, 2].filter(k => atWar(n, k));
+  if (foes.length) {
+    const t = pick(foes), need = rr(2, 4);
+    o.push({ type:'hunt', tnat:t, need, got:0, nat:n, rep:12, reward:Math.round((380 * need + 300) * tierMul / 10) * 10 });
+  }
+  const pn = rr(1, 3);
+  o.push({ type:'hunt', tnat:-1, need:pn, got:0, nat:n, rep:8, reward:Math.round((420 * pn + 200) * tierMul / 10) * 10 });
+  const sp = seaSpot(p.dx, p.dz, 600, 1150);
+  if (sp) {
+    const d = Math.hypot(sp.x - p.dx, sp.z - p.dz);
+    o.push({ type:'scout', x:sp.x, z:sp.z, from:portIdx, nat:n, rep:6, reached:false, reward:Math.round((300 + d * 0.9) * (1 + SC[P.cls].tier * 0.2) / 10) * 10 });
+  }
+  return o;
+}
+function govOfferLabel(j) {
+  if (j.type === 'scout') return `【偵察】印の海域を調べて報告せよ　報酬 ${j.reward}G・評判+${j.rep}`;
+  return `【討伐】${j.tnat >= 0 ? NAT[j.tnat].short + 'の船' : '海賊船'}を${j.need}隻 沈めるか拿捕せよ　報酬 ${j.reward}G・評判+${j.rep}`;
+}
+function huntProgress(e) {
+  for (const j of G.jobs.slice()) {
+    if (j.type !== 'hunt') continue;
+    if (j.tnat >= 0 ? e.nat !== j.tnat : e.fac !== F.PIRATE) continue;
+    j.got++;
+    if (j.got >= j.need) {
+      G.gold += j.reward; addRep(j.nat, j.rep); G.fame += 5;
+      G.jobs = G.jobs.filter(q => q !== j);
+      setTimeout(() => msg(`任務達成！ ${NAT[j.nat].short}から報酬 ${j.reward}G が届いた（評判 +${j.rep}）`, 'good'), 900);
+    } else msg(`任務の進み具合：${j.got}/${j.need}隻`, 'warn');
+  }
+}
+function scoutCheck() {
+  for (const j of G.jobs) {
+    if (j.type !== 'scout' || j.reached || Math.hypot(j.x - P.x, j.z - P.z) > 90) continue;
+    j.reached = true;
+    msg(`偵察完了！ 海域の様子を航海日誌に書き留めた。${PORTS[j.from].name}の総督へ報告しよう。`, 'good');
+    const foes = [0, 1, 2].filter(k => atWar(j.nat, k));
+    if (foes.length && Math.random() < 0.5) {
+      const sp = seaSpot(P.x, P.z, 250, 400);
+      if (sp) {
+        const s = makeShip(F.NAVY, rr(1, 3) === 3 ? 7 : 2, 1, pick(foes));
+        s.x = sp.x; s.z = sp.z; s.aggro = true; s.a = s.target = bearing(s.x, s.z, P.x, P.z);
+        buildShipMesh(s); npcs.push(s);
+        msg(`見張り「${NAT[s.nat].short}の哨戒艦に見つかった！ 追ってくるぞ！」`, 'bad');
+      }
+    }
+  }
+}
+function reportScout(i) {
+  const done = G.jobs.filter(j => j.type === 'scout' && j.reached && j.from === i);
+  for (const j of done) { G.gold += j.reward; addRep(j.nat, j.rep); msg(`偵察の報告を終えた。報酬 ${j.reward}G（評判 +${j.rep}）`, 'good'); }
+  G.jobs = G.jobs.filter(j => !done.includes(j));
+}
+function govMissionMenu(sel) {
+  const p = PORTS[portIdx];
+  const offers = p.govOffers || [];
+  const ok = G.rep[p.nat] >= -10;
+  const items = ok ? offers.map((j, k) => ({ label:govOfferLabel(j), desc:j.type === 'scout' ? '海図に印がつく。たどり着いたら港へ戻って報告。敵の哨戒艦に見つかることも。' : '達成すると報酬が自動で届く。拿捕でも数に入る。', act:() => {
+    if (G.jobs.length >= 4) msg('任務と依頼は合わせて4つまで。', 'bad');
+    else { G.jobs.push(j); offers.splice(k, 1); msg(`任務を引き受けた：${govOfferLabel(j)}`, 'good'); }
+    govMissionMenu(0);
+  } })) : [];
+  if (!items.length) items.push({ label:ok ? '（今は任務がない）' : '（評判が低すぎて任務をもらえない）', off:true, act:() => govMissionMenu(0) });
+  items.push({ label:'戻る', act:() => governorMenu(0) });
+  showMenu({ title:'国の任務', body:`${NAT[p.nat].name}からの任務。報酬は今の船が大きいほど上がる。\n受注中 ${G.jobs.length}/4`, items, sel, onEsc:() => governorMenu(0) });
+}
+
+/* ===================== 総督府 ===================== */
+function governorMenu(sel) {
+  const p = PORTS[portIdx], n = p.nat, nt = NAT[n];
+  let promo = '';
+  while (G.titles[n] < 4 && G.rep[n] >= TITLE_REP[G.titles[n] + 1]) {
+    G.titles[n]++;
+    G.gold += TITLE_GOLD[G.titles[n]];
+    promo += `\n★ 功績が認められ「${TITLES[G.titles[n]]}」の位を授かった！ 褒美 ${TITLE_GOLD[G.titles[n]]}G`;
+  }
+  const wars = [0, 1, 2].filter(o => atWar(n, o)).map(o => NAT[o].short);
+  const body = `${nt.name}の総督が謁見に応じた。\n評判 ${G.rep[n]} ・ 爵位 ${TITLES[G.titles[n]]} ・ 交戦中の国：${wars.length ? wars.join('、') : 'なし（平和）'}` +
+    `${G.marque >= 0 ? `\n私掠免許：${NAT[G.marque].short}${G.bounty ? `（未受領の報奨金 ${G.bounty}G）` : ''}` : ''}${promo}`;
+  const items = [{ label:`国の任務を受ける（${(p.govOffers || []).length}件）`, desc:'討伐・偵察。報酬と評判が手に入る。評判を上げれば爵位と大きな船の購入権が得られる。', act:() => govMissionMenu(0) }];
+  if (G.marque === n && G.bounty > 0) items.push({ label:`報奨金を受け取る（${G.bounty}G）`, desc:'私掠免許にもとづく戦果の報酬。', act:() => { G.gold += G.bounty; msg(`報奨金 ${G.bounty}G を受け取った。`, 'good'); G.bounty = 0; governorMenu(0); } });
+  if (G.marque !== n) {
+    const ok = G.rep[n] >= 5 && wars.length > 0;
+    items.push({ label:`私掠免許を受ける${ok ? '' : '（評判5以上・交戦中の国が必要）'}`, off:!ok,
+      desc:`${wars.length ? wars.join('、') : '敵国'}の船を襲うと、ここで報奨金がもらえる。罪（手配度）も軽くなる。他国の免許は破棄される。`,
+      act:() => {
+        if (!ok) { msg('総督「今は貴殿に頼む仕事はない」', 'bad'); governorMenu(0); return; }
+        if (G.marque >= 0 && G.bounty > 0) msg(`前の免許の未受領報奨金 ${G.bounty}G は失われた。`, 'bad');
+        G.marque = n; G.bounty = 0;
+        msg(`${nt.name}の私掠免許を受けた！ ${wars.join('、')}の船を狙え。`, 'good');
+        governorMenu(0);
+      } });
+  } else items.push({ label:'私掠免許を返上する', desc:'免許を手放す。', act:() => { G.marque = -1; G.bounty = 0; msg('私掠免許を返上した。'); governorMenu(0); } });
+  if (G.rep[n] < 0) {
+    const cost = -G.rep[n] * 35 + Math.floor(G.heat) * 300;
+    items.push({ label:`恩赦を願い出る（${cost}G）`, desc:'評判を0に戻し、手配度も消える。', act:() => {
+      if (G.gold < cost) msg('総督「その程度の献金では罪は消えぬ」（金が足りない）', 'bad');
+      else { G.gold -= cost; G.rep[n] = 0; G.heat = 0; msg('恩赦状を受け取った。評判と手配度が元に戻った。', 'good'); }
+      governorMenu(0);
+    } });
+  }
+  items.push({ label:'戻る', act:() => portMenu(4) });
+  showMenu({ title:`総督府 — ${nt.name}`, body, items, sel, onEsc:() => portMenu(4) });
+}
+function rankingMenu() {
+  const list = G.rivals.map(r => ({ name:r.name, fame:r.fame, alive:r.alive })).filter(r => r.alive);
+  list.push({ name:`★ キャプテン ${G.name}（あなた）`, fame:G.fame, alive:true, me:true });
+  list.sort((a, b) => b.fame - a.fame);
+  const body = '酒場の壁に貼られた「海賊番付」——\n\n' + list.map((r, i) => `${i + 1}位　${r.name}　悪名 ${r.fame}`).join('\n') +
+    `\n\n討ち取った賞金首：${G.rivals.filter(r => !r.alive).length}人`;
+  info('海賊番付', body, () => tavernMenu(4));
+}
+function playerRank() { return G.rivals.filter(r => r.alive && r.fame > G.fame).length + 1; }
+
+/* ===================== セーブ ===================== */
+function saveGame() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ G, ship:{ cls:P.cls, hull:P.hull, sails:P.sails, crew:P.crew, cargo:P.cargo } }));
+    return true;
+  } catch (e) { return false; }
+}
+function readSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (!d || !d.G || !d.ship || !(d.ship.cls >= 0 && d.ship.cls < SC.length)) return null;
+    return d;
+  } catch (e) { return null; }
+}
+
+/* ===================== 入力 ===================== */
+const keys = {};
+let touchL = false, touchR = false;
+let reloadMsgCd = 0;
+function playerFire(side) {
+  if (P.sinking) return;
+  if (P.reload[side] > 0) {
+    if (reloadMsgCd <= 0) { msg(`${side ? '右' : '左'}舷はまだ装填中だ！`); reloadMsgCd = 1; }
+    return;
+  }
+  if (G.flag) { G.flag = 0; setFlag(P, 'jolly'); msg('偽装旗を降ろし、海賊旗を掲げた！', 'bad'); }
+  fire(P, side);
+  msg(`${side ? '右' : '左'}舷、撃てぇ！（${AMMON[P.ammo]}）`);
+}
+function setAmmo(a) { P.ammo = a; msg(`弾種を${AMMON[a]}に切り替えた。射程 ${RANGE[a]}`); }
+function toggleFlag() {
+  G.flag = (G.flag + 1) % 4;
+  setFlag(P, playerFlag());
+  if (G.flag) {
+    const n = G.flag - 1, en = [0, 1, 2].filter(o => atWar(n, o)).map(o => NAT[o].short);
+    msg(`${NAT[n].short}の旗を掲げた（偽装）。${en.length ? en.join('・') + 'の船には敵と見なされる！' : ''}`, 'warn');
+  } else msg('海賊旗を掲げた！ 商船は怯え、海軍は追ってくるだろう。', 'bad');
+}
+function brace() {
+  if (P.braceCd > 0) { msg(`まだ踏ん張れない（あと${Math.ceil(P.braceCd)}秒）`); return; }
+  P.braceT = 2.5; P.braceCd = 10;
+  msg('「衝撃に備えろ！」 2.5秒間、被害が半分になる。', 'warn');
+}
+function shanty() {
+  if (!AC || !soundOn) return;
+  const N = [293.7, 349.2, 440, 440, 392, 349.2, 329.6, 293.7, 349.2, 440, 587.3, 523.3, 440, 392, 440];
+  const L = [1, 1, 1.5, 0.5, 1, 1, 1, 1, 1, 1, 1.5, 0.5, 1, 1, 2];
+  let t = AC.currentTime + 0.05;
+  N.forEach((f, i) => {
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'triangle'; o.frequency.value = f / 2;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.06, t + 0.03); g.gain.linearRampToValueAtTime(0, t + L[i] * 0.3);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + L[i] * 0.3 + 0.05);
+    t += L[i] * 0.3;
+  });
+}
+function nearPort() {
+  for (let i = 0; i < PORTS.length; i++) if (Math.hypot(PORTS[i].dx - P.x, PORTS[i].dz - P.z) < 75) return i;
+  return -1;
+}
+function hostileNear(r) {
+  return npcs.some(s => !s.sinking && !s.struck && s.state === 'hunt' && dist(s, P) < r);
+}
+function tryPort() {
+  const i = nearPort();
+  if (i < 0) { if (!tryDig()) msg('港の近くで入港できる。宝の地図があれば、島の近くで掘れる。'); return; }
+  if (hostileNear(250)) { msg('敵に追われていて入港できない！', 'bad'); return; }
+  const p = PORTS[i];
+  if (!p.home && G.rep[p.nat] <= -30) {
+    if (!G.flag) { msg(`${p.name}（${NAT[p.nat].short}）は入港を拒んでいる！ 評判が低すぎる。偽装旗なら忍び込めるかも…`, 'bad'); return; }
+    if (G.sneakFail === i && G.sneakDay === G.day) { msg('港は警戒している。今日はもう忍び込めない。', 'bad'); return; }
+    if (rr(1, 100) > 65 - Math.floor(G.heat) * 8) {
+      G.sneakFail = i; G.sneakDay = G.day;
+      G.heat = Math.min(5, G.heat + 0.5);
+      msg('偽装を見破られた！ 港の砲台が火を噴く！', 'bad');
+      P.hull -= Math.round(P.hullMax * 0.06);
+      return;
+    }
+    msg('偽装旗で港に忍び込んだ…', 'warn');
+  }
+  enterPort(i);
+}
+function pauseMenu() {
+  manualPause = true;
+  showMenu({ title:'一時停止中', items:[
+    { label:'航海を続ける', act:() => { manualPause = false; } },
+    { label:'遊び方', act:() => openHelp(() => { manualPause = false; }) },
+    { label:soundOn ? '音を消す' : '音を出す', act:() => { soundOn = !soundOn; manualPause = false; } },
+  ], onEsc:() => { manualPause = false; } });
+}
+let helpThen = null, mapThen = null;
+function openHelp(then) { helpThen = then || null; $('#help').hidden = false; }
+function closeHelp() { $('#help').hidden = true; const f = helpThen; helpThen = null; if (f) f(); }
+function openMap(then) { mapThen = then || null; drawMap($('#bigcanvas'), true); $('#bigmap').hidden = false; }
+function closeMap() { $('#bigmap').hidden = true; const f = mapThen; mapThen = null; if (f) f(); }
+$('#help').addEventListener('click', closeHelp);
+$('#bigmap').addEventListener('click', closeMap);
+
+window.addEventListener('keydown', e => {
+  const el = document.activeElement;
+  if (el && el.tagName === 'INPUT') { if (e.code === 'Enter') { e.preventDefault(); startNew(); } return; }
+  const k = e.code;
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].includes(k)) e.preventDefault();
+  if (!$('#help').hidden) { closeHelp(); return; }
+  if (!$('#bigmap').hidden) { if (k === 'KeyM' || k === 'Escape' || k === 'Enter' || k === 'Space') closeMap(); return; }
+  if (board) { if (!e.repeat) boardKey(k); return; }
+  if (modal.open) { if (!e.repeat) modalKey(k); return; }
+  if (mode !== 'play') return;
+  keys[k] = true;
+  if (e.repeat) return;
+  switch (k) {
+    case 'ArrowUp': case 'KeyW': P.sail = Math.min(2, P.sail + 1); break;
+    case 'ArrowDown': case 'KeyS': P.sail = Math.max(0, P.sail - 1); break;
+    case 'KeyZ': playerFire(0); break;
+    case 'KeyX': playerFire(1); break;
+    case 'Digit1': case 'Digit2': case 'Digit3': setAmmo(+k.slice(5) - 1); break;
+    case 'KeyF': toggleFlag(); break;
+    case 'KeyQ': brace(); break;
+    case 'KeyT': case 'Tab': toggleWarp(); break;
+    case 'KeyV': cam.spy = !cam.spy; msg(cam.spy ? '望遠鏡をのぞいた（V で戻す）。遠くの船の積荷まで見える。' : '望遠鏡をしまった。'); break;
+    case 'KeyB': tryBoard(); break;
+    case 'KeyE': tryPort(); break;
+    case 'KeyM': openMap(); break;
+    case 'KeyC': cam.yaw = 0; cam.pitch = 0.3; cam.dist = 1; break;
+    case 'KeyH': openHelp(); break;
+    case 'KeyN': soundOn = !soundOn; msg(soundOn ? '音: オン' : '音: オフ'); break;
+    case 'KeyP': case 'Escape': pauseMenu(); break;
+  }
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; touchL = touchR = false; });
+
+const cam = { yaw:0, pitch:0.3, dist:1, drag:false, lx:0, ly:0, pos:new THREE.Vector3(0, 60, 0), init:false };
+const cv = $('#c');
+cv.addEventListener('pointerdown', e => { cam.drag = true; cam.lx = e.clientX; cam.ly = e.clientY; cv.setPointerCapture(e.pointerId); audioInit(); });
+cv.addEventListener('pointermove', e => {
+  if (!cam.drag) return;
+  cam.yaw -= (e.clientX - cam.lx) * 0.006;
+  cam.pitch = clamp(cam.pitch + (e.clientY - cam.ly) * 0.004, 0.06, 1.25);
+  cam.lx = e.clientX; cam.ly = e.clientY;
+});
+cv.addEventListener('pointerup', () => { cam.drag = false; });
+cv.addEventListener('pointercancel', () => { cam.drag = false; });
+cv.addEventListener('wheel', e => { e.preventDefault(); cam.dist = clamp(cam.dist * (e.deltaY > 0 ? 1.1 : 0.9), 0.4, 3.2); }, { passive:false });
+
+function holdBtn(id, on) {
+  const b = $(id);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); on(true); audioInit(); });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => on(false));
+}
+holdBtn('#tL', v => { touchL = v; });
+holdBtn('#tR', v => { touchR = v; });
+const tap = (id, f) => $(id).addEventListener('click', () => { if (mode === 'play' && !modal.open) f(); });
+tap('#tUp', () => { P.sail = Math.min(2, P.sail + 1); });
+tap('#tDn', () => { P.sail = Math.max(0, P.sail - 1); });
+tap('#tZ', () => playerFire(0));
+tap('#tX', () => playerFire(1));
+tap('#tAm', () => setAmmo((P.ammo + 1) % 3));
+tap('#tB', tryBoard);
+tap('#tE', tryPort);
+tap('#tQ', brace);
+tap('#tT', toggleWarp);
+
+/* ===================== 地図 ===================== */
+const islandLayer = document.createElement('canvas');
+function prepMapLayer() {
+  islandLayer.width = islandLayer.height = 600;
+  const x = islandLayer.getContext('2d');
+  const s = 600 / (WORLD * 2);
+  x.fillStyle = '#163c5c'; x.fillRect(0, 0, 600, 600);
+  x.strokeStyle = 'rgba(255,255,255,.18)'; x.setLineDash([4, 6]); x.lineWidth = 1.2;
+  for (const r of [700, 1400]) { x.beginPath(); x.arc((homeP().dx + WORLD) * s, (homeP().dz + WORLD) * s, r * s, 0, TAU); x.stroke(); }
+  x.setLineDash([]);
+  for (const is of islands) {
+    x.fillStyle = '#d9c28c'; x.beginPath(); x.arc((is.x + WORLD) * s, (is.z + WORLD) * s, is.r * s * 1.05, 0, TAU); x.fill();
+    x.fillStyle = '#4f7d3b'; x.beginPath(); x.arc((is.x + WORLD) * s, (is.z + WORLD) * s, is.r * s * 0.75, 0, TAU); x.fill();
+  }
+}
+function drawMap(canvas, big) {
+  const x = canvas.getContext('2d'), W = canvas.width, s = W / (WORLD * 2);
+  const X = v => (v + WORLD) * s;
+  x.drawImage(islandLayer, 0, 0, W, W);
+  for (const p of PORTS) {
+    x.fillStyle = p.home ? '#a02020' : '#8a5a1a';
+    x.fillRect(X(p.dx) - (big ? 9 : 5), X(p.dz) - (big ? 9 : 5), big ? 18 : 10, big ? 18 : 10);
+    x.fillStyle = '#fff'; x.font = `bold ${big ? 14 : 9}px sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(p.home ? 'H' : 'T', X(p.dx), X(p.dz) + 1);
+    if (big) { x.font = 'bold 20px sans-serif'; x.fillStyle = p.home ? '#efe3c8' : NAT[p.nat].css; x.fillText(p.name + (p.home ? '' : `（${NAT[p.nat].short}）`), X(p.dx), X(p.dz) - 22); }
+  }
+  for (const n of npcs) {
+    if (n.sinking || n.dead) continue;
+    if (!big && dist(n, P) > 700) continue;
+    if (big && n.fac !== F.BOSS && dist(n, P) > 700) continue;
+    x.fillStyle = n.struck ? '#ffffff' : FACCSS[n.fac];
+    x.beginPath(); x.arc(X(n.x), X(n.z), big ? 6 : 4, 0, TAU); x.fill();
+  }
+  // 突風と漂流物
+  if (!big) {
+    x.strokeStyle = 'rgba(255,255,255,.8)'; x.lineWidth = 1.5;
+    for (const u of gusts) { x.beginPath(); x.arc(X(u.x), X(u.z), u.r * s, 0, TAU); x.stroke(); }
+    for (const l of loot) { x.fillStyle = l.kind === 'raft' ? '#ffffff' : l.kind === 'bottle' ? '#7fe0a0' : '#d9a050'; x.fillRect(X(l.x) - 2.5, X(l.z) - 2.5, 5, 5); }
+  }
+  // 依頼の印
+  for (const j of G.jobs) {
+    const q = jobPos(j);
+    if (!q) continue;
+    x.save();
+    x.lineWidth = big ? 3 : 2;
+    if (j.type === 'cargo' || (j.type === 'scout' && j.reached)) { x.strokeStyle = j.type === 'scout' ? '#7fd0ff' : '#f0c75e'; x.strokeRect(X(q.x) - (big ? 15 : 8), X(q.z) - (big ? 15 : 8), big ? 30 : 16, big ? 30 : 16); }
+    else {
+      const col = j.type === 'bounty' ? '#ff4a4a' : j.type === 'scout' ? '#7fd0ff' : '#f0c75e';
+      x.strokeStyle = col; x.setLineDash([5, 5]);
+      x.beginPath(); x.arc(X(q.x), X(q.z), (j.type === 'bounty' ? 150 : j.type === 'scout' ? 90 : j.r) * s, 0, TAU); x.stroke();
+      x.setLineDash([]);
+      const k = big ? 10 : 5;
+      x.beginPath(); x.moveTo(X(q.x) - k, X(q.z) - k); x.lineTo(X(q.x) + k, X(q.z) + k); x.moveTo(X(q.x) + k, X(q.z) - k); x.lineTo(X(q.x) - k, X(q.z) + k); x.stroke();
+      if (big) { x.fillStyle = col; x.font = 'bold 16px sans-serif'; x.textAlign = 'center'; x.fillText(j.type === 'bounty' ? G.rivals[j.rid].name : j.type === 'scout' ? '偵察' : '宝', X(q.x), X(q.z) + 26); }
+    }
+    x.restore();
+  }
+  // 自船
+  x.save();
+  x.translate(X(P.x), X(P.z)); x.rotate(P.a);
+  const k = big ? 2.2 : 1.3;
+  x.fillStyle = '#ffffff'; x.strokeStyle = '#000'; x.lineWidth = 1.5;
+  x.beginPath(); x.moveTo(0, -9 * k); x.lineTo(6 * k, 7 * k); x.lineTo(0, 3 * k); x.lineTo(-6 * k, 7 * k); x.closePath(); x.fill(); x.stroke();
+  x.restore();
+  if (!big) {
+    x.strokeStyle = 'rgba(255,255,255,.35)'; x.lineWidth = 1;
+    x.beginPath(); x.arc(X(P.x), X(P.z), RANGE[P.ammo] * s, 0, TAU); x.stroke();
+  }
+}
+function drawCompass() {
+  const c = $('#compass'), x = c.getContext('2d'), W = c.width, H = c.height;
+  x.clearRect(0, 0, W, H);
+  const cx = 64, cy = H / 2, r = 50;
+  x.strokeStyle = 'rgba(212,166,74,.7)'; x.lineWidth = 3;
+  x.beginPath(); x.arc(cx, cy, r, 0, TAU); x.stroke();
+  x.fillStyle = '#efe3c8'; x.font = 'bold 20px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('N', cx, cy - r + 14);
+  const arrow = (a, len, col, wdt) => {
+    x.save(); x.translate(cx, cy); x.rotate(a);
+    x.strokeStyle = col; x.fillStyle = col; x.lineWidth = wdt;
+    x.beginPath(); x.moveTo(0, len * 0.6); x.lineTo(0, -len * 0.6); x.stroke();
+    x.beginPath(); x.moveTo(0, -len * 0.8); x.lineTo(9, -len * 0.45); x.lineTo(-9, -len * 0.45); x.closePath(); x.fill();
+    x.restore();
+  };
+  for (const j of G.jobs) {
+    const q = jobPos(j); if (!q) continue;
+    const a = bearing(P.x, P.z, q.x, q.z);
+    x.fillStyle = j.type === 'bounty' ? '#ff4a4a' : j.type === 'scout' ? '#7fd0ff' : '#f0c75e';
+    x.beginPath(); x.arc(cx + Math.sin(a) * r, cy - Math.cos(a) * r, 7, 0, TAU); x.fill();
+  }
+  arrow(G.wind, r * 1.25, '#5fb6ff', 6);
+  arrow(P.a, r * 0.9, '#ffffff', 3);
+  const [wr, wc] = windRel(P.a);
+  x.textAlign = 'left';
+  x.fillStyle = '#93a6b6'; x.font = '19px sans-serif';
+  x.fillText(`${DIR8[dir8(G.wind + Math.PI)]}の風`, 128, 36);
+  x.fillStyle = wc === 'good' ? '#72c98f' : wc === 'warn' ? '#f0c75e' : wc === 'bad' ? '#e5583f' : '#efe3c8';
+  x.font = 'bold 21px sans-serif';
+  const short = wr.replace('（最速）', '').replace('（進めない）', '');
+  x.fillText(short, 128, 64);
+  x.fillStyle = '#efe3c8'; x.font = '19px sans-serif';
+  x.fillText(`${(P.v * 1.2).toFixed(1)} ノット`, 128, 94);
+}
+
+/* ===================== HUD ===================== */
+function barRow(label, cur, max, color, right) {
+  const pct = clamp(cur / Math.max(1, max) * 100, 0, 100);
+  return `<div class="row"><span class="k">${label}</span><div class="bar"><i style="width:${pct}%;background:${color}"></i></div><span class="num">${right}</span></div>`;
+}
+const hpCol = (c, m) => { const p = c / Math.max(1, m); return p > 0.6 ? '#72c98f' : p > 0.3 ? '#f0c75e' : '#e5583f'; };
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+function goalRow() {
+  const g = goalInfo();
+  if (!g) return '';
+  const pct = clamp(G.gold / g.price * 100, 0, 100);
+  if (pct >= 100 && !g.auto && !G.goalNote) { G.goalNote = true; msg(`目標の${SC[g.i].name}が買えるだけの金貨が貯まった！ 造船所へ急げ！`, 'good'); }
+  return `<div class="goal"><div class="line"><span class="k">${g.auto ? '次の船' : '◎目標'}</span><span>${SC[g.i].name}</span></div>` +
+    `<div class="bar"><i style="width:${pct}%;background:${pct >= 100 ? '#72c98f' : '#d4a64a'}"></i></div>` +
+    `<div class="line k"><span class="num">${G.gold}/${g.price}G</span><span>${pct >= 100 ? '<span class="good">買える！</span>' : `あと${g.price - G.gold}G`}</span></div></div>`;
+}
+function shipKind(s) {
+  if (s.rival != null) return '賞金首';
+  if (s.hunter) return '海賊狩り';
+  return (s.nat >= 0 ? NAT[s.nat].short + 'の' : '') + FACN[s.fac];
+}
+function updateHUD() {
+  $('#topbar').innerHTML = `<span class="cap">キャプテン ${esc(G.name)}</span><span class="rank">〔${rankName()}〕</span><span class="num">${G.day}日目</span><span>金貨 <b class="num">${G.gold}G</b></span><span class="fame num">悪名 ${G.fame}（番付${playerRank()}位）</span><span class="stars" title="手配度">手配 ${'★'.repeat(Math.floor(G.heat))}${'☆'.repeat(5 - Math.floor(G.heat))}</span>${G.storm ? '<span class="bad">嵐</span>' : ''}${P.braceT > 0 ? '<span class="warn">踏ん張り中</span>' : ''}${warp ? '<span class="good">≫ 早送り [T]</span>' : ''}${P.gustT > 0 ? '<span class="good">突風！</span>' : ''}`;
+  const days = Math.floor(G.food / Math.max(1, foodPerDay()));
+  const ml = G.morale >= 75 ? '上々' : G.morale >= 50 ? '普通' : G.morale >= 30 ? '不満' : '反乱寸前';
+  const sn = ['帆を畳む', '半帆', '全帆'][P.sail];
+  const t = tierAt(P.x, P.z);
+  $('#status').innerHTML = `<h3>${SC[P.cls].name}《${PLAYER_SHIP}》</h3>` +
+    barRow('船体', P.hull, P.hullMax, hpCol(P.hull, P.hullMax), `${Math.max(0, P.hull)}/${P.hullMax}`) +
+    barRow('帆', P.sails, 100, hpCol(P.sails, 100), `${P.sails}%`) +
+    barRow('船員', P.crew, P.crewMax, '#7fd0ff', `${P.crew}/${P.crewMax}`) +
+    barRow('士気', G.morale, 100, G.morale >= 60 ? '#72c98f' : G.morale >= 35 ? '#f0c75e' : '#e5583f', ml) +
+    `<div class="line"><span class="k">砲門</span><span class="num">${P.guns}門（片舷${P.guns / 2}）</span></div>` +
+    `<div class="line"><span class="k">食料</span><span class="num ${days < 4 ? 'bad' : ''}">${G.food}樽（あと${days}日分）</span></div>` +
+    `<div class="line"><span class="k">船倉</span><span class="num">${holdUsed()}/${holdMax()}（積荷${cargoUsed()}）${G.prizes.length ? ` 曳航${G.prizes.length}` : ''}</span></div>` +
+    `<div class="line"><span class="k">帆</span><span>${sn}</span></div>` +
+    `<div class="line"><span class="k">旗 [F]</span><span class="${G.flag ? 'warn' : 'bad'}">${G.flag ? NAT[G.flag - 1].short + 'の旗（偽装）' : '海賊旗'}</span></div>` +
+    `<div class="line"><span class="k">評判</span><span class="num">${NAT.map((n, i) => `<span style="color:${n.css}">${n.short[0]}</span>${G.rep[i]}`).join(' ')}</span></div>` +
+    goalRow() +
+    `<div class="line"><span class="k">海域</span><span class="${['good', 'warn', 'bad'][t]}">${TIERN[t]}</span></div>`;
+  $('#log').style.bottom = `calc(${$('#status').offsetHeight + 20}px + env(safe-area-inset-bottom,0px))`;
+  // 舷側砲
+  const foes = npcs.filter(s => !s.sinking && !s.released && !s.dead);
+  const sideHtml = side => {
+    const nm = side ? '右舷 [X]' : '左舷 [Z]';
+    const inArc = foes.some(s => sideOf(P, s) === side && dist(s, P) < RANGE[P.ammo]);
+    if (P.reload[side] > 0) {
+      const pct = 100 - P.reload[side] / reloadTime(P) * 100;
+      return `<div class="side"><span class="lbl k">${nm} 装填中</span><div class="bar"><i style="width:${pct}%;background:#d4a64a"></i></div></div>`;
+    }
+    return `<div class="side ${inArc ? 'inarc' : 'ready'}"><span class="lbl">${nm} ${inArc ? '射界内！ 撃て！' : '装填済み'}</span><div class="bar"><i style="width:100%;background:${inArc ? '#72c98f' : '#5a7a90'}"></i></div></div>`;
+  };
+  $('#guns').innerHTML = sideHtml(0) + `<div class="ammo">${AMMON.map((n, i) => `<span class="${i === P.ammo ? 'on' : ''}">${i + 1} ${n}</span>`).join('')}</div>` + sideHtml(1) +
+    `<div id="gunsHint">射程 ${RANGE[P.ammo]} ・ 球形弾＝船体　鎖弾＝帆　ぶどう弾＝船員</div>`;
+  // 近くの船
+  const near = foes.map(s => [s, dist(s, P)]).filter(a => a[1] < 500).sort((a, b) => a[1] - b[1]).slice(0, 5);
+  let nh = '<div class="t">近くの船</div>';
+  if (!near.length) nh += '<div class="k">なし</div>';
+  for (const [s, d] of near) {
+    const [tl, tc] = threat(s);
+    const st = s.struck ? '<span class="good">降伏</span>' : s.state === 'hunt' ? '<span class="bad">追跡!</span>' : s.state === 'flee' ? '<span class="warn">逃走</span>' : '';
+    nh += `<div><span style="color:${FACCSS[s.fac]}">■</span> ${shipKind(s)} ${DIR8[dir8(bearing(P.x, P.z, s.x, s.z))]}<span class="num">${Math.round(d)}</span> <span class="${tc}">${tl}</span> ${st}</div>`;
+  }
+  nh += '<div class="t" style="margin-top:4px">依頼</div>';
+  if (!G.jobs.length) nh += '<div class="k">なし（酒場の掲示板で受ける）</div>';
+  for (const j of G.jobs) { const q = jobPos(j); nh += `<div class="warn">◆ ${esc(jobText(j))} ${q ? `<span class="k">${DIR8[dir8(bearing(P.x, P.z, q.x, q.z))]}${Math.round(Math.hypot(q.x - P.x, q.z - P.z))}</span>` : ''}</div>`; }
+  $('#nearby').innerHTML = nh;
+  // 目標
+  let tg = G.focus && !G.focus.sinking && !G.focus.dead && !G.focus.released && dist(G.focus, P) < 450 ? G.focus : null;
+  if (!tg) {
+    let bd = 1e9;
+    for (const s of foes) { const d = dist(s, P); if (d < (cam.spy ? 700 : 300) && d < bd && (s.state === 'hunt' || s.aggro || s.struck || d < 200)) { bd = d; tg = s; } }
+  }
+  const tEl = $('#target');
+  if (tg) {
+    const [tl, tc] = threat(tg);
+    tEl.hidden = false;
+    tEl.innerHTML = `<h4 style="color:${FACCSS[tg.fac]}">${shipKind(tg)}${tg.struck ? '（降伏）' : ''}</h4><div class="k">${esc(tg.name)}</div>` +
+      barRow('船体', tg.hull, tg.hullMax, hpCol(tg.hull, tg.hullMax), Math.max(0, tg.hull)) +
+      barRow('帆', tg.sails, 100, hpCol(tg.sails, 100), tg.sails + '%') +
+      barRow('船員', tg.crew, tg.crewMax, '#ff9a5a', tg.crew) +
+      `<div class="line"><span class="k">砲門 ${tg.guns} ・ 距離 <span class="num">${Math.round(dist(tg, P))}</span></span><span class="${tc}">${tl}</span></div>` +
+      (cam.spy ? `<div class="k">望遠鏡：金貨 約${Math.round(tg.gold / 100) * 100}G ・ ${tg.cargo.some(n => n) ? tg.cargo.map((n, g) => n ? GN[g] + n : '').filter(Boolean).join(' ') : '積荷なし'}</div>` : '');
+  } else tEl.hidden = true;
+  // 指示
+  let pr = '';
+  if (!P.sinking) {
+    const pi = nearPort();
+    let boardable = null;
+    for (const s of foes) { const reach = (s.len + P.len) * 0.5 + (s.struck ? 16 : 8); if (dist(s, P) < reach) { boardable = s; break; } }
+    if (boardable) pr = boardable.struck ? 'B: 降伏した船を拿捕する' : 'B: 乗り込む（白兵戦）';
+    else if (pi >= 0) pr = hostileNear(250) ? '敵に追われていて入港できない' : `E: ${PORTS[pi].name} に入港`;
+    else if (G.jobs.some(j => j.type === 'treasure') && digIsland() >= 0) pr = P.v > 3 ? '帆を畳んで船を止めれば上陸できる' : 'E: 上陸して宝を掘る';
+  }
+  $('#prompt').hidden = !pr;
+  $('#prompt').textContent = pr;
+  // タグの文字
+  for (const s of npcs) {
+    if (!s.tag) continue;
+    const [tl] = threat(s);
+    s.tag.textContent = `${shipKind(s)}・${s.struck ? '降伏' : s.released ? '解放' : tl}`;
+    s.tag.style.color = s.struck ? '#ffffff' : s.rival != null || s.hunter ? '#ff4a4a' : FACCSS[s.fac];
+  }
+  drawCompass();
+  drawMap($('#minimap'), false);
+}
+const tagV = new THREE.Vector3();
+const portTags = PORTS.map(p => { const d = document.createElement('div'); d.className = 'tag port'; d.textContent = p.name; d.hidden = true; $('#labels').appendChild(d); return d; });
+function updateTags() {
+  const w = window.innerWidth, h = window.innerHeight;
+  const place = (el, x, y, z, maxD) => {
+    tagV.set(x, y, z);
+    const d = camera.position.distanceTo(tagV);
+    tagV.project(camera);
+    const vis = d < maxD && tagV.z < 1 && Math.abs(tagV.x) < 1.1 && Math.abs(tagV.y) < 1.1;
+    el.hidden = !vis;
+    if (vis) { el.style.left = ((tagV.x + 1) / 2 * w) + 'px'; el.style.top = ((1 - tagV.y) / 2 * h) + 'px'; }
+  };
+  for (const s of npcs) {
+    if (s.sinking || s.dead) { if (s.tag) s.tag.hidden = true; continue; }
+    if (!s.tag) { s.tag = document.createElement('div'); s.tag.className = 'tag'; $('#labels').appendChild(s.tag); }
+    place(s.tag, s.x, (s.mesh ? s.mesh.position.y : 0) + s.len * 1.15 + 4, s.z, cam.spy ? 1150 : 650);
+  }
+  PORTS.forEach((p, i) => place(portTags[i], p.cx, 46, p.cz, 900));
+}
+
+/* ===================== 空と光 ===================== */
+const SKY = { day:new THREE.Color(0x8fc3e0), dusk:new THREE.Color(0xe39a6b), night:new THREE.Color(0x0b1828), storm:new THREE.Color(0x4a5660) };
+const SEA_C = { day:new THREE.Color(0x1d5a85), night:new THREE.Color(0x0a2238), storm:new THREE.Color(0x24414f) };
+const tmpC = new THREE.Color(), tmpC2 = new THREE.Color();
+let flash = 0;
+function updateSky(dt) {
+  const p = G ? (G.clock || 0) / SKY_LEN : 0.2;
+  let dl, dw = 0;
+  if (p < 0.8) dl = 1;
+  else if (p < 0.87) { dl = 1 - (p - 0.8) / 0.07; dw = 1 - Math.abs(dl - 0.5) * 2; }
+  else if (p < 0.95) dl = 0;
+  else { dl = (p - 0.95) / 0.05; dw = 1 - Math.abs(dl - 0.5) * 2; }
+  const storm = G && G.storm ? 1 : 0;
+  tmpC.copy(SKY.night).lerp(SKY.day, dl).lerp(SKY.dusk, dw * 0.6);
+  if (storm) tmpC.lerp(SKY.storm, 0.7);
+  if (storm && Math.random() < dt * 0.15) flash = 0.15;
+  if (flash > 0) { flash -= dt; tmpC.lerp(new THREE.Color(0xffffff), 0.5); }
+  scene.background.copy(tmpC);
+  scene.fog.color.copy(tmpC);
+  const tn = storm ? 120 : dl < 0.3 ? 180 : 260, tf = storm ? 650 : dl < 0.3 ? 850 : 1150;
+  scene.fog.near += (tn - scene.fog.near) * Math.min(1, dt);
+  scene.fog.far += (tf - scene.fog.far) * Math.min(1, dt);
+  hemi.intensity = 0.28 + 0.55 * dl;
+  sun.intensity = (0.15 + 0.85 * dl) * (storm ? 0.45 : 1);
+  sun.color.setHex(0xfff1d6).lerp(tmpC2.setHex(0xff9a5a), dw);
+  const ang = p * TAU * 0.9 + 0.4;
+  const cx = P ? P.x : 0, cz = P ? P.z : 0;
+  sun.position.set(cx + Math.cos(ang) * 400, 150 + 300 * Math.max(0.1, dl), cz + Math.sin(ang) * 300);
+  sun.target.position.set(cx, 0, cz);
+  seaMat.color.copy(SEA_C.night).lerp(SEA_C.day, dl);
+  if (storm) seaMat.color.lerp(SEA_C.storm, 0.6);
+  waveAmp += ((storm ? 2.1 : 1) - waveAmp) * Math.min(1, dt * 0.5);
+}
+
+/* ===================== カメラ ===================== */
+const camTarget = new THREE.Vector3();
+function updateCamera(dt) {
+  if (mode === 'title') {
+    const p = homeP(), a = T * 0.05;
+    camera.position.set(p.dx + Math.sin(a) * 230, 70, p.dz + Math.cos(a) * 230);
+    camera.lookAt(p.dx, 6, p.dz);
+    return;
+  }
+  const wf = cam.spy ? 18 : 55;
+  if (Math.abs(camera.fov - wf) > 0.1) { camera.fov += (wf - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix(); }
+  const d = (40 + P.len * 2.2) * cam.dist;
+  const ang = P.a + Math.PI + cam.yaw;
+  const want = new THREE.Vector3(P.x + Math.sin(ang) * Math.cos(cam.pitch) * d, Math.sin(cam.pitch) * d + 5, P.z - Math.cos(ang) * Math.cos(cam.pitch) * d);
+  if (!cam.init) { cam.pos.copy(want); cam.init = true; }
+  cam.pos.lerp(want, 1 - Math.exp(-dt * 4));
+  const floor = waveH(cam.pos.x, cam.pos.z) + 3;
+  if (cam.pos.y < floor) cam.pos.y = floor;
+  camera.position.copy(cam.pos);
+  camTarget.set(P.x, (P.mesh ? P.mesh.position.y : 0) + 6, P.z);
+  camera.lookAt(camTarget);
+}
+
+/* ===================== メインループ ===================== */
+let hudT = 0, spawnT = 0, jobT = 1, last = performance.now();
+function paused() { return mode !== 'play' || modal.open || !!board || manualPause || !$('#help').hidden || !$('#bigmap').hidden; }
+function update(dt) {
+  T += dt;
+  if (reloadMsgCd > 0) reloadMsgCd -= dt;
+  if (G.lostT > 0) {
+    G.lostT -= dt;
+    if (G.lostT <= 0) { G.lostT = 0; defeatModal(); return; }
+  }
+  if (!P.sinking) {
+    P.rudder = (keys.ArrowLeft || keys.KeyA || touchL ? -1 : 0) + (keys.ArrowRight || keys.KeyD || touchR ? 1 : 0);
+    for (const k of [0, 1]) if (P.reload[k] > 0) {
+      P.reload[k] = Math.max(0, P.reload[k] - dt);
+      if (P.reload[k] === 0) msg(`${k ? '右' : '左'}舷、装填完了！`);
+    }
+    shipPhysics(P, dt);
+  }
+  P.groundCd = Math.max(0, (P.groundCd || 0) - dt);
+  P.edgeCd = Math.max(0, (P.edgeCd || 0) - dt);
+  P.ramCd = Math.max(0, (P.ramCd || 0) - dt);
+  P.braceT = Math.max(0, (P.braceT || 0) - dt);
+  P.braceCd = Math.max(0, (P.braceCd || 0) - dt);
+  G.huntT -= dt;
+  if (G.huntT <= 0) {
+    G.huntT = 50;
+    if (G.heat >= 3 && !P.sinking && npcs.filter(s => s.hunter && !s.sinking).length < Math.floor(G.heat) - 2) spawnHunter();
+  }
+  jobT -= dt;
+  if (jobT <= 0) { jobT = 1; checkJobSpawns(); scoutCheck(); }
+  G.portCalm = Math.max(0, (G.portCalm || 0) - dt);
+  for (const s of npcs) npcUpdate(s, dt);
+  if (!P.sinking) shipCollisions();
+  for (let i = npcs.length - 1; i >= 0; i--) {
+    const s = npcs[i];
+    if (!s.dead && !s.sinking && s.hull <= 0) sinkShip(s);
+    if (!s.dead && s.fac !== F.BOSS && dist(s, P) > 1150) {
+      removeShipMesh(s); s.dead = true;
+      if (s.rival != null) { const j = G.jobs.find(q => q.type === 'bounty' && q.rid === s.rival); if (j) j.spawned = false; }
+    }
+    if (s.dead) { if (G.focus === s) G.focus = null; removeShipMesh(s); npcs.splice(i, 1); }
+  }
+  spawnT -= dt;
+  if (spawnT <= 0) { spawnT = 2; if (npcs.filter(s => s.fac !== F.BOSS).length < 9) spawnNpc(650, 950); }
+  updateBalls(dt);
+  updateLoot(dt);
+  flushDmg(dt);
+  if (!P.sinking && (P.hull <= 0 || P.crew <= 0)) playerLost('sunk');
+  G.dayT += dt;
+  if (G.dayT >= DAY_LEN) { G.dayT -= DAY_LEN; dayPass(); }
+  G.clock = ((G.clock || 0) + dt) % SKY_LEN;
+  updateSeaLife(dt);
+}
+function updateArcs() {
+  arcGroup.visible = mode === 'play' && !P.sinking;
+  if (!arcGroup.visible) return;
+  arcGroup.position.set(P.x, (P.mesh ? P.mesh.position.y : 0) + 0.8, P.z);
+  arcGroup.rotation.y = -P.a;
+  const R = RANGE[P.ammo];
+  const foes = npcs.filter(s => !s.sinking && !s.released && !s.dead);
+  for (const side of [0, 1]) {
+    arcMeshes[side].scale.set(R, R, 1);
+    const inArc = foes.some(s => sideOf(P, s) === side && dist(s, P) < R);
+    const m = arcMats[side];
+    if (P.reload[side] > 0) { m.color.setHex(0x556270); m.opacity = 0.07; }
+    else if (inArc) { m.color.setHex(0x5fe08a); m.opacity = 0.2 + Math.sin(T * 8) * 0.05; }
+    else { m.color.setHex(0xb8d0e0); m.opacity = 0.11; }
+  }
+}
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  step(dt);
+  requestAnimationFrame(frame);
+}
+function step(dt) {
+  if (!paused()) {
+    if (warp && !warpOK()) { warp = false; msg('見張り「敵影あり！」 早送りを解除した。', 'bad'); }
+    const n = warp ? 4 : 1;
+    for (let i = 0; i < n && !paused(); i++) update(dt);
+  }
+  else if (mode === 'title') T += dt;
+  else T += dt * 0.3;
+  updateSky(dt);
+  if (P) for (const s of [P, ...npcs]) updateShipVisual(s, paused() ? 0 : dt);
+  updateParts(dt);
+  updateArcs();
+  updateCamera(dt);
+  updateSea(camera.position.x, camera.position.z);
+  if (mode === 'play') {
+    updateTags();
+    hudT -= dt;
+    if (hudT <= 0) { hudT = 0.12; updateHUD(); }
+  }
+  renderer.render(scene, camera);
+}
+
+/* ===================== 開始 ===================== */
+function makePlayer(cls) {
+  P = { fac:F.PLAYER, cls, x:0, z:0, a:0, target:0, v:0, rudder:0, sail:2, hull:1, hullMax:1, sails:100, crew:30, crewMax:40,
+    guns:8, spdMul:1, turnMul:1, reload:[0, 0], ammo:0, cargo:[0, 0, 0, 0, 0], len:14, beam:4.2, sinking:false, sinkT:0, sinkDir:1, isPlayer:true };
+}
+function placeAtHome() {
+  const p = homeP();
+  P.x = p.dx + Math.sin(p.dockAng) * 70;
+  P.z = p.dz - Math.cos(p.dockAng) * 70;
+  P.a = bestOutbound(p);
+}
+function bestOutbound(p) {
+  let best = p.dockAng;
+  for (const o of [-1, -0.5, 0.5, 1]) { const a = norm(p.dockAng + o); if (windF(a) > windF(best) + 0.05) best = a; }
+  return best;
+}
+function seedNpcs() {
+  for (const s of npcs) removeShipMesh(s);
+  npcs.length = 0;
+  for (let i = 0; i < 8; i++) spawnNpc(260, 950);
+}
+function beginPlay() {
+  mode = 'play';
+  $('#title').hidden = true;
+  $('#hud').hidden = false;
+  cam.init = false;
+  audioInit();
+}
+function startNew() {
+  const name = ($('#captain-name').value || '').trim() || 'ジャック';
+  $('#captain-name').blur();
+  G = freshGame(name);
+  makePlayer(0);
+  refit();
+  P.hull = P.hullMax; P.crew = 30;
+  rebuildPlayerMesh();
+  placeAtHome();
+  P.sail = 1;
+  seedNpcs();
+  beginPlay();
+  G.portCalm = 6;
+  info('船出', `小さなスループ船《${PLAYER_SHIP}》と30人の荒くれ者、そして髑髏湾の隠れ家。\nここからキャプテン ${name} の伝説が始まる。\n\nまずは近海で商船（黄色の名札）を襲い、積荷を港で売って船と港を強くしよう。\n右上の羅針盤の青い矢印が風向き。風を背に受けると速い。\n港の酒場では賞金首・運送・宝の地図の依頼が受けられる。\n\n←→ 舵　↑↓ 帆　Z/X 左舷/右舷の大砲　Q 備え　V 望遠鏡　T 早送り\nB 乗り込み（一騎打ち）　E 入港　F 旗　H 遊び方`, () => {
+    msg('髑髏湾を出航した。中立のネーデルの旗（偽装）を掲げているので、商船には怪しまれない。', 'warn');
+  });
+}
+function startContinue() {
+  const d = readSave();
+  if (!d) return;
+  G = Object.assign(freshGame(d.G.name || 'ジャック'), d.G);
+  G.up = Object.assign({ hull:0, guns:0, copper:0 }, d.G.up);
+  G.dev = Object.assign({ shipyard:0, tavern:0, market:0, fort:0 }, d.G.dev);
+  G.prizes = Array.isArray(d.G.prizes) ? d.G.prizes : [];
+  G.storm = 0; G.lostT = 0; G.focus = null;
+  makePlayer(d.ship.cls);
+  P.hull = d.ship.hull; P.sails = d.ship.sails; P.crew = d.ship.crew; P.cargo = (d.ship.cargo || [0, 0, 0, 0, 0]).slice(0, 5);
+  refit();
+  rebuildPlayerMesh();
+  placeAtHome();
+  seedNpcs();
+  beginPlay();
+  enterPort(clamp(G.portIdx | 0, 0, PORTS.length - 1));
+}
+$('#bNew').addEventListener('click', startNew);
+$('#bCont').addEventListener('click', startContinue);
+$('#bHelp').addEventListener('click', () => openHelp());
+
+genWorld();
+prepMapLayer();
+G = freshGame('');
+makePlayer(0);
+refit(); P.hull = P.hullMax;
+buildShipMesh(P);
+setFlag(P, 'n0');
+placeAtHome();
+// タイトル画面の背景に何隻か浮かべる
+for (let i = 0; i < 3; i++) {
+  const s = makeShip(i === 2 ? F.NAVY : F.MERCH, i + 1, 0);
+  const p = homeP();
+  s.x = p.dx + Math.sin(p.dockAng + 0.6 * (i - 1)) * (90 + i * 50);
+  s.z = p.dz - Math.cos(p.dockAng + 0.6 * (i - 1)) * (90 + i * 50);
+  s.a = p.dockAng + 1.2 * i;
+  buildShipMesh(s);
+  npcs.push(s);
+}
+if (readSave()) $('#bCont').disabled = false;
+if (location.search.indexOf('debug') >= 0) window.__dbg = { get P() { return P; }, get G() { return G; }, get board() { return board; }, npcs, makeShip, buildShipMesh, F, PORTS, islands, tick(n) { for (let i = 0; i < n; i++) step(1 / 30); },
+  resetBoard() { if (board) { clearInterval(board.timer); board = null; $('#mlist').className = ''; closeModal(); } },
+  get warp() { return warp; }, toggleWarp, spawnGust, spawnFind, spawnDolphins, spawnWhale, gusts, loot, sealife, step,
+  enterPort, startBoarding, boardKey, stepDuel, drawDuel, tryPort, tryDig, genOffers, acceptOffer, spawnHunter, toggleFlag, brace, modalKey };
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
