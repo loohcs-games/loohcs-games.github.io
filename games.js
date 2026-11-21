@@ -18,6 +18,7 @@ window.GAMES = [
   { id: "ookami", title: "狼のいる夜", author: "loohcskshirasaki", date: "2026-11-15 15:26", description: "20:00 から翌朝 6:00 までの 20 コマを、狼に見つからずに生き延びる選択肢ゲーム。謎解き（生存）、戦い（吸血鬼）、恋愛（白猫）、世界観への引き込み、読み物、の5つの軸で面白さを組む。最初はコミカルに、何度か死ぬうちに、思っていたより深い夜に入っていく。キーボードだけで遊べる。音あり" },
   { id: "chika10", title: "地下十階", author: "loohcskshirasaki", date: "2026-11-18 03:20", description: "町の外れの穴に潜る、不思議のダンジョン風のローグライク。地形は毎回ちがう。お宝を持ち帰って道具屋で売り、武器屋で強い武器と盾を買って、また潜る。十階の地底の王は、何度か往復しないと倒せない。進みは自動で記憶される。キーボードだけで遊べる。音あり" },
   { id: "wakusei", title: "惑星こわし", author: "loohcskshirasaki", date: "2026-11-18 03:17", description: "月から順に出てくる惑星を、魔法でひたすらこわす。Z で弾、X で魔法、ゲージがたまったら Space で必殺技。カットインが入って、こわすと粉々に飛び散る。最後はブラックホール。負けはない。キーボードだけで遊べる。音あり" },
+  { id: "kaijohan", title: "解除班", author: "loohcskshirasaki", date: "2026-11-22 05:27", description: "5対5のラウンド制タクティカル FPS。訓練ロボットのチームで、装置の設置と解除を争う。味方4体と敵5体は bot。ラウンドごとに装備を買い、A・B の二か所を攻めるか守る。7ラウンド先取、難しさ3段階。WASD とマウス、PC 向け。音あり" },
   // ---- yuuuuuuuuuuhh ----
   { id: "yuuuuuuuuuuhh", title: "モチモチグランプリ", author: "yuuuuuuuuuuhh", date: "2026-10-29 14:40", description: "おもちのモチが食べものレーサーと走る3Dカートレース。1人・2人・オンライン対戦" },
   { id: "yuuuuuuuuuuhh-2", title: "てっぺん", author: "yuuuuuuuuuuhh", date: "2026-10-29 16:05", description: "街の上空に積み上がったガラクタを、ひたすら上へ。落ちたら、落ちたところから" },
