@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0b1723">
+<title>王城おとし — 三つ道の谷</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="world" aria-label="三つ道の谷の戦場"></canvas>
+<div id="vignette"></div><div id="ultimate-flash"></div>
+<main id="screens">
+<section id="title-screen" class="screen title-screen">
+ <div class="title-content"><p class="eyebrow"><span class="tiny-star">✧</span> 三つ道の谷に、夜が来る。</p><h1>王城<span>おとし</span></h1><p class="title-lead">兵士と進め。塔を折れ。<br>最後に、城が立ち上がる。</p><div class="title-rule"></div><p class="title-sub">剣と魔法の、５対５の攻城戦。<br>ひとりの英雄と、４人の仲間で。</p><div class="actions"><button id="title-start" class="primary">英雄をえらぶ <kbd>Enter</kbd></button><button id="title-watch">戦いを観る <kbd>W</kbd></button></div><p class="muted">キーボードだけで遊べます ・ １試合 約10〜15分</p><a id="back-link" href="../../" hidden>← ゲーム一覧にもどる</a></div>
+ <div class="title-emblem" aria-hidden="true"><svg viewBox="0 0 360 460"><defs><linearGradient id="crest" x2="0" y2="1"><stop stop-color="#e7ce86"/><stop offset="1" stop-color="#947449"/></linearGradient></defs><path d="M180 26L298 94V278L180 410 62 278V94Z" fill="#0c1c2cb8" stroke="url(#crest)" stroke-width="2"/><path d="M180 44L281 104V271L180 389 79 271V104Z" fill="none" stroke="#b69d653c"/><path d="M116 270V177H141V147H159V177H201V147H219V177H244V270L180 320Z" fill="#233e50" stroke="#b8c5bf" stroke-width="3"/><path d="M167 259V223Q180 201 193 223V259M107 177V149H121V165H134V149H148M212 149H226V165H239V149H253V177" fill="none" stroke="#e2cf91" stroke-width="5"/><path d="M180 85L190 117 180 148 170 117Z" fill="#96e6ff"/><path d="M180 63V83M151 117H165M195 117H209" stroke="#92d6e8" stroke-width="2"/><path d="M108 316L249 140M251 316L109 140" stroke="#dfc68e" stroke-width="3"/><path d="M95 301L123 325M237 325L265 301" stroke="#dfc68e" stroke-width="5"/><circle cx="180" cy="117" r="47" fill="none" stroke="#8fd1e12a"/><text x="180" y="354" text-anchor="middle" fill="#dfc68e" font-size="15" letter-spacing="9">蒼晶の旗</text></svg></div>
+ <p class="corner-note">三本の道。ふたつの王国。<br><b>きみの一歩で、戦況が変わる。</b></p>
+</section>
+<section id="select-screen" class="screen" hidden><div class="sheet selection"><header><p class="eyebrow">蒼晶の王国から出陣</p><h2>きみの英雄を、えらぼう。</h2></header><div class="difficulty-row"><span>相手の強さ</span><div id="difficulty-buttons" class="segmented"></div><small>数字 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> でも変更</small></div><div id="hero-grid" class="hero-grid"></div><div id="hero-detail" class="hero-detail"></div><div class="actions"><button id="select-next" class="primary">この英雄で進む <kbd>Enter</kbd></button><button id="select-back">もどる <kbd>Esc</kbd></button><span class="muted">矢印で英雄を選択</span></div></div></section>
+<section id="howto-screen" class="screen" hidden><div class="sheet howto"><p class="eyebrow">出発の前に</p><h2>仲間と進む。狙いをえらぶ。城を落とす。</h2><div class="lesson-grid">
+<article><svg viewBox="0 0 260 130" aria-label="青の英雄から狙いの輪をつけた敵へ攻撃する図"><circle cx="69" cy="75" r="49" fill="none" stroke="#75ccec" stroke-dasharray="4 6"/><path d="M69 49L86 80 69 92 52 80Z" fill="#75ccec"/><circle cx="176" cy="75" r="25" fill="none" stroke="#f4d08a" stroke-width="3"/><path d="M176 54L188 76 176 87 164 76Z" fill="#ed8d87"/><path d="M95 75H144M139 68L148 75 139 82" fill="none" stroke="#f4d08a" stroke-width="3"/><text x="69" y="22" fill="#d9e5e9" text-anchor="middle" font-size="13">射程</text><text x="176" y="121" fill="#f4d08a" text-anchor="middle" font-size="14">狙いの輪</text></svg><h3>歩いて、押しっぱなし。</h3><p><kbd>WASD</kbd> / <kbd>矢印</kbd> で歩く。<br><kbd>J</kbd> / <kbd>Z</kbd> を押して攻撃。<br>向き・距離・残り体力から狙いが決まる。<kbd>Q</kbd> で切り替え、<kbd>Shift</kbd> を押している間は英雄だけ。金色の体力棒は一撃で倒せる兵士。</p></article>
+<article><svg viewBox="0 0 260 130" aria-label="兵士と英雄が塔に進む図"><path d="M15 97H245" stroke="#8d927444" stroke-width="32"/><path d="M180 94V42H220V94M176 42V26H186V35H196V26H206V35H216V26H226V42" fill="#667889" stroke="#aec0c5" stroke-width="2"/><circle cx="196" cy="55" r="7" fill="#eb928a"/><path d="M51 81L62 98 40 98ZM79 81L90 98 68 98ZM107 81L118 98 96 98Z" fill="#83cbe8"/><path d="M146 57L161 85 146 96 131 85Z" fill="#e9cc83"/><path d="M196 59L106 87" stroke="#ed8d87" stroke-dasharray="4 4"/></svg><h3>兵士のあとから、塔へ。</h3><p>塔は兵士を先に狙う。英雄を叩くと、塔がこちらを撃つ！<br>外塔 → 内塔 → 王城の順に進もう。王城の体力が半分になると、巨大な守護巨人が目を覚ます。</p></article>
+<article><svg viewBox="0 0 260 130" aria-label="技の予告の赤い円から英雄が避ける図"><ellipse cx="108" cy="86" rx="65" ry="29" fill="#e67a722b" stroke="#ec847a" stroke-width="2"/><path d="M108 20L97 61 119 61Z" fill="#ffb36d"/><path d="M189 47L205 77 189 88 173 77Z" fill="#8ed8f2"/><path d="M133 72L169 61M160 58L171 60 165 70" fill="none" stroke="#f2d392" stroke-width="3"/></svg><h3>技を使う。予告を避ける。</h3><p><kbd>U I O</kbd> / <kbd>X C V</kbd> で技。<br><kbd>Space</kbd> / <kbd>P</kbd> / <kbd>F</kbd> で奥義（レベル4から）。狙いの方へ自動で放つ。敵の赤い線・円・扇から歩いて離れよう。</p></article>
+</div><div class="help-strip"><p><kbd>B</kbd> ８秒じっとして帰還<br><kbd>E</kbd> / <kbd>Enter</kbd> 泉で店・回復</p><p><kbd>G</kbd> 仲間を呼ぶ／解く<br><kbd>M</kbd> 大きい地図</p><p><kbd>Tab</kbd> 押している間、成績<br><kbd>Esc</kbd> 一時停止</p><p>森の巣で強化を得よう。<br>水竜は３分、古竜は７分から。</p></div><div class="actions"><button id="howto-start" class="primary">準備できた。出陣する <kbd>Enter</kbd></button><button id="howto-back">英雄をえらび直す <kbd>Esc</kbd></button></div></div></section>
+<section id="pause-screen" class="screen modal" hidden><div class="sheet compact"><p class="eyebrow">焚き火のそばで</p><h2>ひと休み。</h2><p>戦場の時間は止まっています。</p><label class="volume-label">音量 <input id="volume" type="range" min="0" max="1" step="0.05" value="0.35"></label><label class="guide-setting"><input id="guide-enabled" type="checkbox" checked> はじめの2試合で手引きを表示</label><div class="actions vertical"><button id="resume" class="primary">戦場にもどる <kbd>Esc / Enter</kbd></button><button id="pause-help">あそびかた <kbd>H</kbd></button><button id="quit">題にもどる <kbd>T</kbd></button></div></div></section>
+<section id="result-screen" class="screen modal" hidden><div class="sheet result"><p class="eyebrow">三つ道の谷の記録</p><h2 id="result-title"></h2><p id="result-subtitle"></p><div id="personal-result"></div><div id="result-table"></div><div class="actions"><button id="again" class="primary">もう一度、英雄をえらぶ <kbd>Enter</kbd></button><button id="result-back">題にもどる <kbd>Esc</kbd></button></div></div></section>
+<section id="test-screen" class="screen" hidden><div class="sheet tests"><p class="eyebrow">自己テスト</p><h2 id="test-summary">確認しています…</h2><div id="test-results"></div><button id="test-back" class="primary">題にもどる <kbd>Esc</kbd></button></div></section>
+</main>
+<div id="hud" hidden>
+ <div id="danger-edge" hidden></div><div id="tower-warning" hidden role="alert">塔に狙われている！下がれ</div>
+ <div id="death-screen" hidden><strong id="death-count"></strong><span>← → 味方を切り替え · E で店を開けます</span></div>
+ <canvas id="world-hints" aria-hidden="true"></canvas><div id="guide-note" hidden aria-live="polite"></div>
+ <div class="top-status"><span id="blue-status" class="blue"></span><div><small>三つ道の谷</small><b id="clock">00:00</b></div><span id="red-status" class="red"></span></div>
+ <div id="objective-note"></div><div id="notices" aria-live="polite"></div><div id="banner" hidden></div>
+ <div id="minimap-wrap"><canvas id="minimap" width="400" height="400" aria-label="味方から見える範囲の小地図"></canvas><span>三つ道の谷 <kbd>M</kbd></span></div>
+ <div id="hero-hud"><div id="target-note"></div><div id="watch-bar" hidden>観戦 <span id="watch-name"></span> <kbd>←</kbd><kbd>→</kbd> 英雄を切り替え</div><div class="hero-heading"><span id="hero-label"></span><span id="gold"></span></div><div class="meter health"><i id="hp-fill"></i><span id="hp-text"></span></div><div class="meter mana"><i id="mana-fill"></i><span id="mana-text"></span></div><div id="skills" class="skills"></div><div id="inventory" class="inventory"></div><div id="hero-state"></div></div>
+ <div class="quick-help"><p><kbd>J / Z</kbd> 攻撃 <kbd>Q</kbd> 狙い<br><kbd>B</kbd> 帰還 <kbd>E</kbd> 店<br><kbd>G</kbd> 集合 <kbd>Esc</kbd> 停止</p><button id="sound-toggle" aria-label="音の切り替え">♪ 音あり</button></div>
+ 
+ <div id="toast" hidden></div>
+</div>
+<div id="shop" class="overlay shop-overlay" hidden><div class="sheet shop-sheet"><div class="shop-heading"><div><p class="eyebrow">泉の旅商人</p><h2>次の一歩の、支度を。</h2></div><strong id="shop-gold"></strong></div><p class="shop-live">店の中でも、戦いは続きます。</p><button id="recommended" class="recommendation"></button><div id="shop-items" class="shop-items"></div><div id="shop-inventory" class="shop-inventory"></div><p id="shop-message"></p><div class="shop-footer"><span><kbd>矢印</kbd> 選ぶ <kbd>Enter</kbd> 買う <kbd>S</kbd> 売る品を選ぶ</span><button id="shop-close">戦場へ <kbd>E / Esc</kbd></button></div></div></div>
+<div id="score-overlay" class="overlay" hidden><div class="sheet score-sheet"><h2>英雄たちの成績</h2><div id="score-table"></div><p class="muted">Tab を離すと閉じます。</p></div></div>
+<div id="map-overlay" class="overlay" hidden><div class="sheet map-sheet"><h2>三つ道の谷</h2><canvas id="large-map" width="800" height="800" aria-label="大きな地図"></canvas><p>青：味方　赤：敵　金：森と主　暗いところ：見えない範囲</p><p class="muted"><kbd>M</kbd> / <kbd>Esc</kbd> で閉じる</p></div></div>
+<pre id="debug" hidden></pre><div id="loading" hidden><div class="loading-rune">◇</div><p id="loading-text">谷に灯をともしています…</p></div><div id="error" role="alert" hidden></div>
+<!-- three.js r128 (MIT): https://github.com/mrdoob/three.js/blob/r128/LICENSE -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/data.js"></script><script src="js/map.js"></script><script src="js/input.js"></script><script src="js/sim.js"></script><script src="js/combat.js"></script><script src="js/units.js"></script><script src="js/bots.js"></script><script src="js/test.js"></script><script src="js/models.js"></script><script src="js/scenery.js"></script><script src="js/fx.js"></script><script src="js/view.js"></script><script src="js/audio.js"></script><script src="js/ui.js"></script><script src="js/main.js"></script>
+</body>
+</html>

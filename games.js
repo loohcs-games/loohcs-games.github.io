@@ -21,6 +21,7 @@ window.GAMES = [
   { id: "wakusei", title: "惑星こわし", author: "loohcskshirasaki", date: "2026-11-18 03:17", description: "月から順に出てくる惑星を、魔法でひたすらこわす。Z で弾、X で魔法、ゲージがたまったら Space で必殺技。カットインが入って、こわすと粉々に飛び散る。最後はブラックホール。負けはない。キーボードだけで遊べる。音あり" },
   { id: "kaijohan", title: "解除班", author: "loohcskshirasaki", date: "2026-11-22 05:27", description: "5対5のラウンド制タクティカル FPS。訓練ロボットのチームで、装置の設置と解除を争う。味方4体と敵5体は bot。ラウンドごとに装備を買い、A・B の二か所を攻めるか守る。7ラウンド先取、難しさ3段階。WASD とマウス、PC 向け。音あり" },
   { id: "douga-beat", title: "動画ビート", author: "loohcskshirasaki", date: "2026-11-23 01:16", description: "YouTube の動画に合わせて D F J K で叩く音ゲー。URL を貼って、叩いて録れば譜面になる。作った譜面はリンクで渡せる。動画の音が出る" },
+  { id: "oujou", title: "王城おとし", author: "loohcskshirasaki", date: "2026-11-23 02:40", description: "剣と魔法の、5対5の攻城戦。英雄8人から1人をえらび、味方4人（bot）と三本の道を進む。兵士と一緒に塔を折り、森の魔物と竜を倒して強くなり、店で装備を買う。相手の王城を半分まで削ると、城そのものが守護巨人として立ち上がる。1試合10〜15分、難しさ3段階。キーボードだけで遊べる。PC 向け。音あり" },
   { id: "ookami-fight", title: "狼のいる夜 夜戦", author: "loohcskshirasaki", date: "2026-11-22 05:03", description: "「狼のいる夜」の少女と彼で闘う、2D の対戦格闘。弱・中・強をつないで、魔法陣の必殺技と奥義で決める。二段跳び、空中ダッシュ、盾。CPU と3段階、ふたり対戦、観戦。「技」ボタンひとつで必殺技が出る。キーボードだけで遊べる。音あり" },
   // ---- yuuuuuuuuuuhh ----
   { id: "yuuuuuuuuuuhh", title: "モチモチグランプリ", author: "yuuuuuuuuuuhh", date: "2026-10-29 14:40", description: "おもちのモチが食べものレーサーと走る3Dカートレース。1人・2人・オンライン対戦" },
