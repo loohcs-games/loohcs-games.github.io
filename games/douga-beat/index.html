@@ -425,7 +425,10 @@ function makeSeekGate(P, pnow) {
       if (P.state() !== 'playing') { q.saw = true; q.ok = 0; return false; }
       if (pnow() - q.at > 1.5) q.saw = true; // 止まった知らせが来ないプレーヤーもある
       const raw = P.time();
-      if (q.saw && raw > q.target - 1 && raw < q.target + 2.5) { if (++q.ok >= 2) q.done = true; } else q.ok = 0;
+      const near = raw > q.target - 1 && raw < q.target + 2.5;
+      if (q.saw && near) { if (++q.ok >= 2) q.done = true; } else q.ok = 0;
+      // 広告のあとなどは、頭出しが忘れられて別の位置から始まる。1秒たっても遠いままなら、もう一度頭出しする
+      if (near || !q.saw) q.far = null; else if (q.far == null) q.far = pnow(); else if (pnow() - q.far > 1) { q.far = null; if (P.seek) P.seek(q.target); }
       return q.done;
     },
   };
@@ -1062,6 +1065,9 @@ function runTests() {
   $('sv-link').onclick = () => copy(linkOf(cur), $('sv-msg')); $('sv-line').onclick = () => copy(lineOf(cur), $('sv-msg'));
   $('r-retry').onclick = () => openChart(cur); $('r-menu').onclick = () => toMenu();
 
+  // 始まるのを待っている間の知らせ。広告の間は、プレーヤーは「始まっていない」と言いながら時刻だけ進む
+  const waitHint = () => P.state() === 'paused' || P.state() === 'cued' ? '動画が止まっている。動画の ▶ を押す' : P.state() === 'playing' ? 'まもなく始まる' : '動画が始まるのを待っている（広告が流れることがある）';
+
   // ----- 毎コマ -----
   function frame() {
     requestAnimationFrame(frame);
@@ -1076,7 +1082,7 @@ function runTests() {
         if (armed && g.ended && t > g.end + 1.2) return finish();
       }
       if (state === 'play') draw(ctx, view, { mode: 'play', g, t: armed ? t : startT, notes: g.notes, down: g.down, bpm: 0, off: 0,
-        hint: !armed && performance.now() - startedAt > 4000 ? '始まらないときは、動画の ▶ を押す' : '' });
+        hint: !armed && performance.now() - startedAt > 2500 ? waitHint() : '' });
     } else if (state === 'rec') {
       if (!rec.armed && gate.ready()) { rec.armed = true; prevT = null; }
       const t = now();
@@ -1085,7 +1091,7 @@ function runTests() {
       const down = rec.open.map(o => !!o);
       rec.recent = rec.recent.filter(n => t - n.t < 1 && t >= n.t - .5);
       draw(ctx, view, { mode: 'rec', g: null, t, notes: rec.base, recent: rec.recent, down, bpm: draft.bpm, off: draft.off, count: rec.notes.length + down.filter(Boolean).length,
-        hint: P.state() !== 'playing' ? '動画が止まっている。動画の ▶ を押す' : !rec.armed ? 'まもなく始まる' : '' });
+        hint: !rec.armed || P.state() !== 'playing' ? waitHint() : '' });
     } else if (state === 'tempo') {
       let s = 1; const el = $('pulse');
       if (fit && P.state() === 'playing') { const p = 60 / fit.bpm, ph = (((now() - fit.off) % p) + p) % p / p; s = 1 + .22 * Math.max(0, 1 - ph * 3); }
