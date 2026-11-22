@@ -10,7 +10,7 @@
 ## 構成
 
 - `index.html`: トップページ。`games.js` の `window.GAMES` を読んでカードを並べる
-- `games.js`: ゲーム一覧。`{ id, title, author, description }` の配列。1人1枠
+- `games.js`: ゲーム一覧。`{ id, title, author, date, updated, description }` の配列。1人1枠
 - `games/<id>/index.html`: ゲーム本体。1フォルダに1ゲーム。`<id>` は `^[a-z0-9-]+$`
 - `.github/`: 自動公開の仕組み。触らない
 - ビルド工程はない。GitHub Pages が `main` をそのまま配信する
@@ -74,11 +74,11 @@ git checkout -b <id>-<何をするか>      # 例：mochirunner-add-game、mochi
 ```
 
 - 行の先頭の `// ` を消し、`title` と `description` を書く。`description` は1〜2文。操作や「音あり」を入れると親切
-- `author` の後ろに `date: "YYYY-MM-DD HH:MM"` を足す。いまの日本時間（`TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M'`）。トップはこの日時の新しい順に並ぶ。ゲームを直しただけのときは変えない
+- `author` の後ろに `date: "YYYY-MM-DD HH:MM"` を足す。いまの日本時間（`TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M'`）。最初に出した日時なので、あとから変えない
 - 2本目からは、同じ枠の中に `{ id: "<id>-2", ... },` の行を足す
 - 枠が無いときは、配列の最後（`];` の前）に `// ---- <id> ----` の行と自分の行を足す
 - 他の行は1文字も変えない。行末のカンマを消さない
-- ゲームを直しただけで、名前も説明も変わらないなら `games.js` は触らない
+- すでに出ているゲームを直したときは、`date` はそのままにして、その後ろに `updated: "YYYY-MM-DD HH:MM"`（いまの日本時間）を足す。もうあるなら書き換える。トップは `updated`（無ければ `date`）の新しい順に並ぶので、直したゲームが上に出る
 
 ### 4. 確かめる
 

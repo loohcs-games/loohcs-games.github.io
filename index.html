@@ -56,12 +56,16 @@
     list.appendChild(p);
     return;
   }
-  // 投稿日時（date）の新しい順に並べる。date が無い行はいちばん新しいものとして上に出す。
-  // 同じ日時なら配列の後ろにある方を上に
+  // 新しい順に並べる。直したゲームは更新日時（updated）、それ以外は投稿日時（date）で比べる。
+  // どちらも無い行はいちばん新しいものとして上に出す。同じ日時なら配列の後ろにある方を上に
+  function when(g) {
+    var d = (g && typeof g.date === 'string') ? g.date : '';
+    var u = (g && typeof g.updated === 'string') ? g.updated : '';
+    return (u > d ? u : d) || '9999';
+  }
   games = games.map(function (g, i) { return { g: g, i: i }; });
   games.sort(function (a, b) {
-    var da = (a.g && typeof a.g.date === 'string') ? a.g.date : '9999';
-    var db = (b.g && typeof b.g.date === 'string') ? b.g.date : '9999';
+    var da = when(a.g), db = when(b.g);
     if (da !== db) return da < db ? 1 : -1;
     return b.i - a.i;
   });
@@ -74,7 +78,9 @@
     h.textContent = g.title || g.id;
     var au = document.createElement('p');
     au.className = 'author';
-    au.textContent = [g.author ? '作者: ' + g.author : '', typeof g.date === 'string' ? g.date.slice(0, 10) : ''].filter(Boolean).join('　');
+    var day = typeof g.date === 'string' ? g.date.slice(0, 10) : '';
+    var upd = (typeof g.updated === 'string' && g.updated > (day ? g.date : '')) ? '更新 ' + g.updated.slice(0, 10) : '';
+    au.textContent = [g.author ? '作者: ' + g.author : '', day, upd].filter(Boolean).join('　');
     var d = document.createElement('p');
     d.textContent = g.description || '';
     a.appendChild(h); a.appendChild(au); a.appendChild(d);
